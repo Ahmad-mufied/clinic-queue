@@ -31,14 +31,16 @@ func CasbinRBAC(enforcer *casbin.Enforcer) echo.MiddlewareFunc {
 
 			allowed, err := enforcer.Enforce(sub, path, method)
 			if err != nil || !allowed {
-				if sub == "public" {
+				switch sub {
+				case "public":
 					return c.JSON(http.StatusUnauthorized, map[string]string{
 						"error": "Unauthorized access",
 					})
+				default:
+					return c.JSON(http.StatusForbidden, map[string]string{
+						"error": "Access denied: insufficient role privileges",
+					})
 				}
-				return c.JSON(http.StatusForbidden, map[string]string{
-					"error": "Access denied: insufficient role privileges",
-				})
 			}
 
 			return next(c)

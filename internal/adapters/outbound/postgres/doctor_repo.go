@@ -125,14 +125,17 @@ func (r *DoctorRepo) GetAllDoctorsWithSessions(ctx context.Context) ([]domain.Do
 			return nil, fmt.Errorf("scan doctor availability row: %w", err)
 		}
 
-		var status domain.DoctorStatus
-		var currentPatient string
-		if !isOnline {
+		var (
+			status         domain.DoctorStatus
+			currentPatient string
+		)
+		switch {
+		case !isOnline:
 			status = domain.DoctorStatusOffline
-		} else if patientName != nil {
+		case patientName != nil:
 			status = domain.DoctorStatusInConsultation
 			currentPatient = *patientName
-		} else {
+		default:
 			status = domain.DoctorStatusAvailable
 		}
 

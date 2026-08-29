@@ -48,13 +48,14 @@ func CalculateDurationMinutes(start, finish time.Time) float64 {
 
 // DetermineDoctorStatus calculates the operational status of a doctor based on shift and session state.
 func DetermineDoctorStatus(isOnline bool, hasActiveSession bool) DoctorStatus {
-	if !isOnline {
+	switch {
+	case !isOnline:
 		return DoctorStatusOffline
-	}
-	if hasActiveSession {
+	case hasActiveSession:
 		return DoctorStatusInConsultation
+	default:
+		return DoctorStatusAvailable
 	}
-	return DoctorStatusAvailable
 }
 
 // DoctorShiftResponse defines the response payload for shift status updates.

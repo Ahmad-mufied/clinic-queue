@@ -51,15 +51,12 @@ func (p *NATSEventPublisher) PublishEvent(ctx context.Context, eventType string,
 		return fmt.Errorf("marshal event %s payload: %w", eventType, err)
 	}
 
-	if p.js != nil {
-		_, err := p.js.Publish(ctx, subject, data)
-		if err != nil {
+	switch {
+	case p.js != nil:
+		if _, err := p.js.Publish(ctx, subject, data); err != nil {
 			return fmt.Errorf("publish event to jetstream subject %s: %w", subject, err)
 		}
-		return nil
-	}
-
-	if p.nc != nil {
+	case p.nc != nil:
 		if err := p.nc.Publish(subject, data); err != nil {
 			return fmt.Errorf("publish event to nats subject %s: %w", subject, err)
 		}
