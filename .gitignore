@@ -6,6 +6,7 @@
 coverage.out
 coverage.html
 *.test
+*_results.json
 /bin/
 /cmd/api/api-bin
 
