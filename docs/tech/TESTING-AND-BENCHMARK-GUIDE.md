@@ -189,7 +189,7 @@ bash scripts/testing/stress/run_stress_benchmark.sh
 
 Follow these standard operating procedures (SOP) when modifying existing features, schemas, or security policies:
 
-### 🛠️ Playbook 4.1: Modifying an API Response Schema or Error Message
+### Playbook 4.1: Modifying an API Response Schema or Error Message
 When modifying an endpoint's JSON response or error message (e.g. `POST /api/queue/join` returns a new field):
 1. **Update Domain & Usecase:** Update `internal/core/domain/` and `internal/core/usecase/`.
 2. **Update Handler Unit Tests:** Update `internal/adapters/inbound/http/*_test.go` to match new schema assertions.
@@ -218,7 +218,7 @@ When modifying an endpoint's JSON response or error message (e.g. `POST /api/que
 
 ---
 
-### 🛠️ Playbook 4.2: Adding or Modifying Casbin RBAC Policies
+### Playbook 4.2: Adding or Modifying Casbin RBAC Policies
 When modifying access control rules in `config/rbac_policy.csv` (e.g., granting doctors read access to audit logs):
 1. **Update RBAC Policy:** Edit `config/rbac_policy.csv`:
    ```csv
@@ -232,7 +232,7 @@ When modifying access control rules in `config/rbac_policy.csv` (e.g., granting 
 
 ---
 
-### 🛠️ Playbook 4.3: Adjusting Doctor Speed Parameters or Greedy Calculation Formulas
+### Playbook 4.3: Adjusting Doctor Speed Parameters or Greedy Calculation Formulas
 When changing default doctor consultation times (e.g., Doctor A changed from 3m to 5m):
 1. **Update Unit Tests:** Adjust expected times in `internal/core/domain/calculator_test.go` and `internal/core/domain/calculator_benchmark_test.go`.
 2. **Update E2E Greedy Calculations:**
@@ -248,7 +248,7 @@ When changing default doctor consultation times (e.g., Doctor A changed from 3m 
 
 Follow these step-by-step templates when adding new features to the platform:
 
-### 🚀 Playbook 5.1: Adding a New E2E Regression Scenario in `e2e_runner.go`
+### Playbook 5.1: Adding a New E2E Regression Scenario in `e2e_runner.go`
 To test a new endpoint (e.g., `GET /api/notifications`):
 
 ```go
@@ -282,7 +282,7 @@ func (r *TestRunner) runNotificationSuite(userToken string) {
 
 ---
 
-### 🚀 Playbook 5.2: Adding a New Stress Test in `stress_benchmark_runner.go`
+### Playbook 5.2: Adding a New Stress Test in `stress_benchmark_runner.go`
 To stress test a new high-frequency endpoint under 1,000 concurrent requests:
 
 ```go
@@ -336,7 +336,7 @@ func runNotificationBurstStress(baseURL string, tokens []string, concurrency int
 
 ---
 
-### 🚀 Playbook 5.3: Adding a New Algorithmic Micro-Benchmark
+### Playbook 5.3: Adding a New Algorithmic Micro-Benchmark
 To benchmark a new domain algorithm (e.g. batch queue rebalancing):
 
 ```go

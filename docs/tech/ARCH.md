@@ -138,7 +138,7 @@ code/web-app/
 │
 ├── config/                              # Casbin Model, Policy & Env Config
 ├── migrations/                          # Goose SQL Migrations
-├── web/                                 # Vue 3 Frontend SPA (Vite + Tailwind CSS)
+├── web/                                 # Next.js 15 Frontend SPA (React 19 + TypeScript + Tailwind CSS + Radix UI + shadcn/ui)
 ├── Dockerfile
 └── docker-compose.yml                   # App + PostgreSQL 18 + NATS JetStream
 ```
@@ -229,7 +229,46 @@ func TestAuthUseCase_Login(t *testing.T) {
 
 ---
 
-## 5. Document Revision History & Requirement Changelog
+## 5. Frontend Architecture (Next.js 15 + TypeScript + Radix UI + shadcn/ui)
+
+The client application is built as a modern Single-Page Application (SPA) using **Next.js 15 (App Router)**, **TypeScript**, **Tailwind CSS**, **Radix UI**, **shadcn/ui**, and **TanStack Query v5**.
+
+### 5.1 Presentation & Component Layer
+
+```mermaid
+flowchart TD
+    subgraph Presentation["Presentation Layer (shadcn/ui)"]
+        Components["components/ui/*\n(Card, Dialog, Table, Badge, Switch, Tabs, Sonner Toast)"]
+    end
+
+    subgraph Primitives["Accessibility and Behavior (Radix UI)"]
+        Radix["@radix-ui/react-* Primitives\n(ARIA Attributes, Keyboard Navigation, Focus Trapping)"]
+    end
+
+    subgraph StateAndSync["State and Real-Time Sync"]
+        Query["TanStack Query (React Query v5)\n(Auto-caching, Query Invalidation, Background Refetch)"]
+        SSE["useSSE Hook (EventSource)\n(Auto-reconnecting stream listener for /api/events)"]
+    end
+
+    subgraph Styling["Styling and Tokens"]
+        Tailwind["Tailwind CSS + clsx + tailwind-merge\n(Design tokens, CSS Variables, Dark/Light Mode)"]
+    end
+
+    Presentation --> Primitives
+    Presentation --> Tailwind
+    Presentation --> StateAndSync
+    SSE -.->|Invalidate Queries & Show Toast| Query
+```
+
+### 5.2 Real-Time SSE Invalidation Flow
+1. Next.js client connects to `GET /api/events` via `useSSE`.
+2. When backend events (`QUEUE_UPDATED`, `DOCTOR_STATUS_CHANGED`, `TICKET_CALLED`, `TICKET_FINISHED`) arrive over SSE, the hook:
+   - Dispatches a visual alert via **Sonner Toast**.
+   - Invalidates corresponding TanStack Query keys (`['queue-status']`, `['my-ticket']`, `['doctor-workspace']`, `['admin-stats']`), triggering instant seamless re-renders across all active client views.
+
+---
+
+## 6. Document Revision History & Requirement Changelog
 
 | Version | Date | Author / Role | Change Type | Change Summary / Rationale |
 | :---: | :---: | :---: | :---: | :--- |
@@ -237,3 +276,4 @@ func TestAuthUseCase_Login(t *testing.T) {
 | **v1.1.0** | 2026-08-29 | Principal Architect | **Testing Spec** | Added Section 4: Testing Architecture, Interface Decoupling, and 100% Table-Driven Coverage Standards. |
 | **v1.2.0** | 2026-08-29 | Principal Architect | **Hexagonal Refactor** | Refactored Section 4 to strictly align with Hexagonal Architecture Ports & Adapters mocking and test structure. |
 | **v1.3.0** | 2026-08-29 | Principal Architect | **Infra & E2E Validation** | Updated PostgreSQL 18 volume mount path (`/var/lib/postgresql`) and host port mapping (`5433:5432`) to prevent environment port collisions during integration testing. |
+| **v1.4.0** | 2026-08-29 | Principal Architect | **Frontend Stack Update** | Updated frontend specification to Next.js 15 (App Router) + TypeScript + Tailwind CSS + Radix UI + shadcn/ui + TanStack Query v5 with real-time SSE cache invalidation. |

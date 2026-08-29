@@ -4,7 +4,7 @@ This directory contains automated testing, regression, benchmarking, and operati
 
 ---
 
-## 📁 Directory Structure
+## 1. Directory Structure
 
 ```
 scripts/
@@ -20,21 +20,21 @@ scripts/
 
 ---
 
-## 🚀 Quick Execution Commands
+## 2. Quick Execution Commands
 
-### 1. Run Master E2E Regression Suite (70 Scenarios across PRD 01–05)
+### 2.1 Run Master E2E Regression Suite (70 Scenarios across PRD 01–05)
 ```bash
 # From code/web-app root:
 bash scripts/testing/e2e/regression_e2e_test.sh
 ```
 
-### 2. Run High-Concurrency Stress Test Suite (5,000+ RPS)
+### 2.2 Run High-Concurrency Stress Test Suite (5,000+ RPS)
 ```bash
 # From code/web-app root:
 bash scripts/testing/stress/run_stress_benchmark.sh
 ```
 
-### 3. Run Go Algorithmic Micro-Benchmarks
+### 2.3 Run Go Algorithmic Micro-Benchmarks
 ```bash
 # From code/web-app root:
 go test -bench=. -benchmem ./internal/core/domain/...
@@ -42,12 +42,12 @@ go test -bench=. -benchmem ./internal/core/domain/...
 
 ---
 
-## 📖 Comprehensive Documentation & Maintenance Handbook
+## 3. Comprehensive Documentation & Maintenance Handbook
 
 For complete architectural diagrams, operational SOPs, adjustment playbooks, and step-by-step guides on adding new test scenarios:
 
-👉 **[`docs/tech/TESTING-AND-BENCHMARK-GUIDE.md`](../docs/tech/TESTING-AND-BENCHMARK-GUIDE.md)**
+Reference Guide: [`docs/tech/TESTING-AND-BENCHMARK-GUIDE.md`](../docs/tech/TESTING-AND-BENCHMARK-GUIDE.md)
 
 Formal verification reports:
-- **[`docs/reports/qa-regression-e2e-report.md`](../docs/reports/qa-regression-e2e-report.md)** (E2E Regression Audit Report)
-- **[`docs/reports/benchmark-and-stress-report.md`](../docs/reports/benchmark-and-stress-report.md)** (Performance & Stress Audit Report)
+- [`docs/reports/qa-regression-e2e-report.md`](../docs/reports/qa-regression-e2e-report.md) (E2E Regression Audit Report)
+- [`docs/reports/benchmark-and-stress-report.md`](../docs/reports/benchmark-and-stress-report.md) (Performance & Stress Audit Report)

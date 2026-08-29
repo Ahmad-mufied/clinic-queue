@@ -18,7 +18,7 @@ The Authentication & RBAC subsystem provides stateless JWT token issuance, verif
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Client as Vue Client
+    actor Client as Next.js Client
     participant Echo as Echo Router
     participant JWT as JWT Middleware
     participant Casbin as Casbin Enforcer
