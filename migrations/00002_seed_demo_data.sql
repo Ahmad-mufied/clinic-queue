@@ -2,8 +2,8 @@
 -- Seed Doctors
 INSERT INTO doctors (id, name, avg_consultation_time_min, is_online)
 VALUES 
-    (1, 'Doctor A', 3, false),
-    (2, 'Doctor B', 4, false)
+    (1, 'Doctor A', 3, true),
+    (2, 'Doctor B', 4, true)
 ON CONFLICT (id) DO NOTHING;
 
 SELECT setval('doctors_id_seq', (SELECT MAX(id) FROM doctors));

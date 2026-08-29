@@ -13,12 +13,16 @@ import (
 
 	httpAdapter "clinic-queue/internal/adapters/inbound/http"
 	customMW "clinic-queue/internal/adapters/inbound/middleware"
+	natsAdapter "clinic-queue/internal/adapters/outbound/nats"
 	"clinic-queue/internal/adapters/outbound/postgres"
 	"clinic-queue/config"
+	"clinic-queue/internal/core/ports/outbound"
 	"clinic-queue/internal/core/usecase"
 
 	"github.com/labstack/echo/v4"
 	echoMW "github.com/labstack/echo/v4/middleware"
+	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 )
 
 func main() {
@@ -46,20 +50,48 @@ func main() {
 		log.Println("Database schema & demo seed migrations executed successfully")
 	}
 
-	// 4. Initialize Casbin RBAC Enforcer
+	// 4. Initialize NATS JetStream Client
+	var nc *nats.Conn
+	var js jetstream.JetStream
+	nc, js, err = natsAdapter.NewNATSClient(cfg.NATSURL)
+	if err != nil {
+		log.Printf("Warning: NATS JetStream connection failed (operating in fallback mode): %v", err)
+	} else {
+		defer nc.Close()
+		log.Println("Successfully connected to NATS JetStream")
+	}
+
+	// 5. Initialize Casbin RBAC Enforcer
 	enforcer, err := customMW.NewCasbinEnforcer(cfg.CasbinModelPath, cfg.CasbinPolicyPath)
 	if err != nil {
 		log.Fatalf("Failed to initialize Casbin RBAC enforcer: %v", err)
 	}
 	log.Println("Casbin RBAC enforcer initialized successfully")
 
-	// 5. Dependency Injection / Wiring (Hexagonal Ports & Adapters)
+	// 6. Dependency Injection / Wiring (Hexagonal Ports & Adapters)
 	userRepo := postgres.NewUserRepo(dbPool)
+	queueRepo := postgres.NewQueueRepo(dbPool)
+	doctorRepo := postgres.NewDoctorRepo(dbPool)
+
+	var eventPublisher outbound.EventPublisherPort = natsAdapter.NewNATSEventPublisher(nc, js)
+
 	jwtExpiration := time.Duration(cfg.JWTExpirationHours) * time.Hour
 	authUseCase := usecase.NewAuthUseCase(userRepo, cfg.JWTSecret, jwtExpiration)
-	authHandler := httpAdapter.NewAuthHandler(authUseCase)
+	queueUseCase := usecase.NewQueueUseCase(queueRepo, doctorRepo, eventPublisher)
 
-	// 6. Initialize Echo Router & Middlewares
+	authHandler := httpAdapter.NewAuthHandler(authUseCase)
+	queueHandler := httpAdapter.NewQueueHandler(queueUseCase)
+	sseHandler := httpAdapter.NewSSEHandler()
+
+	if nc != nil {
+		if _, err := sseHandler.ListenToNATS(context.Background(), nc, "clinic.>"); err != nil {
+			log.Printf("Warning: failed to subscribe SSE handler to NATS: %v", err)
+		} else {
+			log.Println("SSE Broadcaster subscribed to NATS stream clinic.>")
+		}
+	}
+
+	// 7. Initialize Echo Router & Middlewares
 	e := echo.New()
 	e.HideBanner = true
 
@@ -74,7 +106,7 @@ func main() {
 	jwtAuthMW := customMW.JWTAuth(cfg.JWTSecret)
 	casbinRBACMW := customMW.CasbinRBAC(enforcer)
 
-	// 7. Register Route Handlers
+	// 8. Register Route Handlers
 	e.GET("/health", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]interface{}{
 			"status":    "healthy",
@@ -84,8 +116,10 @@ func main() {
 	})
 
 	authHandler.RegisterRoutes(e, jwtAuthMW, casbinRBACMW)
+	queueHandler.RegisterRoutes(e, jwtAuthMW, casbinRBACMW)
+	sseHandler.RegisterRoutes(e, casbinRBACMW)
 
-	// Protected routes for RBAC verification
+	// Remaining Feature Placeholders (Feature 03 & 04)
 	apiGroup := e.Group("/api", jwtAuthMW, casbinRBACMW)
 	apiGroup.GET("/admin/stats", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{"message": "Admin stats placeholder"})
@@ -93,11 +127,8 @@ func main() {
 	apiGroup.POST("/doctors/call-next", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{"message": "Doctor call-next placeholder"})
 	})
-	apiGroup.POST("/queue/join", func(c echo.Context) error {
-		return c.JSON(http.StatusOK, map[string]string{"message": "Patient queue join placeholder"})
-	})
 
-	// 8. Start HTTP Server with Graceful Shutdown
+	// 9. Start HTTP Server with Graceful Shutdown
 	go func() {
 		addr := fmt.Sprintf(":%s", cfg.Port)
 		log.Printf("Starting Smart Clinic Queue API server on port %s...", cfg.Port)

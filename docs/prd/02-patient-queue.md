@@ -46,7 +46,7 @@ The waiting time is computed dynamically by the **Greedy Multi-Doctor Queue Engi
 
 ### 3.3 Edge Cases
 - **[EDGE-QUEUE-01] All Doctors Offline / On Break:**  
-  All doctors are toggled to `OFFLINE`. Patient's UI displays: *"All doctors are currently on break / offline. Estimated wait time will resume when a doctor starts duty."* Countdown remains static and does not falsely decrement.
+  All doctors are toggled to `OFFLINE`. The API returns `estimated_wait_time_minutes: null` with `notice: "Estimated wait time is currently unavailable because all doctors are offline / on break. Calculation will activate once a doctor starts duty."`. Patient's UI displays the notice and pauses countdown cleanly without displaying misleading 0-minute countdowns.
 - **[EDGE-QUEUE-02] Doctor Consultation Exceeds Average Time (Peter 5m in 3m Avg - CS1 Q2b):**  
   Doctor 1 has 3m average, but Peter's elapsed time is 5m ($5 > 3$). The engine automatically computes $\text{RemainingTime} = \max(0, 3 - 5) = \mathbf{0\text{ minutes}}$ (assumes completion momentarily), preventing negative wait times.
 - **[EDGE-QUEUE-03] Doctor Unexpectedly Goes Offline While Patients Are Waiting:**  
