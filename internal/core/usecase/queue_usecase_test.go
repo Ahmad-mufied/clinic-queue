@@ -105,6 +105,11 @@ func (m *mockDoctorRepoPort) GetActiveSessionByDoctorID(ctx context.Context, doc
 	return nil, nil
 }
 
+func (m *mockDoctorRepoPort) UpdateDoctorAvgTime(ctx context.Context, doctorID int, avgTime int) error {
+	return nil
+}
+
+
 type mockEventPubPort struct {
 	publishEventFunc func(ctx context.Context, eventType string, payload any) error
 	closeFunc        func() error

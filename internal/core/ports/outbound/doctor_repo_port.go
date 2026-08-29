@@ -22,4 +22,8 @@ type DoctorRepositoryPort interface {
 
 	// GetActiveSessionByDoctorID retrieves the active consultation session for a given doctor.
 	GetActiveSessionByDoctorID(ctx context.Context, doctorID int) (*domain.ConsultationSession, error)
+
+	// UpdateDoctorAvgTime updates the configured average consultation duration for a doctor.
+	UpdateDoctorAvgTime(ctx context.Context, doctorID int, avgTime int) error
 }
+

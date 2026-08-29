@@ -274,3 +274,17 @@ func (r *DoctorRepo) GetActiveSessionByDoctorID(ctx context.Context, doctorID in
 		IsActive:    isActive,
 	}, nil
 }
+
+// UpdateDoctorAvgTime updates the configured average consultation duration for a doctor.
+func (r *DoctorRepo) UpdateDoctorAvgTime(ctx context.Context, doctorID int, avgTime int) error {
+	query := `UPDATE doctors SET avg_consultation_time_min = $1, updated_at = NOW() WHERE id = $2`
+	tag, err := r.pool.Exec(ctx, query, avgTime, doctorID)
+	if err != nil {
+		return fmt.Errorf("update doctor avg consultation time: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.ErrDoctorNotFound
+	}
+	return nil
+}
+

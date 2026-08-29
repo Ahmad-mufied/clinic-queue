@@ -16,6 +16,7 @@ type mockDoctorRepo struct {
 	getDoctorByIDFunc             func(ctx context.Context, id int) (*domain.Doctor, error)
 	updateOnlineStatusFunc        func(ctx context.Context, doctorID int, isOnline bool) error
 	getActiveSessionByDoctorID    func(ctx context.Context, doctorID int) (*domain.ConsultationSession, error)
+	updateDoctorAvgTimeFunc       func(ctx context.Context, doctorID int, avgTime int) error
 }
 
 func (m *mockDoctorRepo) GetActiveDoctors(ctx context.Context) ([]*domain.Doctor, error) {
@@ -52,6 +53,14 @@ func (m *mockDoctorRepo) GetActiveSessionByDoctorID(ctx context.Context, doctorI
 	}
 	return nil, nil
 }
+
+func (m *mockDoctorRepo) UpdateDoctorAvgTime(ctx context.Context, doctorID int, avgTime int) error {
+	if m != nil && m.updateDoctorAvgTimeFunc != nil {
+		return m.updateDoctorAvgTimeFunc(ctx, doctorID, avgTime)
+	}
+	return nil
+}
+
 
 type mockConsultationRepo struct {
 	callNextTicketAtomicallyFunc   func(ctx context.Context, doctorID int) (*domain.ConsultationSession, error)
