@@ -74,6 +74,7 @@ func main() {
 	doctorRepo := postgres.NewDoctorRepo(dbPool)
 	consultationRepo := postgres.NewConsultationRepo(dbPool)
 	analyticsRepo := postgres.NewAnalyticsRepo(dbPool)
+	auditRepo := postgres.NewAuditRepo(dbPool)
 
 	var eventPublisher outbound.EventPublisherPort = natsAdapter.NewNATSEventPublisher(nc, js)
 
@@ -82,11 +83,13 @@ func main() {
 	queueUseCase := usecase.NewQueueUseCase(queueRepo, doctorRepo, eventPublisher)
 	doctorUseCase := usecase.NewDoctorUseCase(doctorRepo, consultationRepo, eventPublisher)
 	adminUseCase := usecase.NewAdminUseCase(analyticsRepo, doctorRepo, eventPublisher)
+	auditUseCase := usecase.NewAuditUseCase(auditRepo, eventPublisher)
 
 	authHandler := httpAdapter.NewAuthHandler(authUseCase)
 	queueHandler := httpAdapter.NewQueueHandler(queueUseCase)
 	doctorHandler := httpAdapter.NewDoctorHandler(doctorUseCase)
 	adminHandler := httpAdapter.NewAdminHandler(adminUseCase)
+	auditHandler := httpAdapter.NewAuditHandler(auditUseCase)
 	sseHandler := httpAdapter.NewSSEHandler()
 
 	if nc != nil {
@@ -125,6 +128,7 @@ func main() {
 	queueHandler.RegisterRoutes(e, jwtAuthMW, casbinRBACMW)
 	doctorHandler.RegisterRoutes(e, jwtAuthMW, casbinRBACMW)
 	adminHandler.RegisterRoutes(e, jwtAuthMW, casbinRBACMW)
+	auditHandler.RegisterRoutes(e, jwtAuthMW, casbinRBACMW)
 	sseHandler.RegisterRoutes(e, casbinRBACMW)
 
 

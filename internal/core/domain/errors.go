@@ -56,4 +56,13 @@ var (
 
 	// ErrDoctorNotFound indicates that the doctor entity was not found in the repository.
 	ErrDoctorNotFound = errors.New("doctor not found")
+
+	// ErrInvalidAction indicates that an invalid or empty audit action was specified.
+	ErrInvalidAction = errors.New("invalid or empty audit action")
+
+	// ErrInvalidPage indicates that page number is invalid.
+	ErrInvalidPage = errors.New("page must be a positive integer (>= 1)")
+
+	// ErrInvalidLimit indicates that limit number is invalid.
+	ErrInvalidLimit = errors.New("limit must be a positive integer (>= 1)")
 )

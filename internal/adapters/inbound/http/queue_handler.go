@@ -88,11 +88,6 @@ func (h *QueueHandler) GetMyTicket(c echo.Context) error {
 
 	ticket, err := h.queueUseCase.GetMyTicket(c.Request().Context(), userID)
 	if err != nil {
-		if errors.Is(err, domain.ErrInvalidInput) {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "Invalid user ID",
-			})
-		}
 		return handleQueueError(c, err)
 	}
 

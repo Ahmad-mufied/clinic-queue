@@ -228,7 +228,7 @@ func TestQueueHandler_GetMyTicket(t *testing.T) {
 				}
 			},
 			wantStatus:     http.StatusBadRequest,
-			wantBodySubstr: "Invalid user ID",
+			wantBodySubstr: "Patient name is required",
 		},
 		{
 			name:           "UseCase returns internal error -> 500",
