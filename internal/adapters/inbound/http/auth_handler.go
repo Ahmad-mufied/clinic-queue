@@ -29,6 +29,22 @@ func (h *AuthHandler) RegisterRoutes(e *echo.Echo, authMW echo.MiddlewareFunc, r
 	authGroup.GET("/me", h.GetMe, authMW, rbacMW)
 }
 
+// handleAuthError maps domain authentication errors to appropriate HTTP responses.
+func handleAuthError(c echo.Context, err error) error {
+	switch {
+	case errors.Is(err, domain.ErrInvalidCredentials):
+		return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid username or password"})
+	case errors.Is(err, domain.ErrUsernameTaken):
+		return c.JSON(http.StatusConflict, map[string]string{"error": "Username is already taken"})
+	case errors.Is(err, domain.ErrUserNotFound):
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "User not found"})
+	case errors.Is(err, domain.ErrInvalidInput):
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	default:
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
+	}
+}
+
 // Login handles POST /api/auth/login.
 func (h *AuthHandler) Login(c echo.Context) error {
 	var req inbound.LoginRequest
@@ -46,19 +62,7 @@ func (h *AuthHandler) Login(c echo.Context) error {
 
 	resp, err := h.authUseCase.Login(c.Request().Context(), req)
 	if err != nil {
-		if errors.Is(err, domain.ErrInvalidCredentials) {
-			return c.JSON(http.StatusUnauthorized, map[string]string{
-				"error": "Invalid username or password",
-			})
-		}
-		if errors.Is(err, domain.ErrInvalidInput) {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": err.Error(),
-			})
-		}
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": "Internal server error",
-		})
+		return handleAuthError(c, err)
 	}
 
 	return c.JSON(http.StatusOK, resp)
@@ -81,19 +85,7 @@ func (h *AuthHandler) Register(c echo.Context) error {
 
 	resp, err := h.authUseCase.Register(c.Request().Context(), req)
 	if err != nil {
-		if errors.Is(err, domain.ErrUsernameTaken) {
-			return c.JSON(http.StatusConflict, map[string]string{
-				"error": "Username is already taken",
-			})
-		}
-		if errors.Is(err, domain.ErrInvalidInput) {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": err.Error(),
-			})
-		}
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": "Internal server error",
-		})
+		return handleAuthError(c, err)
 	}
 
 	return c.JSON(http.StatusCreated, resp)
@@ -110,19 +102,7 @@ func (h *AuthHandler) GetMe(c echo.Context) error {
 
 	user, err := h.authUseCase.GetProfile(c.Request().Context(), userID)
 	if err != nil {
-		if errors.Is(err, domain.ErrUserNotFound) {
-			return c.JSON(http.StatusNotFound, map[string]string{
-				"error": "User not found",
-			})
-		}
-		if errors.Is(err, domain.ErrInvalidInput) {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": err.Error(),
-			})
-		}
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": "Internal server error",
-		})
+		return handleAuthError(c, err)
 	}
 
 	return c.JSON(http.StatusOK, user)

@@ -72,15 +72,18 @@ func main() {
 	userRepo := postgres.NewUserRepo(dbPool)
 	queueRepo := postgres.NewQueueRepo(dbPool)
 	doctorRepo := postgres.NewDoctorRepo(dbPool)
+	consultationRepo := postgres.NewConsultationRepo(dbPool)
 
 	var eventPublisher outbound.EventPublisherPort = natsAdapter.NewNATSEventPublisher(nc, js)
 
 	jwtExpiration := time.Duration(cfg.JWTExpirationHours) * time.Hour
 	authUseCase := usecase.NewAuthUseCase(userRepo, cfg.JWTSecret, jwtExpiration)
 	queueUseCase := usecase.NewQueueUseCase(queueRepo, doctorRepo, eventPublisher)
+	doctorUseCase := usecase.NewDoctorUseCase(doctorRepo, consultationRepo, eventPublisher)
 
 	authHandler := httpAdapter.NewAuthHandler(authUseCase)
 	queueHandler := httpAdapter.NewQueueHandler(queueUseCase)
+	doctorHandler := httpAdapter.NewDoctorHandler(doctorUseCase)
 	sseHandler := httpAdapter.NewSSEHandler()
 
 	if nc != nil {
@@ -117,15 +120,13 @@ func main() {
 
 	authHandler.RegisterRoutes(e, jwtAuthMW, casbinRBACMW)
 	queueHandler.RegisterRoutes(e, jwtAuthMW, casbinRBACMW)
+	doctorHandler.RegisterRoutes(e, jwtAuthMW, casbinRBACMW)
 	sseHandler.RegisterRoutes(e, casbinRBACMW)
 
-	// Remaining Feature Placeholders (Feature 03 & 04)
+	// Remaining Feature Placeholders (Feature 04)
 	apiGroup := e.Group("/api", jwtAuthMW, casbinRBACMW)
 	apiGroup.GET("/admin/stats", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{"message": "Admin stats placeholder"})
-	})
-	apiGroup.POST("/doctors/call-next", func(c echo.Context) error {
-		return c.JSON(http.StatusOK, map[string]string{"message": "Doctor call-next placeholder"})
 	})
 
 	// 9. Start HTTP Server with Graceful Shutdown

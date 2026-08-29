@@ -30,6 +30,22 @@ func (h *QueueHandler) RegisterRoutes(e *echo.Echo, authMW echo.MiddlewareFunc, 
 	queueGroup.GET("/status", h.GetQueueStatus, rbacMW)
 }
 
+// handleQueueError maps domain errors to appropriate HTTP responses.
+func handleQueueError(c echo.Context, err error) error {
+	switch {
+	case errors.Is(err, domain.ErrInvalidInput):
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Patient name is required"})
+	case errors.Is(err, domain.ErrActiveTicketExists):
+		return c.JSON(http.StatusConflict, map[string]string{"error": "Active queue ticket already exists"})
+	case errors.Is(err, domain.ErrNoDoctorsAvailable):
+		return c.JSON(http.StatusServiceUnavailable, map[string]string{"error": "No doctors currently configured for this clinic"})
+	case errors.Is(err, domain.ErrTicketNotFound):
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "No active ticket found"})
+	default:
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
+	}
+}
+
 // JoinQueue handles POST /api/queue/join.
 func (h *QueueHandler) JoinQueue(c echo.Context) error {
 	var req inbound.JoinQueueRequest
@@ -53,24 +69,7 @@ func (h *QueueHandler) JoinQueue(c echo.Context) error {
 
 	ticket, err := h.queueUseCase.JoinQueue(c.Request().Context(), userID, trimmedName)
 	if err != nil {
-		if errors.Is(err, domain.ErrInvalidInput) {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "Patient name is required",
-			})
-		}
-		if errors.Is(err, domain.ErrActiveTicketExists) {
-			return c.JSON(http.StatusConflict, map[string]string{
-				"error": "Active queue ticket already exists",
-			})
-		}
-		if errors.Is(err, domain.ErrNoDoctorsAvailable) {
-			return c.JSON(http.StatusServiceUnavailable, map[string]string{
-				"error": "No doctors currently configured for this clinic",
-			})
-		}
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": "Internal server error",
-		})
+		return handleQueueError(c, err)
 	}
 
 	return c.JSON(http.StatusCreated, inbound.JoinQueueResponse{
@@ -89,19 +88,12 @@ func (h *QueueHandler) GetMyTicket(c echo.Context) error {
 
 	ticket, err := h.queueUseCase.GetMyTicket(c.Request().Context(), userID)
 	if err != nil {
-		if errors.Is(err, domain.ErrTicketNotFound) {
-			return c.JSON(http.StatusNotFound, map[string]string{
-				"error": "No active ticket found",
-			})
-		}
 		if errors.Is(err, domain.ErrInvalidInput) {
 			return c.JSON(http.StatusBadRequest, map[string]string{
 				"error": "Invalid user ID",
 			})
 		}
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": "Internal server error",
-		})
+		return handleQueueError(c, err)
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
@@ -113,9 +105,7 @@ func (h *QueueHandler) GetMyTicket(c echo.Context) error {
 func (h *QueueHandler) GetQueueStatus(c echo.Context) error {
 	status, err := h.queueUseCase.GetQueueStatus(c.Request().Context())
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": "Internal server error",
-		})
+		return handleQueueError(c, err)
 	}
 
 	return c.JSON(http.StatusOK, status)

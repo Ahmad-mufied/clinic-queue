@@ -5,6 +5,7 @@ p, admin, /api/doctors/*, (GET)|(POST)|(PUT)
 p, doctor, /api/doctors/status, POST
 p, doctor, /api/doctors/call-next, POST
 p, doctor, /api/doctors/finish, POST
+p, doctor, /api/doctors/workspace, GET
 p, doctor, /api/queue/status, GET
 
 p, patient, /api/queue/join, POST

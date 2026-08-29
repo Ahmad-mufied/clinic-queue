@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"clinic-queue/internal/core/domain"
 	"clinic-queue/internal/core/ports/outbound"
@@ -179,10 +180,10 @@ func (r *DoctorRepo) GetDoctorByID(ctx context.Context, id int) (*domain.Doctor,
 	)
 
 	err := r.pool.QueryRow(ctx, query, id).Scan(&docID, &name, &avgTime, &isOnline, &patientName, &elapsedMinutes)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, nil
-		}
 		return nil, fmt.Errorf("query doctor by id %d: %w", id, err)
 	}
 
@@ -200,5 +201,73 @@ func (r *DoctorRepo) GetDoctorByID(ctx context.Context, id int) (*domain.Doctor,
 		AvgConsultationTime: avgTime,
 		IsOnline:            isOnline,
 		CurrentSession:      currentSession,
+	}, nil
+}
+
+// UpdateOnlineStatus updates the is_online status of a doctor.
+func (r *DoctorRepo) UpdateOnlineStatus(ctx context.Context, doctorID int, isOnline bool) error {
+	query := `UPDATE doctors SET is_online = $1, updated_at = NOW() WHERE id = $2`
+	tag, err := r.pool.Exec(ctx, query, isOnline, doctorID)
+	if err != nil {
+		return fmt.Errorf("update doctor online status: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return domain.ErrDoctorNotFound
+	}
+	return nil
+}
+
+// GetActiveSessionByDoctorID retrieves the active consultation session for a given doctor.
+func (r *DoctorRepo) GetActiveSessionByDoctorID(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
+	query := `
+		SELECT cs.id, cs.doctor_id, cs.ticket_id, cs.patient_name, cs.started_at, cs.finished_at, cs.is_active,
+		       qt.queue_number, qt.status
+		FROM consultation_sessions cs
+		LEFT JOIN queue_tickets qt ON cs.ticket_id = qt.id
+		WHERE cs.doctor_id = $1 AND cs.is_active = true
+		LIMIT 1
+	`
+	var (
+		sessionID    int
+		docID        int
+		ticketID     int
+		patientName  string
+		startedAt    time.Time
+		finishedAt   *time.Time
+		isActive     bool
+		queueNumber  *string
+		ticketStatus *string
+	)
+
+	err := r.pool.QueryRow(ctx, query, doctorID).Scan(
+		&sessionID, &docID, &ticketID, &patientName, &startedAt, &finishedAt, &isActive,
+		&queueNumber, &ticketStatus,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("query active session by doctor id %d: %w", doctorID, err)
+	}
+
+	var ticket *domain.ConsultationTicket
+	if queueNumber != nil && ticketStatus != nil {
+		ticket = &domain.ConsultationTicket{
+			ID:          ticketID,
+			QueueNumber: *queueNumber,
+			PatientName: patientName,
+			Status:      domain.TicketStatus(*ticketStatus),
+		}
+	}
+
+	return &domain.ConsultationSession{
+		ID:          sessionID,
+		DoctorID:    docID,
+		TicketID:    ticketID,
+		PatientName: patientName,
+		Ticket:      ticket,
+		StartedAt:   startedAt,
+		FinishedAt:  finishedAt,
+		IsActive:    isActive,
 	}, nil
 }

@@ -41,11 +41,10 @@ func (r *UserRepo) FindByUsername(ctx context.Context, username string) (*domain
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
-
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, nil
-		}
 		return nil, fmt.Errorf("query user by username %s: %w", username, err)
 	}
 
@@ -73,11 +72,10 @@ func (r *UserRepo) FindByID(ctx context.Context, id int) (*domain.User, error) {
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
-
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, nil
-		}
 		return nil, fmt.Errorf("query user by id %d: %w", id, err)
 	}
 

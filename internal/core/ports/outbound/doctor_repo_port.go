@@ -16,4 +16,10 @@ type DoctorRepositoryPort interface {
 
 	// GetDoctorByID retrieves a doctor by their primary key ID.
 	GetDoctorByID(ctx context.Context, id int) (*domain.Doctor, error)
+
+	// UpdateOnlineStatus updates the is_online status of a doctor.
+	UpdateOnlineStatus(ctx context.Context, doctorID int, isOnline bool) error
+
+	// GetActiveSessionByDoctorID retrieves the active consultation session for a given doctor.
+	GetActiveSessionByDoctorID(ctx context.Context, doctorID int) (*domain.ConsultationSession, error)
 }

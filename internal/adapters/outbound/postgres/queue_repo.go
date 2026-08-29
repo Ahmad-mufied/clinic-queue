@@ -69,11 +69,10 @@ func (r *QueueRepo) FindActiveTicketByUserID(ctx context.Context, userID int) (*
 		&ticket.CalledAt,
 		&ticket.FinishedAt,
 	)
-
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, nil
-		}
 		return nil, fmt.Errorf("query active ticket for user %d: %w", userID, err)
 	}
 
@@ -103,11 +102,10 @@ func (r *QueueRepo) FindActiveTicketByPatientName(ctx context.Context, patientNa
 		&ticket.CalledAt,
 		&ticket.FinishedAt,
 	)
-
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, nil
-		}
 		return nil, fmt.Errorf("query active ticket for patient name %s: %w", patientName, err)
 	}
 
@@ -135,11 +133,10 @@ func (r *QueueRepo) FindByID(ctx context.Context, id int) (*domain.QueueTicket, 
 		&ticket.CalledAt,
 		&ticket.FinishedAt,
 	)
-
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, nil
-		}
 		return nil, fmt.Errorf("query queue ticket by id %d: %w", id, err)
 	}
 

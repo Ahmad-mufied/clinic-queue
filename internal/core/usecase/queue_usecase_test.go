@@ -97,6 +97,14 @@ func (m *mockDoctorRepoPort) GetDoctorByID(ctx context.Context, id int) (*domain
 	return nil, nil
 }
 
+func (m *mockDoctorRepoPort) UpdateOnlineStatus(ctx context.Context, doctorID int, isOnline bool) error {
+	return nil
+}
+
+func (m *mockDoctorRepoPort) GetActiveSessionByDoctorID(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
+	return nil, nil
+}
+
 type mockEventPubPort struct {
 	publishEventFunc func(ctx context.Context, eventType string, payload any) error
 	closeFunc        func() error

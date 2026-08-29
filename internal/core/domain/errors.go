@@ -41,4 +41,19 @@ var (
 
 	// ErrNoDoctorsAvailable indicates that no doctors are configured or available in the clinic.
 	ErrNoDoctorsAvailable = errors.New("no doctors currently configured for this clinic")
+
+	// ErrDoctorOffline indicates that the doctor must be online to call patients or perform actions.
+	ErrDoctorOffline = errors.New("doctor must be online to call patients")
+
+	// ErrActiveConsultationExists indicates that an active consultation session is already in progress.
+	ErrActiveConsultationExists = errors.New("active consultation already in progress")
+
+	// ErrNoActiveConsultation indicates that no active consultation session was found to finish.
+	ErrNoActiveConsultation = errors.New("no active consultation found")
+
+	// ErrQueueEmpty indicates that there are currently no waiting patients in the queue.
+	ErrQueueEmpty = errors.New("queue is empty")
+
+	// ErrDoctorNotFound indicates that the doctor entity was not found in the repository.
+	ErrDoctorNotFound = errors.New("doctor not found")
 )
