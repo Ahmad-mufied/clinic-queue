@@ -1,0 +1,20 @@
+p, admin, /api/admin/*, (GET)|(POST)|(PUT)|(DELETE)
+p, admin, /api/queue/*, (GET)|(POST)|(DELETE)
+p, admin, /api/doctors/*, (GET)|(POST)|(PUT)
+
+p, doctor, /api/doctors/status, POST
+p, doctor, /api/doctors/call-next, POST
+p, doctor, /api/doctors/finish, POST
+p, doctor, /api/queue/status, GET
+
+p, patient, /api/queue/join, POST
+p, patient, /api/queue/my-ticket, GET
+p, patient, /api/queue/status, GET
+
+p, public, /api/auth/*, (GET)|(POST)
+p, public, /api/events, GET
+p, public, /api/queue/status, GET
+
+g, doctor, public
+g, patient, public
+g, admin, public

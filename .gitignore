@@ -1,0 +1,24 @@
+# Environment variables
+.env
+!.env.example
+
+# Test coverage and binary outputs
+coverage.out
+coverage.html
+*.test
+/bin/
+/cmd/api/api-bin
+
+# Temporary files & logs
+*.log
+tmp/
+.tmp/
+
+# Frontend dependencies
+node_modules/
+dist/
+
+# IDE configurations
+.idea/
+.vscode/
+*.swp
