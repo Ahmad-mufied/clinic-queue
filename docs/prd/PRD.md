@@ -79,9 +79,28 @@ To balance **database integrity and cryptographic security** with **intuitive cl
 
 ---
 
-## 6. Document Revision History & Requirement Changelog
+## 6. Enterprise Clinical Ergonomics & Notification Standards
+
+Clinical dashboard environments demand **low cognitive load, high contrast readability (WCAG AA), and non-disruptive feedback**. The system enforces the following product rules for notifications and alerts:
+
+1. **Clean Surface & Semantic Accents:**
+   - Notifications must avoid aggressive full-card pastel flooding. Cards use crisp, neutral surfaces (White in light mode, Deep Slate in dark mode) paired with distinct semantic icons (Emerald for Success, Rose for Errors, Amber for Warnings, Sky for Queue Events).
+2. **Non-Overlapping Expanded Lists:**
+   - Concurrent alerts must render in an expanded vertical stack rather than 3D overlapping card decks, ensuring medical staff can scan multiple urgent notices without mouse hover gymnastics.
+3. **Clinical Dismissal Controls & Time Predictability:**
+   - **Manual Close (`✖`):** All toasts must include an accessible dismiss button to prevent blocking critical top-nav actions.
+   - **Countdown Timer Bar:** Every auto-dismissing toast must display a linear progress bar indicating remaining visibility time, with auto-pause on mouse hover.
+4. **Notification Triage & Retention Policy:**
+   - *Transient Actions (Login, Switch, Status Save):* Auto-dismiss after 3 - 4 seconds.
+   - *Patient Queue Events (Called, Transferred):* Retained for 6 - 8 seconds with audible tone cues.
+   - *Critical System Failures (Network Disconnection, DB Lock):* Persistent until acknowledged by the user.
+
+---
+
+## 7. Document Revision History & Requirement Changelog
 
 | Version | Date | Author / Role | Change Type | Change Summary / Rationale |
 | :---: | :---: | :---: | :---: | :--- |
 | **v1.0.0** | 2026-08-29 | Solution Architect | **Initial Baseline** | Initial creation of the Master PRD document establishing product vision, user personas, modular documentation structure, and global system permission matrix. |
 | **v1.1.0** | 2026-08-30 | Solution Architect | **Identity Design Standard** | Added Section 5 specifying Dual Identity Design separating internal PostgreSQL 18 UUIDv7 keys from human-readable clinical display codes (`queue_number`, `username`, `actor_name`). |
+| **v1.2.0** | 2026-08-30 | Lead Product Manager | **Enterprise Notification Standard** | Added Section 6 defining Clinical Notification & Alerting UX standards (neutral card surfaces, expanded stack, countdown progress bar, manual close button, and triage policies). |

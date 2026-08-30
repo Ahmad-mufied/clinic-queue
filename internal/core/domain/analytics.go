@@ -26,10 +26,19 @@ type DoctorPerformance struct {
 	UtilizationRatePercentage    float64 `json:"utilization_rate_percentage"`
 }
 
-// AdminDashboardStats aggregates the daily summary cards and doctor productivity table.
+// HourlyPatientFlow represents time-bucket patient intake counts and peak hour flags.
+type HourlyPatientFlow struct {
+	HourLabel        string `json:"hour_label"`
+	PatientCount     int    `json:"patient_count"`
+	HeightPercentage int    `json:"height_percentage"`
+	IsPeak           bool   `json:"is_peak"`
+}
+
+// AdminDashboardStats aggregates the daily summary cards, doctor productivity table, and hourly flow chart.
 type AdminDashboardStats struct {
-	Summary           AnalyticsSummary    `json:"summary"`
-	DoctorPerformance []DoctorPerformance `json:"doctor_performance"`
+	Summary            AnalyticsSummary    `json:"summary"`
+	DoctorPerformance  []DoctorPerformance `json:"doctor_performance"`
+	HourlyDistribution []HourlyPatientFlow `json:"hourly_distribution,omitempty"`
 }
 
 // UpdateDoctorConfigRequest defines the domain request parameters to change doctor consultation target time.

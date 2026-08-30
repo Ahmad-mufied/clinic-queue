@@ -81,12 +81,13 @@ gantt
 ---
 
 ### Phase 5: Doctor Workspace (`web/app/doctor/page.tsx`)
+- [ ] **Unified Doctor Workspace Navigation:** Single "Doctor Room" sidebar navigation for doctor persona (no redundant separate waiting lobby route).
 - [ ] **Doctor Shift Toggle:** Accessible Radix Switch to set `is_online` status.
 - [ ] **Consultation Control Panel:**
   - "Call Next Patient" action button (with atomic backend lock).
   - Active consultation timer with live elapsed duration.
   - "Complete Consultation" button.
-- [ ] **Waiting Lobby Queue Table:** Real-time preview of queued patients.
+- [ ] **Waiting Patients Queue Table (Integrated Column):** Real-time preview of queued patients in FIFO order with live countdowns.
 
 ---
 

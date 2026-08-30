@@ -13,6 +13,7 @@ import (
 type mockAnalyticsRepoPort struct {
 	getClinicDailyKPIsFunc        func(ctx context.Context) (*domain.AnalyticsSummary, error)
 	getDoctorProductivityListFunc func(ctx context.Context) ([]domain.DoctorPerformance, error)
+	getHourlyPatientFlowFunc      func(ctx context.Context) ([]domain.HourlyPatientFlow, error)
 }
 
 func (m *mockAnalyticsRepoPort) GetClinicDailyKPIs(ctx context.Context) (*domain.AnalyticsSummary, error) {
@@ -25,6 +26,13 @@ func (m *mockAnalyticsRepoPort) GetClinicDailyKPIs(ctx context.Context) (*domain
 func (m *mockAnalyticsRepoPort) GetDoctorProductivityList(ctx context.Context) ([]domain.DoctorPerformance, error) {
 	if m != nil && m.getDoctorProductivityListFunc != nil {
 		return m.getDoctorProductivityListFunc(ctx)
+	}
+	return nil, nil
+}
+
+func (m *mockAnalyticsRepoPort) GetHourlyPatientFlow(ctx context.Context) ([]domain.HourlyPatientFlow, error) {
+	if m != nil && m.getHourlyPatientFlowFunc != nil {
+		return m.getHourlyPatientFlowFunc(ctx)
 	}
 	return nil, nil
 }
@@ -137,6 +145,23 @@ func TestAdminUseCase_GetAnalyticsStats(t *testing.T) {
 				},
 			},
 			wantErr: errors.New("doctor productivity query failed"),
+		},
+		{
+			name: "GetHourlyPatientFlow error",
+			analyticsRepo: &mockAnalyticsRepoPort{
+				getClinicDailyKPIsFunc: func(ctx context.Context) (*domain.AnalyticsSummary, error) {
+					return &domain.AnalyticsSummary{
+						TotalServedToday: 42,
+					}, nil
+				},
+				getDoctorProductivityListFunc: func(ctx context.Context) ([]domain.DoctorPerformance, error) {
+					return []domain.DoctorPerformance{}, nil
+				},
+				getHourlyPatientFlowFunc: func(ctx context.Context) ([]domain.HourlyPatientFlow, error) {
+					return nil, errors.New("hourly flow query failed")
+				},
+			},
+			wantErr: errors.New("hourly flow query failed"),
 		},
 		{
 			name: "Success with populated summary and doctor productivity list",
@@ -391,6 +416,10 @@ func TestMockDefaults(t *testing.T) {
 	}
 	l, err := analyticsMock.GetDoctorProductivityList(context.Background())
 	if l != nil || err != nil {
+		t.Errorf("expected nil, nil")
+	}
+	hf, err := analyticsMock.GetHourlyPatientFlow(context.Background())
+	if hf != nil || err != nil {
 		t.Errorf("expected nil, nil")
 	}
 

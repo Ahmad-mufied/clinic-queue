@@ -43,18 +43,27 @@ func (u *AdminUseCase) GetAnalyticsStats(ctx context.Context) (*domain.AdminDash
 		return nil, fmt.Errorf("get doctor productivity list: %w", err)
 	}
 
+	hourlyFlow, err := u.analyticsRepo.GetHourlyPatientFlow(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("get hourly patient flow: %w", err)
+	}
+
 	if summary == nil {
 		summary = &domain.AnalyticsSummary{}
 	}
 	if docList == nil {
 		docList = []domain.DoctorPerformance{}
 	}
+	if hourlyFlow == nil {
+		hourlyFlow = []domain.HourlyPatientFlow{}
+	}
 
 	summary.OnlineDoctorsCount = domain.CountOnlineDoctors(docList)
 
 	return &domain.AdminDashboardStats{
-		Summary:           *summary,
-		DoctorPerformance: docList,
+		Summary:            *summary,
+		DoctorPerformance:  docList,
+		HourlyDistribution: hourlyFlow,
 	}, nil
 }
 

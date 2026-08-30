@@ -13,4 +13,7 @@ type AnalyticsRepositoryPort interface {
 
 	// GetDoctorProductivityList computes performance and utilization metrics for all doctors today.
 	GetDoctorProductivityList(ctx context.Context) ([]domain.DoctorPerformance, error)
+
+	// GetHourlyPatientFlow computes time-bucket patient intake counts for clinic operating hours today.
+	GetHourlyPatientFlow(ctx context.Context) ([]domain.HourlyPatientFlow, error)
 }

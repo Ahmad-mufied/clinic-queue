@@ -71,6 +71,7 @@ Actions in this workspace directly trigger **NATS JetStream events**, database u
 - [ ] Shift state transitions (`DOCTOR_SHIFT_STARTED`, `DOCTOR_SHIFT_ENDED`) are recorded with timestamps in `audit_logs`.
 - [ ] Consultation completion immediately triggers NATS event and broadcasts recalculations via SSE.
 - [ ] UI provides distinct visual states: `OFFLINE` (Gray), `IDLE / READY` (Green), `IN CONSULTATION` (Blue / Amber).
+- [ ] Unified Single-Workspace UX: Waiting queue list is directly integrated into the Doctor Workspace layout (`/doctor`), eliminating the need for a separate waiting lobby menu.
 
 ### 4.2 Identity & Identifier Separation (Database UUIDv7 vs Doctor Profile Name)
 - **Database Identity (`id`, `doctor_id`, `session_id`):** 128-bit Native UUIDv7 string (e.g. `01919df4-8e3b-7412-a1f9-90b567c9e201`) for database relationships and consultation session keys.
@@ -84,3 +85,4 @@ Actions in this workspace directly trigger **NATS JetStream events**, database u
 | :---: | :---: | :---: | :---: | :--- |
 | **v1.0.0** | 2026-08-29 | Solution Architect | **Initial Baseline** | Initial creation of the Doctor Workspace PRD. |
 | **v1.1.0** | 2026-08-30 | Solution Architect | **Identity Design Standard** | Added Section 4.2 defining separation of internal UUIDv7 doctor/session IDs from human-facing practitioner names (`name: Dr. Sarah Adams`) and room headers. |
+| **v1.2.0** | 2026-08-30 | Solution Architect | **Unified Workspace UX** | Clarified single-workspace design where the waiting queue preview is integrated directly in `/doctor`, removing redundant separate lobby navigation for doctors. |

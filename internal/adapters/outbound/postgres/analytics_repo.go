@@ -149,3 +149,54 @@ func (r *AnalyticsRepo) GetDoctorProductivityList(ctx context.Context) ([]domain
 
 	return list, nil
 }
+
+// GetHourlyPatientFlow aggregates hourly patient admissions for today.
+func (r *AnalyticsRepo) GetHourlyPatientFlow(ctx context.Context) ([]domain.HourlyPatientFlow, error) {
+	query := `
+		SELECT 
+			TO_CHAR(h, 'HH24:00') AS hour_label,
+			COUNT(qt.id)::int AS patient_count,
+			COALESCE(
+				ROUND((COUNT(qt.id)::numeric / NULLIF(MAX(COUNT(qt.id)) OVER (), 0) * 100), 0)::int,
+				0
+			) AS height_percentage,
+			CASE 
+				WHEN COUNT(qt.id) = MAX(COUNT(qt.id)) OVER () AND COUNT(qt.id) > 0 THEN TRUE 
+				ELSE FALSE 
+			END AS is_peak
+		FROM generate_series(
+			CURRENT_DATE + INTERVAL '8 hour',
+			CURRENT_DATE + INTERVAL '14 hour',
+			INTERVAL '1 hour'
+		) AS h
+		LEFT JOIN queue_tickets qt 
+			ON DATE_TRUNC('hour', qt.created_at) = h
+		GROUP BY h
+		ORDER BY h ASC;
+	`
+
+	rows, err := r.pool.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("query hourly patient flow: %w", err)
+	}
+	defer rows.Close()
+
+	var list []domain.HourlyPatientFlow
+	for rows.Next() {
+		var item domain.HourlyPatientFlow
+		if err := rows.Scan(&item.HourLabel, &item.PatientCount, &item.HeightPercentage, &item.IsPeak); err != nil {
+			return nil, fmt.Errorf("scan hourly patient flow row: %w", err)
+		}
+		list = append(list, item)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows error for hourly patient flow: %w", err)
+	}
+
+	if list == nil {
+		list = []domain.HourlyPatientFlow{}
+	}
+
+	return list, nil
+}

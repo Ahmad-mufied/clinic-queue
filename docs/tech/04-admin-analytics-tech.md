@@ -56,6 +56,31 @@ GROUP BY d.id, d.name, u.username, d.avg_consultation_time_min, d.is_online
 ORDER BY d.id ASC;
 ```
 
+### 2.3 Hourly Patient Flow Distribution Query
+
+```sql
+SELECT 
+    TO_CHAR(h, 'HH24:00') AS hour_label,
+    COUNT(qt.id) AS patient_count,
+    COALESCE(
+        ROUND((COUNT(qt.id)::numeric / NULLIF(MAX(COUNT(qt.id)) OVER (), 0) * 100), 0)::int,
+        0
+    ) AS height_percentage,
+    CASE 
+        WHEN COUNT(qt.id) = MAX(COUNT(qt.id)) OVER () AND COUNT(qt.id) > 0 THEN TRUE 
+        ELSE FALSE 
+    END AS is_peak
+FROM generate_series(
+    CURRENT_DATE + INTERVAL '8 hour',
+    CURRENT_DATE + INTERVAL '14 hour',
+    INTERVAL '1 hour'
+) AS h
+LEFT JOIN queue_tickets qt 
+    ON DATE_TRUNC('hour', qt.created_at) = h
+GROUP BY h
+ORDER BY h ASC;
+```
+
 ---
 
 ## 3. API Specification
@@ -94,6 +119,15 @@ ORDER BY d.id ASC;
       "avg_actual_consultation_minutes": 3.9,
       "utilization_rate_percentage": 58.5
     }
+  ],
+  "hourly_distribution": [
+    { "hour_label": "08:00", "patient_count": 4, "height_percentage": 28, "is_peak": false },
+    { "hour_label": "09:00", "patient_count": 8, "height_percentage": 57, "is_peak": false },
+    { "hour_label": "10:00", "patient_count": 14, "height_percentage": 100, "is_peak": true },
+    { "hour_label": "11:00", "patient_count": 11, "height_percentage": 78, "is_peak": false },
+    { "hour_label": "12:00", "patient_count": 6, "height_percentage": 43, "is_peak": false },
+    { "hour_label": "13:00", "patient_count": 9, "height_percentage": 64, "is_peak": false },
+    { "hour_label": "14:00", "patient_count": 12, "height_percentage": 85, "is_peak": false }
   ]
 }
 ```
@@ -115,8 +149,8 @@ ORDER BY d.id ASC;
 ## 4. API Case Scenarios
 
 | Scenario ID | Endpoint | Method | Condition | Status | Response Summary |
-| :--- | :--- | :---: | :--- | :---: | :--- |
-| **API-ADM-01** | `/api/admin/stats` | `GET` | Valid Admin Token | `200 OK` | Returns full KPI summary & doctor table with UUIDv7 IDs |
+| :--- | :--- | :---: | :--- | :--- | :--- |
+| **API-ADM-01** | `/api/admin/stats` | `GET` | Valid Admin Token | `200 OK` | Returns full KPI summary, doctor table, and hourly flow with UUIDv7 IDs |
 | **API-ADM-02** | `/api/admin/stats` | `GET` | Zero patients today | `200 OK` | Returns safe zero values without errors |
 | **API-ADM-03** | `/api/admin/stats` | `GET` | Patient/Doctor Token | `403 Forbidden` | `{"error": "Access denied: insufficient privileges"}` |
 | **API-ADM-04** | `/api/admin/doctors`| `POST`| `avg_time: 0` | `400 Bad Request` | `{"error": "Avg time must be greater than 0"}` |
@@ -130,3 +164,4 @@ ORDER BY d.id ASC;
 | **v1.0.0** | 2026-08-29 | Backend Lead | **Initial Baseline** | Initial technical specification for PostgreSQL 18 analytics queries, doctor utilization rate calculation, division-by-zero safeguards, and executive REST endpoints. |
 | **v1.1.0** | 2026-08-30 | Backend Lead | **Native UUIDv7 Spec** | Migrated `DoctorPerformance.DoctorID` and `UpdateDoctorConfigRequest.DoctorID` to Native UUIDv7 string identifiers. |
 | **v1.2.0** | 2026-08-30 | Backend Lead | **Human Tier 1 Handle Integration** | Added `username` to `DoctorPerformance` via `LEFT JOIN users` in SQL query to support Tier 1 handle display (`@doctor_a`) on admin analytics dashboard. |
+| **v1.3.0** | 2026-08-30 | Backend Lead | **Hourly Patient Flow Query** | Added Section 2.3 SQL `generate_series` time-bucket aggregation and `hourly_distribution` schema to `GET /api/admin/stats`. |

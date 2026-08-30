@@ -137,6 +137,23 @@ To achieve optimal client performance, low network overhead, and continuous reli
 - **SSE Connected (`isConnected === true`):** Background queries use a lazy heartbeat interval (`refetchInterval: 30000` / 30s) while state mutations are pushed instantly via NATS JetStream sub-second events.
 - **SSE Disconnected / Reconnecting (`isConnected === false`):** Background queries automatically fallback to high-frequency polling (`refetchInterval: 3000` / 3s) until the real-time stream reconnects.
 
+### 4.3 Enterprise Clinical Notification & Toast System Standard
+To guarantee zero-distraction clinical operations and high visual accessibility:
+1. **Clean Card Surface Architecture:**
+   - Toast containers use consistent solid neutral backgrounds (`bg-white` in light mode, `bg-slate-900` in dark mode) rather than high-contrast pastel floods.
+   - Semantic intent is communicated strictly via status icons (Emerald `CheckCircle` for Success, Rose `XCircle` for Errors, Amber `AlertTriangle` for Warnings, Sky `Info` for Queue events).
+2. **Expanded Vertical Stacking (`expand={true}`):**
+   - Sonner 3D card overlapping is disabled in favor of an **Expanded Vertical List** (up to 4 visible toasts).
+   - This ensures doctors and clinic administrators can read multiple concurrent alerts simultaneously without requiring hover interactions.
+3. **Clinical Dismissal Controls & Countdown Indicators:**
+   - **Explicit Close Button (`closeButton={true}`):** Allows practitioners to instantly dismiss blocking toasts over top-bar UI controls.
+   - **Animated Countdown Progress Bar:** A linear 3px indicator at the bottom edge animates from 100% to 0% width over the toast's active duration.
+   - **Smart Pause on Hover:** Hovering over any toast immediately pauses both the countdown animation and auto-dismiss timer.
+4. **Severity-Based Notification Triage:**
+   - **Transient Feedback (Success/Routine):** 3 - 4s timeout (e.g., *"Signed in as Clinic Administrator"*).
+   - **Clinical Events (Queue Call/Finish):** 6 - 8s timeout with detailed room descriptions.
+   - **Critical / Network Alerts:** Persistent (`duration: Infinity`) until explicitly dismissed or resolved.
+
 ---
 
 ## 5. Screen Specifications & User Experience
@@ -165,11 +182,12 @@ A universal persona switcher accessible across all pages:
 ---
 
 ### 5.3 Doctor Workspace (`/doctor`)
-- **Shift Status Control:** Large tactile Radix Switch toggling `is_online` (Green = Online, Gray = Offline).
+- **Top-Nav Clinical Cockpit Layout:** The Doctor persona utilizes a focused, full-width/centered (`max-w-7xl`) clinical cockpit layout with a top universal navigation bar (`<Header />`) containing the Brand Logo, live clock, real-time SSE stream alerts, and doctor profile/persona switch. The multi-menu sidebar is omitted to maximize screen real estate for clinical workflows.
+- **Unified Operational Header Banner:** Cohesive top header displaying practitioner identity (`Dr. Sarah Adams`), room assignment (`Room 1`), target consultation pace (`3 min / patient`), and tactile online/offline shift status switch with real-time glowing pulse indicators.
 - **Active Consultation Room:**
   - When room is empty: Big "Call Next Patient" button (calls atomic backend endpoint).
   - When patient is in room: Patient Name, Queue Number, Consultation Elapsed Timer (`02:45`), Target Pacing Progress Bar, and "Complete Consultation" button.
-- **Live Waiting Queue Preview:** Table listing currently waiting patients in the lobby.
+- **Live Waiting Queue Preview (Right Column):** Integrated real-time table listing waiting patients in FIFO order with live estimated wait times and auto-updating counts.
 
 ---
 
@@ -285,6 +303,13 @@ export interface DoctorPerformance {
   utilization_rate_percentage: number;
 }
 
+export interface HourlyPatientFlow {
+  hour_label: string;
+  patient_count: number;
+  height_percentage: number;
+  is_peak: boolean;
+}
+
 export interface AdminDashboardStats {
   summary: {
     total_served_today: number;
@@ -293,6 +318,7 @@ export interface AdminDashboardStats {
     clinic_utilization_rate_percentage: number;
   };
   doctor_performance: DoctorPerformance[];
+  hourly_distribution?: HourlyPatientFlow[];
 }
 
 export interface AuditLog {
@@ -334,3 +360,7 @@ export interface SSEEventPayload {
 | **v1.1.0** | 2026-08-30 | Principal Frontend Architect | **Native UUIDv7 & Adaptive SSE** | Updated all TypeScript DTO models to Native UUIDv7 string IDs. Documented standard SSE payload parsing and adaptive SSE polling architecture (`isConnected ? 30000 : 3000`). |
 | **v1.2.0** | 2026-08-30 | Principal Frontend Architect | **Canonical Event Envelope Standardization** | Standardized SSE and NATS event schema to canonical single `type` field with role-based Notification Center filtering. |
 | **v1.3.0** | 2026-08-30 | Principal Frontend Architect | **Human Tier 1 Handle Integration** | Added `username` to `DoctorPerformance` DTO to support `@username` handle presentation in executive doctor productivity table. |
+| **v1.4.0** | 2026-08-30 | Principal Frontend Architect | **Doctor Navigation Streamlining** | Consolidated doctor navigation to unified `/doctor` workspace, removing redundant "Waiting Lobby" sidebar link. |
+| **v1.5.0** | 2026-08-30 | Principal Frontend Architect | **Top-Nav Clinical Cockpit UX** | Transitioned Doctor Workspace to distraction-free Top-Nav layout (`max-w-7xl`), removing sidebar overhead and unifying operational shift banner controls. |
+| **v1.6.0** | 2026-08-30 | Principal Frontend Architect | **Dedicated /dashboard Route & Dynamic Hourly Chart** | Migrated admin cockpit to `/dashboard` and added `HourlyPatientFlow` interface for dynamic time-bucket patient arrival chart. |
+| **v1.6.0** | 2026-08-30 | Principal Frontend Architect | **Enterprise Notification Standard** | Upgraded Sonner toast system with Clean Neutral Surface cards, expanded vertical listing (`expand={true}`), explicit close buttons (`closeButton={true}`), and linear countdown progress bars with hover pausing. |
