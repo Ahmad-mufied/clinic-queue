@@ -1,0 +1,186 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 20% 97%; /* #f3f5f8 soft light grey canvas */
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 160 84% 28%; /* #057a55 deep lush emerald */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 160 30% 96%;
+    --secondary-foreground: 160 80% 20%;
+
+    --muted: 220 15% 94%;
+    --muted-foreground: 220 10% 50%;
+
+    --accent: 160 30% 95%;
+    --accent-foreground: 160 80% 20%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 160 84% 28%;
+
+    --radius: 1.5rem; /* 24px rounded corners */
+  }
+
+  .dark {
+    --background: 224 25% 8%;
+    --foreground: 210 40% 98%;
+
+    --card: 224 25% 11%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 224 25% 11%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 160 70% 40%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 224 20% 16%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 224 20% 16%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 224 20% 16%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 224 20% 16%;
+    --input: 224 20% 16%;
+    --ring: 160 70% 40%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    background-color: #f3f5f8;
+    color: #0f172a;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* ==========================================================================
+   Enterprise Toast Notification & Countdown Timer Styles (Sonner)
+   ========================================================================== */
+
+/* 1. Toast Container & Base */
+[data-sonner-toast] {
+  overflow: hidden !important;
+  padding-right: 36px !important; /* Space for top-right close button */
+}
+
+/* 2. Explicit Close Button in Top-Right Corner */
+[data-sonner-toast] [data-close-button] {
+  position: absolute !important;
+  left: auto !important;
+  right: 12px !important;
+  top: 12px !important;
+  bottom: auto !important;
+  transform: none !important;
+  opacity: 1 !important;
+  width: 22px !important;
+  height: 22px !important;
+  border-radius: 9999px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background-color: #f1f5f9 !important; /* slate-100 */
+  color: #64748b !important; /* slate-500 */
+  border: 1px solid #e2e8f0 !important; /* slate-200 */
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  z-index: 60 !important;
+}
+
+.dark [data-sonner-toast] [data-close-button] {
+  background-color: #1e293b !important; /* slate-800 */
+  color: #94a3b8 !important; /* slate-400 */
+  border-color: #334155 !important; /* slate-700 */
+}
+
+[data-sonner-toast] [data-close-button]:hover {
+  background-color: #e2e8f0 !important; /* slate-200 */
+  color: #0f172a !important; /* slate-900 */
+}
+
+.dark [data-sonner-toast] [data-close-button]:hover {
+  background-color: #334155 !important; /* slate-700 */
+  color: #f8fafc !important; /* slate-50 */
+}
+
+/* 3. Animated Linear Countdown Progress Bar */
+[data-sonner-toast]::after {
+  content: "" !important;
+  position: absolute !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  height: 3.5px !important;
+  width: 100% !important;
+  display: block !important;
+  z-index: 9999 !important;
+  transform-origin: left !important;
+  animation: toast-countdown 4000ms linear forwards !important;
+  background-color: #059669 !important; /* Emerald 600 default */
+  box-shadow: 0 0 6px rgba(5, 150, 105, 0.4) !important;
+  pointer-events: none !important;
+}
+
+/* Pause countdown on hover */
+[data-sonner-toast]:hover::after {
+  animation-play-state: paused !important;
+}
+
+/* Semantic Accent Progress Bar Colors */
+[data-sonner-toast][data-type="success"]::after {
+  background-color: #059669 !important;
+  box-shadow: 0 0 6px rgba(5, 150, 105, 0.4) !important;
+}
+
+[data-sonner-toast][data-type="error"]::after {
+  background-color: #e11d48 !important;
+  box-shadow: 0 0 6px rgba(225, 29, 72, 0.4) !important;
+}
+
+[data-sonner-toast][data-type="warning"]::after {
+  background-color: #d97706 !important;
+  box-shadow: 0 0 6px rgba(217, 119, 6, 0.4) !important;
+}
+
+[data-sonner-toast][data-type="info"]::after {
+  background-color: #0284c7 !important;
+  box-shadow: 0 0 6px rgba(2, 132, 199, 0.4) !important;
+}
+
+[data-sonner-toast][data-type="default"]::after {
+  background-color: #64748b !important;
+  box-shadow: 0 0 6px rgba(100, 116, 139, 0.4) !important;
+}
+
+@keyframes toast-countdown {
+  0% {
+    transform: scaleX(1);
+  }
+  100% {
+    transform: scaleX(0);
+  }
+}
+
