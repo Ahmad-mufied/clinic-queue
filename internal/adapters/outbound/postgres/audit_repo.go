@@ -142,7 +142,8 @@ func (r *AuditRepo) QueryLogs(ctx context.Context, filter domain.AuditLogFilter)
 	// Fetch limit + 1 to detect has_more and next_cursor
 	fetchLimit := filter.Limit + 1
 	var query string
-	var queryArgs []any
+	queryArgs := make([]any, 0, len(args)+2)
+	queryArgs = append(queryArgs, args...)
 
 	if filter.Cursor != nil && strings.TrimSpace(*filter.Cursor) != "" {
 		// Pure cursor query without offset
@@ -163,7 +164,7 @@ func (r *AuditRepo) QueryLogs(ctx context.Context, filter domain.AuditLogFilter)
 			ORDER BY id %s
 			LIMIT $%d OFFSET $%d
 		`, whereClause, orderDir, argIdx, argIdx+1)
-		queryArgs = append(args, fetchLimit, filter.Offset())
+		queryArgs = append(queryArgs, fetchLimit, filter.Offset())
 	}
 
 	rows, err := r.pool.Query(ctx, query, queryArgs...)
