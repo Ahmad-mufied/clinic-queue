@@ -63,23 +63,25 @@ flowchart TD
 ### 2.2 Master Automated E2E Regression Suite (`e2e_runner.go`)
 - **Orchestrator:** [`scripts/testing/e2e/regression_e2e_test.sh`](file:///mnt/Cons/Code/Project/Jobs/Noak/code/web-app/scripts/testing/e2e/regression_e2e_test.sh)
 - **Runner Source:** [`scripts/testing/e2e/e2e_runner.go`](file:///mnt/Cons/Code/Project/Jobs/Noak/code/web-app/scripts/testing/e2e/e2e_runner.go)
+- **Database & Port Isolation:** Dedicated test database `clinic_queue_test` on isolated test port `:8081`. This guarantees that automated test resets (`TRUNCATE TABLE ...`) will **never** alter or wipe active development data in `clinic_queue` (:8080).
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor Dev as Developer / CI Pipeline
     participant Shell as scripts/testing/e2e/regression_e2e_test.sh
-    participant DB as PostgreSQL 18 (:5433)
+    participant DB as PostgreSQL 18 (:5433 / clinic_queue_test)
     participant NATS as NATS JetStream (:4222)
-    participant API as Echo HTTP Server (:8080)
+    participant API as Echo HTTP Test Server (:8081)
     participant Runner as scripts/testing/e2e/e2e_runner.go
     participant SSE as SSE Stream Interceptor
 
     Dev->>Shell: Executes regression_e2e_test.sh
-    Shell->>DB: Check connectivity & run baseline truncate / seed migrations
+    Shell->>DB: Ensure 'clinic_queue_test' exists & auto-create if missing
     Shell->>NATS: Check JetStream availability
-    Shell->>API: Compile binary and start background daemon (PID)
-    Shell->>Runner: Execute e2e_runner.go
+    Shell->>API: Launch isolated API test server (PORT=8081, DB=clinic_queue_test)
+    API->>DB: Apply embedded Goose auto-migrations to clinic_queue_test
+    Shell->>Runner: Execute e2e_runner.go (Target: :8081 & clinic_queue_test)
 
     Runner->>SSE: Open persistent stream GET /api/events
     SSE-->>Runner: Receive initial "CONNECTED" event
@@ -96,8 +98,8 @@ sequenceDiagram
 
     Runner->>SSE: Verify broadcasted events (QUEUE_UPDATED, DOCTOR_STATUS, etc.)
     Runner-->>Shell: Output 70-test scoreboard (Exit code 0 on 100% PASS)
-    Shell->>API: Send SIGTERM to kill background daemon
-    Shell-->>Dev: Execution Complete (1.88s total duration)
+    Shell->>API: Send SIGTERM to kill background test server on :8081
+    Shell-->>Dev: Execution Complete (1.88s total duration, dev DB clinic_queue untouched)
 ```
 
 ---
@@ -365,12 +367,12 @@ func BenchmarkRebalanceQueueAlgorithm(b *testing.B) {
 
 | Symptom / Error | Root Cause | Exact Remediation Command |
 | :--- | :--- | :--- |
-| `listen tcp :8080: bind: address already in use` | Zombie background API server process occupying port 8080. | `fuser -k 8080/tcp \|\| kill -9 $(lsof -t -i:8080)` |
+| `listen tcp :8081: bind: address already in use` | Zombie background API test server process occupying test port 8081. | `fuser -k 8081/tcp \|\| kill -9 $(lsof -t -i:8081)` |
 | `dial tcp 127.0.0.1:5433: connect: connection refused` | PostgreSQL Docker container is stopped or port mapped to 5432 instead of 5433. | `docker compose up -d postgres && docker compose ps` |
 | `dial tcp 127.0.0.1:4222: connect: connection refused` | NATS JetStream container is not running. | `docker compose up -d nats` |
 | `SSE timeout: zero broadcast events received` | NATS JetStream disabled or topic subscription prefix mismatch. | Ensure NATS runs with `-js` and publisher emits to `clinic.*`. |
 | `401 Unauthorized across all E2E tests` | `JWT_SECRET` in `.env` differs from the test runner secret. | Ensure `.env` contains `JWT_SECRET=super-secret-jwt-key-for-clinic-queue-app`. |
-| `409 Conflict: active queue ticket already exists` | Previous aborted test run left dirty records in `queue_tickets`. | Run database reset: `docker exec -it clinic-postgres psql -U postgres -d clinic_queue -c "TRUNCATE queue_tickets CASCADE;"` |
+| `409 Conflict: active queue ticket already exists` | Previous aborted test run left dirty records in test database. | Run test database reset: `docker exec -it clinic-postgres psql -U postgres -d clinic_queue_test -c "TRUNCATE queue_tickets CASCADE;"` |
 | `panic: pq: remaining connection slots are reserved` | `pgxpool.MaxConns` exceeded during extreme stress testing. | Increase pool size in `config/config.go` (`DB_MAX_OPEN_CONNS=50`). |
 
 ---

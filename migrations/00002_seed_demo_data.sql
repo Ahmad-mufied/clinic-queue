@@ -15,6 +15,8 @@ VALUES
     ('01919df4-8e3b-7412-a1f9-90b567c9e203', 'patient_john', '$2a$10$LtdYqpQiGxxNVRcHAVEIU.ehPKtqxNt8g1yaK2YltTbhBLPbst2H.', 'John Doe', 'patient', NULL),
     ('01919df4-8e3b-7412-a1f9-90b567c9e204', 'patient_lucas', '$2a$10$LtdYqpQiGxxNVRcHAVEIU.ehPKtqxNt8g1yaK2YltTbhBLPbst2H.', 'Lucas Smith', 'patient', NULL),
     ('01919df4-8e3b-7412-a1f9-90b567c9e205', 'admin', '$2a$10$LtdYqpQiGxxNVRcHAVEIU.ehPKtqxNt8g1yaK2YltTbhBLPbst2H.', 'Clinic Administrator', 'admin', NULL)
+ON CONFLICT (id) DO NOTHING;
+
 -- Seed Demo Audit Logs
 INSERT INTO audit_logs (id, user_id, actor_name, role, action, details, ip_address, created_at)
 VALUES

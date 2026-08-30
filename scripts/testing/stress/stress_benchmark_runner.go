@@ -249,11 +249,11 @@ type TestExecutionReport struct {
 func main() {
 	baseURL := os.Getenv("API_BASE_URL")
 	if baseURL == "" {
-		baseURL = "http://localhost:8080"
+		baseURL = "http://localhost:8081"
 	}
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
-		dbURL = "postgres://postgres:postgrespassword@localhost:5433/clinic_queue?sslmode=disable"
+		dbURL = "postgres://postgres:postgrespassword@localhost:5433/clinic_queue_test?sslmode=disable"
 	}
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {

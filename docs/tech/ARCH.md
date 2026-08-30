@@ -147,18 +147,31 @@ code/web-app/
 
 ## 3. Database Migration Strategy with Goose
 
-Migrations are managed with **Goose v3** and embedded into the binary using `//go:embed`:
+Migrations are managed with **Goose v3** and embedded into the binary using Go standard library `embed.FS`:
 
 ```go
-//go:embed migrations/*.sql
-var embedMigrations embed.FS
+// migrations/embed.go
+package migrations
 
-func RunDatabaseMigrations(db *sql.DB) error {
-    goose.SetBaseFS(embedMigrations)
+import "embed"
+
+//go:embed *.sql
+var FS embed.FS
+```
+
+```go
+// internal/adapters/outbound/postgres/migration.go
+package postgres
+
+func RunDatabaseMigrations(pool *pgxpool.Pool) error {
+    db := stdlib.OpenDBFromPool(pool)
+    defer db.Close()
+
+    goose.SetBaseFS(migrations.FS)
     if err := goose.SetDialect("postgres"); err != nil {
-        return err
+        return fmt.Errorf("set goose dialect: %w", err)
     }
-    return goose.Up(db, "migrations")
+    return goose.Up(db, ".")
 }
 ```
 

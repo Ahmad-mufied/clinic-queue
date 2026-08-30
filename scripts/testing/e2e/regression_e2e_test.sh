@@ -11,8 +11,8 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 
 cd "${ROOT_DIR}"
 
-export PORT="${PORT:-8080}"
-export DATABASE_URL="${DATABASE_URL:-postgres://postgres:postgrespassword@localhost:5433/clinic_queue?sslmode=disable}"
+export PORT="${PORT:-8081}"
+export DATABASE_URL="${DATABASE_URL:-postgres://postgres:postgrespassword@localhost:5433/clinic_queue_test?sslmode=disable}"
 export NATS_URL="${NATS_URL:-nats://localhost:4222}"
 export JWT_SECRET="${JWT_SECRET:-super-secret-clinic-jwt-key-change-in-prod}"
 export JWT_EXPIRATION_HOURS="${JWT_EXPIRATION_HOURS:-24}"
@@ -22,9 +22,17 @@ export API_BASE_URL="http://localhost:${PORT}"
 
 echo "========================================================================="
 echo "  Starting Smart Clinic Queue E2E Regression Test Orchestrator"
-echo "  Target API URL : ${API_BASE_URL}"
-echo "  Database URL   : ${DATABASE_URL}"
+echo "  Target API URL : ${API_BASE_URL} (Isolated Test Port)"
+echo "  Database URL   : ${DATABASE_URL} (Isolated Test DB)"
 echo "========================================================================="
+
+# Auto-provision test database if using Docker container
+if docker compose ps | grep -q "clinic-postgres"; then
+    echo "--> Ensuring test database 'clinic_queue_test' exists in Docker container..."
+    docker exec clinic-postgres psql -U postgres -tc "SELECT 1 FROM pg_database WHERE datname = 'clinic_queue_test'" | grep -q 1 || \
+        docker exec clinic-postgres psql -U postgres -c "CREATE DATABASE clinic_queue_test;"
+    echo "--> Test database 'clinic_queue_test' verified."
+fi
 
 SERVER_PID=""
 
@@ -43,7 +51,7 @@ trap cleanup EXIT INT TERM
 if curl -s -f "${API_BASE_URL}/health" >/dev/null 2>&1; then
     echo "--> Detected API server already active on ${API_BASE_URL}."
 else
-    echo "--> Launching API server on port ${PORT}..."
+    echo "--> Launching isolated API test server on port ${PORT}..."
     go run ./cmd/api/main.go &
     SERVER_PID=$!
     
