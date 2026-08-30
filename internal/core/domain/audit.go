@@ -31,8 +31,8 @@ const (
 
 // AuditLog represents an immutable forensic and operational activity record.
 type AuditLog struct {
-	ID        int            `json:"id"`
-	UserID    *int           `json:"user_id,omitempty"`
+	ID        string         `json:"id"`
+	UserID    *string        `json:"user_id,omitempty"`
 	ActorName string         `json:"actor_name"`
 	Role      string         `json:"role"`
 	Action    string         `json:"action"`
@@ -46,11 +46,11 @@ type AuditLogFilter struct {
 	Search    string     `json:"search,omitempty"`
 	Action    string     `json:"action,omitempty"`
 	Role      string     `json:"role,omitempty"`
-	UserID    *int       `json:"user_id,omitempty"`
+	UserID    *string    `json:"user_id,omitempty"`
 	StartDate *time.Time `json:"start_date,omitempty"`
 	EndDate   *time.Time `json:"end_date,omitempty"`
 	SortOrder string     `json:"sort_order,omitempty"` // "desc" (default) or "asc"
-	Cursor    *int       `json:"cursor,omitempty"`
+	Cursor    *string    `json:"cursor,omitempty"`
 	Page      int        `json:"page"`
 	Limit     int        `json:"limit"`
 }
@@ -59,7 +59,7 @@ type AuditLogFilter struct {
 type PaginatedAuditLogs struct {
 	Page         int        `json:"page,omitempty"`
 	Limit        int        `json:"limit"`
-	NextCursor   *int       `json:"next_cursor,omitempty"`
+	NextCursor   *string    `json:"next_cursor,omitempty"`
 	HasMore      bool       `json:"has_more"`
 	TotalRecords int        `json:"total_records"`
 	TotalPages   int        `json:"total_pages"`

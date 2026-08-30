@@ -60,7 +60,7 @@ func (ac *ActiveConsultation) RemainingTime(avgConsultationTime int) int {
 
 // Doctor represents a medical doctor with consultation parameters and active session.
 type Doctor struct {
-	ID                  int                 `json:"id"`
+	ID                  string              `json:"id"`
 	Name                string              `json:"name"`
 	AvgConsultationTime int                 `json:"avg_consultation_time"` // in minutes
 	IsOnline            bool                `json:"is_online"`
@@ -68,7 +68,7 @@ type Doctor struct {
 }
 
 // NewDoctor creates and validates a new Doctor instance.
-func NewDoctor(id int, name string, avgConsultationTime int, isOnline bool, currentSession *ActiveConsultation) (*Doctor, error) {
+func NewDoctor(id string, name string, avgConsultationTime int, isOnline bool, currentSession *ActiveConsultation) (*Doctor, error) {
 	if avgConsultationTime <= 0 {
 		return nil, ErrInvalidConsultationTime
 	}
@@ -84,7 +84,7 @@ func NewDoctor(id int, name string, avgConsultationTime int, isOnline bool, curr
 
 // DoctorAvailability represents doctor information formatted for public queue status display.
 type DoctorAvailability struct {
-	ID                         int          `json:"id"`
+	ID                         string       `json:"id"`
 	Name                       string       `json:"name"`
 	AvgConsultationTimeMinutes int          `json:"avg_time"`
 	IsOnline                   bool         `json:"is_online"`
@@ -95,8 +95,8 @@ type DoctorAvailability struct {
 
 // QueueTicket represents a walk-in patient's digital queue ticket.
 type QueueTicket struct {
-	ID                       int          `json:"id"`
-	UserID                   *int         `json:"user_id,omitempty"`
+	ID                       string       `json:"id"`
+	UserID                   *string      `json:"user_id,omitempty"`
 	PatientName              string       `json:"patient_name"`
 	QueueNumber              string       `json:"queue_number"`
 	Status                   TicketStatus `json:"status"`

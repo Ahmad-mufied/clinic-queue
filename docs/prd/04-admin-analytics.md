@@ -70,12 +70,17 @@ $$\text{Duration Delta} = \text{Actual Duration} - \text{Target Avg Consultation
 
 ---
 
-## 5. Acceptance Criteria
+## 5. Acceptance Criteria & Identity Specification
 
+### 5.1 Acceptance Criteria
 - [ ] Analytics queries execute in $< 50\text{ms}$ utilizing PostgreSQL indexes on timestamps and foreign keys.
 - [ ] KPI cards and performance table auto-refresh upon receiving SSE broadcast events.
 - [ ] Admin dashboard UI features responsive charts and colored performance badges (Green = on target, Amber = slight delay, Red = significant bottleneck).
 - [ ] Changes to doctor configurations immediately reflect in new queue calculations.
+
+### 5.2 Identity & Identifier Separation (Database UUIDv7 vs Doctor Performance Cards)
+- **Database Identity (`doctor_id`):** 128-bit Native UUIDv7 string (e.g. `01919df4-8e3b-7412-a1f9-90b567c9e201`) for exact SQL GROUP BY aggregations and API update mutations (`POST /api/admin/doctors`).
+- **Human Display Identity (`doctor_name`):** Human-readable practitioner name (`Dr. Sarah Adams`) rendered in executive leaderboard tables and KPI breakdowns.
 
 ---
 
@@ -83,4 +88,5 @@ $$\text{Duration Delta} = \text{Actual Duration} - \text{Target Avg Consultation
 
 | Version | Date | Author / Role | Change Type | Change Summary / Rationale |
 | :---: | :---: | :---: | :---: | :--- |
-| **v1.0.0** | 2026-08-29 | Solution Architect | **Initial Baseline** | Initial creation of the Executive Analytics PRD, establishing KPI formulas (Doctor Utilization Rate, Actual Wait Time Delta), zero-state edge cases, and role restrictions. |
+| **v1.0.0** | 2026-08-29 | Solution Architect | **Initial Baseline** | Initial creation of the Executive Analytics PRD. |
+| **v1.1.0** | 2026-08-30 | Solution Architect | **Identity Design Standard** | Added Section 5.2 defining separation of internal UUIDv7 doctor identifiers from executive leaderboard display names. |

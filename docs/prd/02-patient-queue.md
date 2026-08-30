@@ -56,13 +56,18 @@ The waiting time is computed dynamically by the **Greedy Multi-Doctor Queue Engi
 
 ---
 
-## 4. Acceptance Criteria
+## 4. Acceptance Criteria & Identity Specification
 
+### 4.1 Acceptance Criteria
 - [ ] Queue numbers follow an incremental formatted sequence (e.g., `A-01`, `A-02`).
 - [ ] Estimated wait time algorithm matches verified mathematical models (Case Study 1 & 2 verified outputs).
 - [ ] SSE updates are received by all connected clients in $< 100\text{ms}$ after any queue event.
 - [ ] When called by a doctor, patient's screen highlights with room assignment (e.g., *"Please enter Doctor A's Room"*).
 - [ ] Ticket lifecycle transitions (`QUEUE_JOINED`, `QUEUE_CANCELLED`) are persisted to `audit_logs`.
+
+### 4.2 Identity & Identifier Separation (Database UUIDv7 vs Display Queue Number)
+- **Database Identity (`id`):** 128-bit Native UUIDv7 string (e.g. `01919df4-8e3b-7412-a1f9-90b567c9e301`) for database relationships and transaction atomicity.
+- **Human Display Identity (`queue_number`):** Concise 4-character ticket code (`A-01`, `A-11`, `B-03`) formatted for large waiting room LED screens, thermal paper printouts, and audio voice annunciators.
 
 ---
 
@@ -70,4 +75,5 @@ The waiting time is computed dynamically by the **Greedy Multi-Doctor Queue Engi
 
 | Version | Date | Author / Role | Change Type | Change Summary / Rationale |
 | :---: | :---: | :---: | :---: | :--- |
-| **v1.0.0** | 2026-08-29 | Solution Architect | **Initial Baseline** | Initial creation of the Patient Queue PRD, incorporating Case Study 1 & 2 mathematical queue models, real-time SSE wait countdowns, positive/negative/edge scenarios, and offline doctor handling. |
+| **v1.0.0** | 2026-08-29 | Solution Architect | **Initial Baseline** | Initial creation of the Patient Queue PRD. |
+| **v1.1.0** | 2026-08-30 | Solution Architect | **Identity Design Standard** | Added Section 4.2 defining separation of internal UUIDv7 ticket IDs from human-facing queue numbers (`queue_number: A-01`) for waiting room displays and audio callouts. |

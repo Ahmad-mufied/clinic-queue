@@ -65,18 +65,6 @@ func TestAuditHandler_GetAuditLogs(t *testing.T) {
 			wantBodySubstr: "Invalid limit parameter",
 		},
 		{
-			name:           "Invalid cursor returns 400",
-			queryString:    "?cursor=invalid",
-			wantStatus:     http.StatusBadRequest,
-			wantBodySubstr: "Invalid cursor parameter",
-		},
-		{
-			name:           "Invalid user_id returns 400",
-			queryString:    "?user_id=abc",
-			wantStatus:     http.StatusBadRequest,
-			wantBodySubstr: "Invalid user_id parameter",
-		},
-		{
 			name:           "Invalid start_date returns 400",
 			queryString:    "?start_date=not-a-date",
 			wantStatus:     http.StatusBadRequest,
@@ -90,10 +78,10 @@ func TestAuditHandler_GetAuditLogs(t *testing.T) {
 		},
 		{
 			name:        "Success with advanced filters and date bounds returns 200 OK",
-			queryString: "?search=Doctor&from=2026-08-01&to=2026-08-30&user_id=1&order=asc&cursor=10&limit=15",
+			queryString: "?search=Doctor&from=2026-08-01&to=2026-08-30&user_id=01919df4-8e3b-7412-a1f9-90b567c9e201&order=asc&cursor=01919df4-8e3b-7412-a1f9-90b567c9e501&limit=15",
 			mockSetup: func(uc *mockAuditUseCase) {
 				uc.getAuditLogsFunc = func(ctx context.Context, filter domain.AuditLogFilter) (*domain.PaginatedAuditLogs, error) {
-					if filter.Search != "Doctor" || filter.SortOrder != "asc" || filter.UserID == nil || *filter.UserID != 1 || filter.StartDate == nil || filter.EndDate == nil {
+					if filter.Search != "Doctor" || filter.SortOrder != "asc" || filter.UserID == nil || *filter.UserID != "01919df4-8e3b-7412-a1f9-90b567c9e201" || filter.Cursor == nil || *filter.Cursor != "01919df4-8e3b-7412-a1f9-90b567c9e501" || filter.StartDate == nil || filter.EndDate == nil {
 						return nil, errors.New("filter fields mismatch")
 					}
 					return &domain.PaginatedAuditLogs{
@@ -101,7 +89,7 @@ func TestAuditHandler_GetAuditLogs(t *testing.T) {
 						TotalRecords: 1,
 						Logs: []domain.AuditLog{
 							{
-								ID:        11,
+								ID:        "01919df4-8e3b-7412-a1f9-90b567c9e502",
 								ActorName: "Doctor A",
 								Role:      "doctor",
 								Action:    domain.ActionDoctorShiftStarted,
@@ -180,12 +168,12 @@ func TestAuditHandler_GetAuditLogs(t *testing.T) {
 						TotalRecords: 154,
 						Logs: []domain.AuditLog{
 							{
-								ID:        154,
+								ID:        "01919df4-8e3b-7412-a1f9-90b567c9e503",
 								ActorName: "Doctor A",
 								Role:      "doctor",
 								Action:    domain.ActionConsultationFinished,
 								Details: map[string]any{
-									"ticket_id":           101,
+									"ticket_id":           "01919df4-8e3b-7412-a1f9-90b567c9e401",
 									"actual_duration_min": 3.2,
 								},
 								IPAddress: "127.0.0.1",

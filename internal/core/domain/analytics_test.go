@@ -125,25 +125,25 @@ func TestCountOnlineDoctors(t *testing.T) {
 		{
 			name: "All doctors online",
 			doctors: []DoctorPerformance{
-				{DoctorID: 1, IsOnline: true},
-				{DoctorID: 2, IsOnline: true},
+				{DoctorID: "01919df4-8e3b-7412-a1f9-90b567c9e101", IsOnline: true},
+				{DoctorID: "01919df4-8e3b-7412-a1f9-90b567c9e102", IsOnline: true},
 			},
 			wantCount: 2,
 		},
 		{
 			name: "All doctors offline",
 			doctors: []DoctorPerformance{
-				{DoctorID: 1, IsOnline: false},
-				{DoctorID: 2, IsOnline: false},
+				{DoctorID: "01919df4-8e3b-7412-a1f9-90b567c9e101", IsOnline: false},
+				{DoctorID: "01919df4-8e3b-7412-a1f9-90b567c9e102", IsOnline: false},
 			},
 			wantCount: 0,
 		},
 		{
 			name: "Mixed online and offline doctors",
 			doctors: []DoctorPerformance{
-				{DoctorID: 1, IsOnline: true},
-				{DoctorID: 2, IsOnline: false},
-				{DoctorID: 3, IsOnline: true},
+				{DoctorID: "01919df4-8e3b-7412-a1f9-90b567c9e101", IsOnline: true},
+				{DoctorID: "01919df4-8e3b-7412-a1f9-90b567c9e102", IsOnline: false},
+				{DoctorID: "01919df4-8e3b-7412-a1f9-90b567c9e103", IsOnline: true},
 			},
 			wantCount: 2,
 		},
@@ -171,17 +171,17 @@ func TestUpdateDoctorConfigRequest_Validate(t *testing.T) {
 			wantErr: ErrInvalidInput,
 		},
 		{
-			name: "Doctor ID zero returns ErrInvalidInput",
+			name: "Doctor ID empty returns ErrInvalidInput",
 			req: &UpdateDoctorConfigRequest{
-				DoctorID:               0,
+				DoctorID:               "",
 				AvgConsultationTimeMin: 3,
 			},
 			wantErr: ErrInvalidInput,
 		},
 		{
-			name: "Doctor ID negative returns ErrInvalidInput",
+			name: "Doctor ID whitespace returns ErrInvalidInput",
 			req: &UpdateDoctorConfigRequest{
-				DoctorID:               -1,
+				DoctorID:               "   ",
 				AvgConsultationTimeMin: 3,
 			},
 			wantErr: ErrInvalidInput,
@@ -189,7 +189,7 @@ func TestUpdateDoctorConfigRequest_Validate(t *testing.T) {
 		{
 			name: "Consultation time zero returns ErrInvalidConsultationTime",
 			req: &UpdateDoctorConfigRequest{
-				DoctorID:               1,
+				DoctorID:               "01919df4-8e3b-7412-a1f9-90b567c9e101",
 				AvgConsultationTimeMin: 0,
 			},
 			wantErr: ErrInvalidConsultationTime,
@@ -197,7 +197,7 @@ func TestUpdateDoctorConfigRequest_Validate(t *testing.T) {
 		{
 			name: "Consultation time negative returns ErrInvalidConsultationTime",
 			req: &UpdateDoctorConfigRequest{
-				DoctorID:               1,
+				DoctorID:               "01919df4-8e3b-7412-a1f9-90b567c9e101",
 				AvgConsultationTimeMin: -5,
 			},
 			wantErr: ErrInvalidConsultationTime,
@@ -205,7 +205,7 @@ func TestUpdateDoctorConfigRequest_Validate(t *testing.T) {
 		{
 			name: "Valid request returns nil error",
 			req: &UpdateDoctorConfigRequest{
-				DoctorID:               1,
+				DoctorID:               "01919df4-8e3b-7412-a1f9-90b567c9e101",
 				AvgConsultationTimeMin: 4,
 			},
 			wantErr: nil,

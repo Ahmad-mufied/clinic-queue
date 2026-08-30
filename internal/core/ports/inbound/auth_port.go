@@ -29,5 +29,5 @@ type AuthResponse struct {
 type AuthUseCase interface {
 	Login(ctx context.Context, req LoginRequest) (*AuthResponse, error)
 	Register(ctx context.Context, req RegisterRequest) (*AuthResponse, error)
-	GetProfile(ctx context.Context, userID int) (*domain.User, error)
+	GetProfile(ctx context.Context, userID string) (*domain.User, error)
 }

@@ -102,7 +102,7 @@ func (r *AnalyticsRepo) GetDoctorProductivityList(ctx context.Context) ([]domain
 	var list []domain.DoctorPerformance
 	for rows.Next() {
 		var (
-			doctorID             int
+			doctorID             string
 			doctorName           string
 			targetAvgMinutes     int
 			isOnline             bool

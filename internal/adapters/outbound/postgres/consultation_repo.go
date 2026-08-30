@@ -27,7 +27,7 @@ var _ outbound.ConsultationRepositoryPort = (*ConsultationRepo)(nil)
 
 // CallNextTicketAtomically acquires the next waiting patient ticket via row-level lock (FOR UPDATE SKIP LOCKED),
 // updates the ticket status to IN_CONSULTATION, and creates a consultation session in a single transaction.
-func (r *ConsultationRepo) CallNextTicketAtomically(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
+func (r *ConsultationRepo) CallNextTicketAtomically(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("begin transaction: %w", err)
@@ -47,7 +47,7 @@ func (r *ConsultationRepo) CallNextTicketAtomically(ctx context.Context, doctorI
 	`
 
 	var (
-		ticketID    int
+		ticketID    string
 		queueNumber string
 		patientName string
 		statusStr   string
@@ -79,7 +79,7 @@ func (r *ConsultationRepo) CallNextTicketAtomically(ctx context.Context, doctorI
 		RETURNING id, started_at
 	`
 	var (
-		sessionID int
+		sessionID string
 		startedAt time.Time
 	)
 
@@ -108,7 +108,7 @@ func (r *ConsultationRepo) CallNextTicketAtomically(ctx context.Context, doctorI
 }
 
 // FinishActiveSession closes the doctor's active session and marks the corresponding ticket COMPLETED in a single transaction.
-func (r *ConsultationRepo) FinishActiveSession(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
+func (r *ConsultationRepo) FinishActiveSession(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("begin transaction: %w", err)
@@ -126,8 +126,8 @@ func (r *ConsultationRepo) FinishActiveSession(ctx context.Context, doctorID int
 	`
 
 	var (
-		sessionID   int
-		ticketID    int
+		sessionID   string
+		ticketID    string
 		patientName string
 		startedAt   time.Time
 		finishedAt  time.Time
@@ -167,7 +167,7 @@ func (r *ConsultationRepo) FinishActiveSession(ctx context.Context, doctorID int
 }
 
 // GetActiveSessionByDoctorID retrieves the active consultation session for a given doctor.
-func (r *ConsultationRepo) GetActiveSessionByDoctorID(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
+func (r *ConsultationRepo) GetActiveSessionByDoctorID(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
 	query := `
 		SELECT cs.id, cs.doctor_id, cs.ticket_id, cs.patient_name, cs.started_at, cs.finished_at, cs.is_active,
 		       qt.queue_number, qt.status
@@ -176,11 +176,10 @@ func (r *ConsultationRepo) GetActiveSessionByDoctorID(ctx context.Context, docto
 		WHERE cs.doctor_id = $1 AND cs.is_active = true
 		LIMIT 1
 	`
-
 	var (
-		sessionID    int
-		docID        int
-		ticketID     int
+		sessionID    string
+		docID        string
+		ticketID     string
 		patientName  string
 		startedAt    time.Time
 		finishedAt   *time.Time
@@ -197,7 +196,7 @@ func (r *ConsultationRepo) GetActiveSessionByDoctorID(ctx context.Context, docto
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("query active session by doctor id %d: %w", doctorID, err)
+		return nil, fmt.Errorf("query active session by doctor id %s: %w", doctorID, err)
 	}
 
 	var ticket *domain.ConsultationTicket

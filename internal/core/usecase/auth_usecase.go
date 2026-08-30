@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"clinic-queue/internal/core/domain"
@@ -119,8 +120,8 @@ func (u *AuthUseCase) Register(ctx context.Context, req inbound.RegisterRequest)
 }
 
 // GetProfile retrieves a user by ID and returns the sanitized domain model.
-func (u *AuthUseCase) GetProfile(ctx context.Context, userID int) (*domain.User, error) {
-	if userID <= 0 {
+func (u *AuthUseCase) GetProfile(ctx context.Context, userID string) (*domain.User, error) {
+	if strings.TrimSpace(userID) == "" {
 		return nil, domain.ErrInvalidInput
 	}
 
@@ -137,13 +138,15 @@ func (u *AuthUseCase) GetProfile(ctx context.Context, userID int) (*domain.User,
 
 func (u *AuthUseCase) generateToken(user *domain.User) string {
 	claims := &domain.JWTCustomClaims{
-		UserID:    user.ID,
-		Username:  user.Username,
-		Role:      user.Role,
-		DoctorID:  user.DoctorID,
-		Name:      user.Name,
-		ExpiresAt: jwt.NewNumericDate(time.Now().Add(u.jwtExpiration)),
-		IssuedAt:  jwt.NewNumericDate(time.Now()),
+		UserID:   user.ID,
+		Username: user.Username,
+		Role:     user.Role,
+		DoctorID: user.DoctorID,
+		Name:     user.Name,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(u.jwtExpiration)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

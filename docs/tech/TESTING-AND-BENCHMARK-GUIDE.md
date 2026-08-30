@@ -38,7 +38,7 @@ flowchart TD
 | **1. Unit Tests** | Core Business Logic & Ports | $< 200\text{ms}$ | Pure Go (Mocks) | **100.0% Statement Coverage**, 0 Data Races |
 | **2. Micro-Benchmarks** | Greedy Scheduling Engine | $< 500\text{ms}$ | Pure Go (In-memory) | Sub-microsecond execution, $O(M)$ heap allocations |
 | **3. E2E Regression** | Multi-Persona API Workflows | $< 2.0\text{s}$ | Live API, Postgres 18, NATS | 70/70 Scenarios Passed, 100% Casbin RBAC Compliance |
-| **4. Stress Harness** | High-Load & Row Lock Contention | $< 3.0\text{s}$ | Live API, Postgres 18, NATS | $\ge 4,700\text{ RPS}$, **0 Double-Bookings**, $P_{99} < 25\text{ms}$ |
+| **4. Stress Harness** | High-Load & Row Lock Contention | $< 3.0\text{s}$ | Live API, Postgres 18, NATS | $\ge 5,400\text{ RPS}$, **0 Double-Bookings**, $P_{99} < 30\text{ms}$ |
 
 ---
 

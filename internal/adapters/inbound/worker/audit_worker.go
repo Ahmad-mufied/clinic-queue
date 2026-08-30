@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 
 	"clinic-queue/internal/core/domain"
 	"clinic-queue/internal/core/ports/inbound"
@@ -50,6 +51,25 @@ func (w *AuditWorker) StartSubscribing(ctx context.Context, nc *nats.Conn, subje
 	return sub, nil
 }
 
+func extractID(m map[string]any, key string) *string {
+	val, ok := m[key]
+	if !ok || val == nil {
+		return nil
+	}
+	switch v := val.(type) {
+	case string:
+		if trimmed := strings.TrimSpace(v); trimmed != "" {
+			return &trimmed
+		}
+	case float64:
+		if v > 0 {
+			str := fmt.Sprintf("%.0f", v)
+			return &str
+		}
+	}
+	return nil
+}
+
 // HandleEventMessage processes incoming serialized NATS events and inserts audit log entries.
 func (w *AuditWorker) HandleEventMessage(ctx context.Context, data []byte) {
 	var envelope EventEnvelope
@@ -82,48 +102,62 @@ func (w *AuditWorker) HandleEventMessage(ctx context.Context, data []byte) {
 		} else {
 			dto.ActorName = "Walk-in Patient"
 		}
-		if uid, ok := rawMap["user_id"].(float64); ok && uid > 0 {
-			intUID := int(uid)
-			dto.UserID = &intUID
-		}
+		dto.UserID = extractID(rawMap, "user_id")
 
 	case "TICKET_CALLED":
 		dto.Action = "CONSULTATION_STARTED"
 		dto.Role = string(domain.RoleDoctor)
 		if docName, ok := rawMap["doctor_name"].(string); ok && docName != "" {
 			dto.ActorName = docName
+		} else if docID, ok := rawMap["doctor_id"].(string); ok && docID != "" {
+			dto.ActorName = fmt.Sprintf("Dr. Doctor %s", docID)
 		} else if docID, ok := rawMap["doctor_id"].(float64); ok {
 			dto.ActorName = fmt.Sprintf("Dr. Doctor %d", int(docID))
 		} else {
 			dto.ActorName = "Attending Doctor"
 		}
+		dto.UserID = extractID(rawMap, "user_id")
 
 	case "TICKET_FINISHED":
 		dto.Action = "CONSULTATION_FINISHED"
 		dto.Role = string(domain.RoleDoctor)
 		if docName, ok := rawMap["doctor_name"].(string); ok && docName != "" {
 			dto.ActorName = docName
+		} else if docID, ok := rawMap["doctor_id"].(string); ok && docID != "" {
+			dto.ActorName = fmt.Sprintf("Dr. Doctor %s", docID)
 		} else if docID, ok := rawMap["doctor_id"].(float64); ok {
 			dto.ActorName = fmt.Sprintf("Dr. Doctor %d", int(docID))
 		} else {
 			dto.ActorName = "Attending Doctor"
 		}
+		dto.UserID = extractID(rawMap, "user_id")
 
 	case "DOCTOR_STATUS_CHANGED":
 		dto.Action = "DOCTOR_STATUS_CHANGED"
 		dto.Role = string(domain.RoleDoctor)
 		if name, ok := rawMap["name"].(string); ok && name != "" {
 			dto.ActorName = name
+		} else if docID, ok := rawMap["doctor_id"].(string); ok && docID != "" {
+			dto.ActorName = fmt.Sprintf("Dr. Doctor %s", docID)
 		} else if docID, ok := rawMap["doctor_id"].(float64); ok {
 			dto.ActorName = fmt.Sprintf("Dr. Doctor %d", int(docID))
 		} else {
 			dto.ActorName = "Attending Doctor"
 		}
+		dto.UserID = extractID(rawMap, "user_id")
 
 	case "DOCTOR_CONFIG_UPDATED":
 		dto.Action = "DOCTOR_CONFIG_UPDATED"
 		dto.Role = string(domain.RoleAdmin)
 		dto.ActorName = "Clinic Administrator"
+		if adminUID := extractID(rawMap, "admin_id"); adminUID != nil {
+			dto.UserID = adminUID
+		} else if uID := extractID(rawMap, "user_id"); uID != nil {
+			dto.UserID = uID
+		} else {
+			adminID := "01919df4-8e3b-7412-a1f9-90b567c9e205"
+			dto.UserID = &adminID
+		}
 
 	case "AUTH_LOGIN":
 		dto.Action = "AUTH_LOGIN"
@@ -139,10 +173,7 @@ func (w *AuditWorker) HandleEventMessage(ctx context.Context, data []byte) {
 		} else {
 			dto.ActorName = "User"
 		}
-		if uid, ok := rawMap["user_id"].(float64); ok && uid > 0 {
-			intUID := int(uid)
-			dto.UserID = &intUID
-		}
+		dto.UserID = extractID(rawMap, "user_id")
 
 	case "AUTH_REGISTER":
 		dto.Action = "AUTH_REGISTER"
@@ -154,10 +185,7 @@ func (w *AuditWorker) HandleEventMessage(ctx context.Context, data []byte) {
 		} else {
 			dto.ActorName = "New Patient"
 		}
-		if uid, ok := rawMap["user_id"].(float64); ok && uid > 0 {
-			intUID := int(uid)
-			dto.UserID = &intUID
-		}
+		dto.UserID = extractID(rawMap, "user_id")
 
 	default:
 		return

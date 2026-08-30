@@ -86,9 +86,9 @@ func (r *AuditRepo) QueryLogs(ctx context.Context, filter domain.AuditLogFilter)
 		argIdx++
 	}
 
-	if filter.UserID != nil && *filter.UserID > 0 {
+	if filter.UserID != nil && strings.TrimSpace(*filter.UserID) != "" {
 		conditions = append(conditions, fmt.Sprintf("user_id = $%d", argIdx))
-		args = append(args, *filter.UserID)
+		args = append(args, strings.TrimSpace(*filter.UserID))
 		argIdx++
 	}
 
@@ -124,13 +124,13 @@ func (r *AuditRepo) QueryLogs(ctx context.Context, filter domain.AuditLogFilter)
 	}
 
 	// Cursor pagination clause
-	if filter.Cursor != nil && *filter.Cursor > 0 {
+	if filter.Cursor != nil && strings.TrimSpace(*filter.Cursor) != "" {
 		if isAsc {
 			conditions = append(conditions, fmt.Sprintf("id > $%d", argIdx))
 		} else {
 			conditions = append(conditions, fmt.Sprintf("id < $%d", argIdx))
 		}
-		args = append(args, *filter.Cursor)
+		args = append(args, strings.TrimSpace(*filter.Cursor))
 		argIdx++
 	}
 
@@ -144,7 +144,7 @@ func (r *AuditRepo) QueryLogs(ctx context.Context, filter domain.AuditLogFilter)
 	var query string
 	var queryArgs []any
 
-	if filter.Cursor != nil && *filter.Cursor > 0 {
+	if filter.Cursor != nil && strings.TrimSpace(*filter.Cursor) != "" {
 		// Pure cursor query without offset
 		query = fmt.Sprintf(`
 			SELECT id, user_id, actor_name, role, action, details, ip_address, created_at
@@ -153,7 +153,7 @@ func (r *AuditRepo) QueryLogs(ctx context.Context, filter domain.AuditLogFilter)
 			ORDER BY id %s
 			LIMIT $%d
 		`, whereClause, orderDir, argIdx)
-		queryArgs = append(args, fetchLimit)
+		queryArgs = append(queryArgs, fetchLimit)
 	} else {
 		// Offset fallback query
 		query = fmt.Sprintf(`
@@ -211,7 +211,7 @@ func (r *AuditRepo) QueryLogs(ctx context.Context, filter domain.AuditLogFilter)
 	}
 
 	hasMore := false
-	var nextCursor *int
+	var nextCursor *string
 	if len(logs) > filter.Limit {
 		hasMore = true
 		logs = logs[:filter.Limit]

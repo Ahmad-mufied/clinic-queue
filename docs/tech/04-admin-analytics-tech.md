@@ -1,7 +1,7 @@
 # Technical Specification: Executive Analytics & Business Intelligence
 **File:** `docs/tech/04-admin-analytics-tech.md`  
 **Status:** Approved  
-**Version:** `v1.0.0`
+**Version:** `v1.1.0`
 
 ---
 
@@ -73,7 +73,7 @@ ORDER BY d.id ASC;
   },
   "doctor_performance": [
     {
-      "doctor_id": 1,
+      "doctor_id": "01919df4-8e3b-7412-a1f9-90b567c9e201",
       "doctor_name": "Doctor A",
       "target_avg_minutes": 3,
       "is_online": true,
@@ -82,7 +82,7 @@ ORDER BY d.id ASC;
       "utilization_rate_percentage": 62.0
     },
     {
-      "doctor_id": 2,
+      "doctor_id": "01919df4-8e3b-7412-a1f9-90b567c9e202",
       "doctor_name": "Doctor B",
       "target_avg_minutes": 4,
       "is_online": true,
@@ -100,7 +100,7 @@ ORDER BY d.id ASC;
 - **Request Body:**
 ```json
 {
-  "doctor_id": 1,
+  "doctor_id": "01919df4-8e3b-7412-a1f9-90b567c9e201",
   "avg_consultation_time_min": 4
 }
 ```
@@ -112,7 +112,7 @@ ORDER BY d.id ASC;
 
 | Scenario ID | Endpoint | Method | Condition | Status | Response Summary |
 | :--- | :--- | :---: | :--- | :---: | :--- |
-| **API-ADM-01** | `/api/admin/stats` | `GET` | Valid Admin Token | `200 OK` | Returns full KPI summary & doctor table |
+| **API-ADM-01** | `/api/admin/stats` | `GET` | Valid Admin Token | `200 OK` | Returns full KPI summary & doctor table with UUIDv7 IDs |
 | **API-ADM-02** | `/api/admin/stats` | `GET` | Zero patients today | `200 OK` | Returns safe zero values without errors |
 | **API-ADM-03** | `/api/admin/stats` | `GET` | Patient/Doctor Token | `403 Forbidden` | `{"error": "Access denied: insufficient privileges"}` |
 | **API-ADM-04** | `/api/admin/doctors`| `POST`| `avg_time: 0` | `400 Bad Request` | `{"error": "Avg time must be greater than 0"}` |
@@ -124,3 +124,4 @@ ORDER BY d.id ASC;
 | Version | Date | Author / Role | Change Type | Change Summary / Rationale |
 | :---: | :---: | :---: | :---: | :--- |
 | **v1.0.0** | 2026-08-29 | Backend Lead | **Initial Baseline** | Initial technical specification for PostgreSQL 18 analytics queries, doctor utilization rate calculation, division-by-zero safeguards, and executive REST endpoints. |
+| **v1.1.0** | 2026-08-30 | Backend Lead | **Native UUIDv7 Spec** | Migrated `DoctorPerformance.DoctorID` and `UpdateDoctorConfigRequest.DoctorID` to Native UUIDv7 string identifiers. |

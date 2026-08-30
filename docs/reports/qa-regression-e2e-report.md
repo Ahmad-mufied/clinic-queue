@@ -76,11 +76,11 @@ flowchart TD
 | Test ID | PRD Category | Endpoint | Persona | Scenario Description | Expected Outcome | Actual Outcome | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :---: |
 | **INFRA-01** | Infrastructure | `GET /health` | System | API Server Health Check | HTTP 200 OK (`healthy`) | HTTP 200 (healthy) | **PASS** |
-| **INFRA-02** | Infrastructure | PostgreSQL 18 | System | Database Clean Baseline Reset | Prune tables & reset identity | Pruned & Reset OK | **PASS** |
+| **INFRA-02** | Infrastructure | PostgreSQL 18 | System | Database Clean Baseline Reset | Prune tables & reset identity to UUIDv7 | Pruned & Reset OK | **PASS** |
 | **INFRA-03** | Infrastructure | `GET /api/events`| Public Client | SSE Stream Connection & Handshake | Initial `event: CONNECTED` | Received CONNECTED event | **PASS** |
 | **AUTH-01** | PRD 01 Auth | `POST /api/auth/login` | Admin | Valid Admin Login | HTTP 200 & `role=admin` | HTTP 200 & `role=admin` | **PASS** |
-| **AUTH-02** | PRD 01 Auth | `POST /api/auth/login` | Doctor A | Valid Doctor A Login | HTTP 200, `role=doctor, doctor_id=1` | HTTP 200 & `doctor_id=1` | **PASS** |
-| **AUTH-03** | PRD 01 Auth | `POST /api/auth/login` | Doctor B | Valid Doctor B Login | HTTP 200, `role=doctor, doctor_id=2` | HTTP 200 & `doctor_id=2` | **PASS** |
+| **AUTH-02** | PRD 01 Auth | `POST /api/auth/login` | Doctor A | Valid Doctor A Login | HTTP 200, `role=doctor, doctor_id=01919df4-8e3b-7412-a1f9-90b567c9e101` | HTTP 200 & `doctor_id=01919df4-8e3b-7412-a1f9-90b567c9e101` | **PASS** |
+| **AUTH-03** | PRD 01 Auth | `POST /api/auth/login` | Doctor B | Valid Doctor B Login | HTTP 200, `role=doctor, doctor_id=01919df4-8e3b-7412-a1f9-90b567c9e102` | HTTP 200 & `doctor_id=01919df4-8e3b-7412-a1f9-90b567c9e102` | **PASS** |
 | **AUTH-04** | PRD 01 Auth | `POST /api/auth/login` | Patient John | Valid Patient John Login | HTTP 200, `role=patient` | HTTP 200 & `role=patient` | **PASS** |
 | **AUTH-05** | PRD 01 Auth | `POST /api/auth/login` | Patient Lucas | Valid Patient Lucas Login | HTTP 200, `role=patient` | HTTP 200 & `role=patient` | **PASS** |
 | **AUTH-06** | PRD 01 Auth | `GET /api/auth/me` | Doctor A | Profile Query with Doctor Token | HTTP 200 & `username=doctor_a` | HTTP 200 & `username=doctor_a` | **PASS** |

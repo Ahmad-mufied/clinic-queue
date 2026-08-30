@@ -73,12 +73,12 @@ func GetUserClaims(c echo.Context) (*domain.JWTCustomClaims, bool) {
 }
 
 // GetUserID extracts the user ID stored in the Echo context.
-func GetUserID(c echo.Context) (int, bool) {
+func GetUserID(c echo.Context) (string, bool) {
 	val := c.Get(ContextKeyUserID)
 	if val == nil {
-		return 0, false
+		return "", false
 	}
-	id, ok := val.(int)
+	id, ok := val.(string)
 	return id, ok
 }
 
@@ -93,11 +93,11 @@ func GetUserRole(c echo.Context) (string, bool) {
 }
 
 // GetDoctorID extracts the optional doctor ID stored in the Echo context.
-func GetDoctorID(c echo.Context) (*int, bool) {
+func GetDoctorID(c echo.Context) (*string, bool) {
 	val := c.Get(ContextKeyDoctorID)
 	if val == nil {
 		return nil, false
 	}
-	docID, ok := val.(*int)
+	docID, ok := val.(*string)
 	return docID, ok
 }

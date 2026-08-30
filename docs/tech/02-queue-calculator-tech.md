@@ -1,7 +1,7 @@
 # Technical Specification: Queue Engine & Real-Time Wait Calculation
 **File:** `docs/tech/02-queue-calculator-tech.md`  
 **Status:** Approved  
-**Version:** `v1.0.0`
+**Version:** `v1.1.0`
 
 ---
 
@@ -85,8 +85,8 @@ func CalculateEstimatedWaitingTime(doctors []*Doctor, positionInQueue int) (int,
 ```sql
 -- +goose Up
 CREATE TABLE IF NOT EXISTS queue_tickets (
-    id SERIAL PRIMARY KEY,
-    user_id INT REFERENCES users(id) ON DELETE SET NULL,
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
     patient_name VARCHAR(100) NOT NULL,
     queue_number VARCHAR(20) NOT NULL,
     status VARCHAR(30) NOT NULL DEFAULT 'WAITING' 
@@ -120,7 +120,7 @@ DROP TABLE IF EXISTS queue_tickets;
 ```json
 {
   "ticket": {
-    "id": 101,
+    "id": "01919df4-8e3b-7412-a1f9-90b567c9e301",
     "queue_number": "A-11",
     "patient_name": "John Doe",
     "status": "WAITING",
@@ -139,8 +139,8 @@ DROP TABLE IF EXISTS queue_tickets;
 ```json
 {
   "online_doctors": [
-    { "id": 1, "name": "Doctor A", "avg_time": 3, "status": "AVAILABLE" },
-    { "id": 2, "name": "Doctor B", "avg_time": 4, "status": "IN_CONSULTATION", "current_patient": "Lucas", "elapsed_minutes": 2 }
+    { "id": "01919df4-8e3b-7412-a1f9-90b567c9e201", "name": "Doctor A", "avg_time": 3, "status": "AVAILABLE" },
+    { "id": "01919df4-8e3b-7412-a1f9-90b567c9e202", "name": "Doctor B", "avg_time": 4, "status": "IN_CONSULTATION", "current_patient": "Lucas", "elapsed_minutes": 2 }
   ],
   "total_waiting": 9,
   "queue_list": [
@@ -165,7 +165,7 @@ data: {"action":"TICKET_CALLED","doctor":"Doctor A","ticket_number":"A-01","time
 
 | Scenario ID | Endpoint | Method | Condition / Payload | Status | Response Summary |
 | :--- | :--- | :---: | :--- | :---: | :--- |
-| **API-QUE-01** | `/api/queue/join` | `POST` | Valid Name ("John") | `201 Created` | Returns Ticket A-11 with Wait Time 16m |
+| **API-QUE-01** | `/api/queue/join` | `POST` | Valid Name ("John") | `201 Created` | Returns Ticket A-11 with Wait Time 16m and UUIDv7 ID |
 | **API-QUE-02** | `/api/queue/join` | `POST` | Empty Name `""` | `400 Bad Request` | `{"error": "Patient name is required"}` |
 | **API-QUE-03** | `/api/queue/join` | `POST` | Already has active ticket | `409 Conflict` | `{"error": "Active queue ticket already exists"}` |
 | **API-QUE-04** | `/api/queue/status`| `GET` | All doctors offline | `200 OK` | Returns `online_doctors: []`, `notice: "Doctors offline"` |
@@ -177,3 +177,4 @@ data: {"action":"TICKET_CALLED","doctor":"Doctor A","ticket_number":"A-01","time
 | Version | Date | Author / Role | Change Type | Change Summary / Rationale |
 | :---: | :---: | :---: | :---: | :--- |
 | **v1.0.0** | 2026-08-29 | Backend Lead | **Initial Baseline** | Initial technical specification for the greedy multi-doctor queue algorithm, Goose SQL migration for `queue_tickets`, REST API endpoints, and NATS-backed SSE stream specs. |
+| **v1.1.0** | 2026-08-30 | Backend Lead | **Native UUIDv7 Spec** | Migrated `queue_tickets.id`, `queue_tickets.user_id`, and `DoctorAvailability.ID` to Native UUIDv7 (`DEFAULT uuidv7()`), updating domain entities, DTOs, and test assertions. |

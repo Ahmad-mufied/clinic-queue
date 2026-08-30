@@ -86,44 +86,44 @@ func TestActiveConsultation_RemainingTime(t *testing.T) {
 
 func TestNewDoctor(t *testing.T) {
 	tests := []struct {
-		name        string
-		id          int
-		docName     string
-		avgTime     int
-		isOnline    bool
-		session     *ActiveConsultation
-		wantErr     error
-		wantNil     bool
+		name     string
+		id       string
+		docName  string
+		avgTime  int
+		isOnline bool
+		session  *ActiveConsultation
+		wantErr  error
+		wantNil  bool
 	}{
 		{
-			name:        "Invalid avg consultation time <= 0",
-			id:          1,
-			docName:     "Dr. Error",
-			avgTime:     0,
-			isOnline:    true,
-			session:     nil,
-			wantErr:     ErrInvalidConsultationTime,
-			wantNil:     true,
+			name:     "Invalid avg consultation time <= 0",
+			id:       "01919df4-8e3b-7412-a1f9-90b567c9e101",
+			docName:  "Dr. Error",
+			avgTime:  0,
+			isOnline: true,
+			session:  nil,
+			wantErr:  ErrInvalidConsultationTime,
+			wantNil:  true,
 		},
 		{
-			name:        "Negative avg consultation time",
-			id:          1,
-			docName:     "Dr. Error",
-			avgTime:     -3,
-			isOnline:    true,
-			session:     nil,
-			wantErr:     ErrInvalidConsultationTime,
-			wantNil:     true,
+			name:     "Negative avg consultation time",
+			id:       "01919df4-8e3b-7412-a1f9-90b567c9e101",
+			docName:  "Dr. Error",
+			avgTime:  -3,
+			isOnline: true,
+			session:  nil,
+			wantErr:  ErrInvalidConsultationTime,
+			wantNil:  true,
 		},
 		{
-			name:        "Valid doctor creation",
-			id:          1,
-			docName:     "Dr. Sarah Adams",
-			avgTime:     3,
-			isOnline:    true,
-			session:     &ActiveConsultation{PatientName: "Lucas", ElapsedTime: 1},
-			wantErr:     nil,
-			wantNil:     false,
+			name:     "Valid doctor creation",
+			id:       "01919df4-8e3b-7412-a1f9-90b567c9e101",
+			docName:  "Dr. Sarah Adams",
+			avgTime:  3,
+			isOnline: true,
+			session:  &ActiveConsultation{PatientName: "Lucas", ElapsedTime: 1},
+			wantErr:  nil,
+			wantNil:  false,
 		},
 	}
 

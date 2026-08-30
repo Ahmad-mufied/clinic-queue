@@ -3,6 +3,7 @@ package http
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"clinic-queue/internal/adapters/inbound/middleware"
 	"clinic-queue/internal/core/domain"
@@ -94,7 +95,7 @@ func (h *AuthHandler) Register(c echo.Context) error {
 // GetMe handles GET /api/auth/me.
 func (h *AuthHandler) GetMe(c echo.Context) error {
 	userID, ok := middleware.GetUserID(c)
-	if !ok || userID <= 0 {
+	if !ok || strings.TrimSpace(userID) == "" {
 		return c.JSON(http.StatusUnauthorized, map[string]string{
 			"error": "Unauthorized",
 		})

@@ -1,7 +1,7 @@
 # Technical Architecture Specification: Master Overview
 **File:** `docs/tech/ARCH.md`  
 **Status:** Approved  
-**Version:** `v1.0.0`
+**Version:** `v1.5.0`
 
 ---
 
@@ -268,7 +268,22 @@ flowchart TD
 
 ---
 
-## 6. Document Revision History & Requirement Changelog
+---
+
+## 6. Enterprise Identity Architecture & UUIDv7 Standard
+
+All entity primary keys, relational foreign keys, and security boundaries across the platform utilize **Native UUIDv7 (Time-Ordered Monotonic 128-bit UUIDs)** with a **3-Tier Identity Resolution Model**:
+1. **Tier 1 (Human-Facing Display):** Concise, memorable codes (`A-01`, `@doctor_a`, `Dr. Sarah Adams`) for patients, doctors, and PA audio.
+2. **Tier 2 (API & Security Boundary):** Unguessable 36-character UUIDv7 strings in REST JSON DTOs and JWT claims (Anti-IDOR).
+3. **Tier 3 (PostgreSQL 18 Storage Engine):** High-throughput, right-edge sequential B-Tree indexing via native `DEFAULT uuidv7()`.
+
+> [!NOTE]
+> For the comprehensive technical specification, RFC 9562 byte layout, PostgreSQL 18 functions, Go 1.27 standard library integration, and system-wide mapping matrix, refer to:  
+> **[`docs/tech/IDENTITY-DESIGN.md`](file:///mnt/Cons/Code/Project/Jobs/Noak/code/web-app/docs/tech/IDENTITY-DESIGN.md)**
+
+---
+
+## 7. Document Revision History & Requirement Changelog
 
 | Version | Date | Author / Role | Change Type | Change Summary / Rationale |
 | :---: | :---: | :---: | :---: | :--- |
@@ -277,3 +292,4 @@ flowchart TD
 | **v1.2.0** | 2026-08-29 | Principal Architect | **Hexagonal Refactor** | Refactored Section 4 to strictly align with Hexagonal Architecture Ports & Adapters mocking and test structure. |
 | **v1.3.0** | 2026-08-29 | Principal Architect | **Infra & E2E Validation** | Updated PostgreSQL 18 volume mount path (`/var/lib/postgresql`) and host port mapping (`5433:5432`) to prevent environment port collisions during integration testing. |
 | **v1.4.0** | 2026-08-29 | Principal Architect | **Frontend Stack Update** | Updated frontend specification to Next.js 15 (App Router) + TypeScript + Tailwind CSS + Radix UI + shadcn/ui + TanStack Query v5 with real-time SSE cache invalidation. |
+| **v1.5.0** | 2026-08-30 | Principal Architect | **Native UUIDv7 & Identity Spec** | Migrated entity identification to Native UUIDv7 (PostgreSQL 18 `uuidv7()` + Go 1.27 `uuid` pkg) and added Section 6.2 Dual-Layer Identity Architecture separating DB keys from human display codes. |

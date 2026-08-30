@@ -16,7 +16,7 @@ func TestCalculateEstimatedWaitingTime(t *testing.T) {
 		{
 			name: "Case Study 1 Q1: 1 Doc (3m), idle, John is 6th",
 			doctors: []*Doctor{
-				{ID: 1, Name: "Doctor 1", AvgConsultationTime: 3, IsOnline: true, CurrentSession: nil},
+				{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Doctor 1", AvgConsultationTime: 3, IsOnline: true, CurrentSession: nil},
 			},
 			position:    6,
 			wantMinutes: 15,
@@ -25,7 +25,7 @@ func TestCalculateEstimatedWaitingTime(t *testing.T) {
 		{
 			name: "Case Study 1 Q2(a): 1 Doc (3m), Peter in 2m (1m left), 4 waiting ahead (John is 5th)",
 			doctors: []*Doctor{
-				{ID: 1, Name: "Doctor 1", AvgConsultationTime: 3, IsOnline: true, CurrentSession: &ActiveConsultation{PatientName: "Peter", ElapsedTime: 2}},
+				{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Doctor 1", AvgConsultationTime: 3, IsOnline: true, CurrentSession: &ActiveConsultation{PatientName: "Peter", ElapsedTime: 2}},
 			},
 			position:    5,
 			wantMinutes: 13,
@@ -34,7 +34,7 @@ func TestCalculateEstimatedWaitingTime(t *testing.T) {
 		{
 			name: "Case Study 1 Q2(b): 1 Doc (3m), Peter in 5m (0m left / exceeded), 4 waiting ahead (John is 5th)",
 			doctors: []*Doctor{
-				{ID: 1, Name: "Doctor 1", AvgConsultationTime: 3, IsOnline: true, CurrentSession: &ActiveConsultation{PatientName: "Peter", ElapsedTime: 5}},
+				{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Doctor 1", AvgConsultationTime: 3, IsOnline: true, CurrentSession: &ActiveConsultation{PatientName: "Peter", ElapsedTime: 5}},
 			},
 			position:    5,
 			wantMinutes: 12,
@@ -43,8 +43,8 @@ func TestCalculateEstimatedWaitingTime(t *testing.T) {
 		{
 			name: "Case Study 2 Q1: Doc A (3m), Doc B (4m), both idle, John is 11th",
 			doctors: []*Doctor{
-				{ID: 1, Name: "Doctor A", AvgConsultationTime: 3, IsOnline: true, CurrentSession: nil},
-				{ID: 2, Name: "Doctor B", AvgConsultationTime: 4, IsOnline: true, CurrentSession: nil},
+				{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Doctor A", AvgConsultationTime: 3, IsOnline: true, CurrentSession: nil},
+				{ID: "01919df4-8e3b-7412-a1f9-90b567c9e102", Name: "Doctor B", AvgConsultationTime: 4, IsOnline: true, CurrentSession: nil},
 			},
 			position:    11,
 			wantMinutes: 16,
@@ -53,8 +53,8 @@ func TestCalculateEstimatedWaitingTime(t *testing.T) {
 		{
 			name: "Case Study 2 Q2: Doc A idle, Doc B with Lucas (2m elapsed of 4m), 9 waiting ahead (John is 10th)",
 			doctors: []*Doctor{
-				{ID: 1, Name: "Doctor A", AvgConsultationTime: 3, IsOnline: true, CurrentSession: nil},
-				{ID: 2, Name: "Doctor B", AvgConsultationTime: 4, IsOnline: true, CurrentSession: &ActiveConsultation{PatientName: "Lucas", ElapsedTime: 2}},
+				{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Doctor A", AvgConsultationTime: 3, IsOnline: true, CurrentSession: nil},
+				{ID: "01919df4-8e3b-7412-a1f9-90b567c9e102", Name: "Doctor B", AvgConsultationTime: 4, IsOnline: true, CurrentSession: &ActiveConsultation{PatientName: "Lucas", ElapsedTime: 2}},
 			},
 			position:    10,
 			wantMinutes: 15,
@@ -63,7 +63,7 @@ func TestCalculateEstimatedWaitingTime(t *testing.T) {
 		{
 			name: "Edge Case: Immediate entry (Position 1)",
 			doctors: []*Doctor{
-				{ID: 1, Name: "Doctor A", AvgConsultationTime: 3, IsOnline: true, CurrentSession: nil},
+				{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Doctor A", AvgConsultationTime: 3, IsOnline: true, CurrentSession: nil},
 			},
 			position:    1,
 			wantMinutes: 0,
@@ -79,7 +79,7 @@ func TestCalculateEstimatedWaitingTime(t *testing.T) {
 		{
 			name: "Error: Invalid position (0)",
 			doctors: []*Doctor{
-				{ID: 1, Name: "Doctor A", AvgConsultationTime: 3, IsOnline: true, CurrentSession: nil},
+				{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Doctor A", AvgConsultationTime: 3, IsOnline: true, CurrentSession: nil},
 			},
 			position:    0,
 			wantMinutes: 0,
@@ -88,7 +88,7 @@ func TestCalculateEstimatedWaitingTime(t *testing.T) {
 		{
 			name: "Error: Invalid position (-1)",
 			doctors: []*Doctor{
-				{ID: 1, Name: "Doctor A", AvgConsultationTime: 3, IsOnline: true, CurrentSession: nil},
+				{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Doctor A", AvgConsultationTime: 3, IsOnline: true, CurrentSession: nil},
 			},
 			position:    -1,
 			wantMinutes: 0,
@@ -97,7 +97,7 @@ func TestCalculateEstimatedWaitingTime(t *testing.T) {
 		{
 			name: "Error: Nil doctor in slice",
 			doctors: []*Doctor{
-				{ID: 1, Name: "Doctor A", AvgConsultationTime: 3, IsOnline: true, CurrentSession: nil},
+				{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Doctor A", AvgConsultationTime: 3, IsOnline: true, CurrentSession: nil},
 				nil,
 			},
 			position:    3,
@@ -107,7 +107,7 @@ func TestCalculateEstimatedWaitingTime(t *testing.T) {
 		{
 			name: "Error: Doctor with non-positive AvgConsultationTime",
 			doctors: []*Doctor{
-				{ID: 1, Name: "Doctor Invalid", AvgConsultationTime: 0, IsOnline: true, CurrentSession: nil},
+				{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Doctor Invalid", AvgConsultationTime: 0, IsOnline: true, CurrentSession: nil},
 			},
 			position:    3,
 			wantMinutes: 0,

@@ -15,15 +15,15 @@ type DoctorRepositoryPort interface {
 	GetAllDoctorsWithSessions(ctx context.Context) ([]domain.DoctorAvailability, error)
 
 	// GetDoctorByID retrieves a doctor by their primary key ID.
-	GetDoctorByID(ctx context.Context, id int) (*domain.Doctor, error)
+	GetDoctorByID(ctx context.Context, id string) (*domain.Doctor, error)
 
 	// UpdateOnlineStatus updates the is_online status of a doctor.
-	UpdateOnlineStatus(ctx context.Context, doctorID int, isOnline bool) error
+	UpdateOnlineStatus(ctx context.Context, doctorID string, isOnline bool) error
 
 	// GetActiveSessionByDoctorID retrieves the active consultation session for a given doctor.
-	GetActiveSessionByDoctorID(ctx context.Context, doctorID int) (*domain.ConsultationSession, error)
+	GetActiveSessionByDoctorID(ctx context.Context, doctorID string) (*domain.ConsultationSession, error)
 
 	// UpdateDoctorAvgTime updates the configured average consultation duration for a doctor.
-	UpdateDoctorAvgTime(ctx context.Context, doctorID int, avgTime int) error
+	UpdateDoctorAvgTime(ctx context.Context, doctorID string, avgTime int) error
 }
 

@@ -19,7 +19,7 @@ import (
 type mockAuthUseCase struct {
 	loginFunc      func(ctx context.Context, req inbound.LoginRequest) (*inbound.AuthResponse, error)
 	registerFunc   func(ctx context.Context, req inbound.RegisterRequest) (*inbound.AuthResponse, error)
-	getProfileFunc func(ctx context.Context, userID int) (*domain.User, error)
+	getProfileFunc func(ctx context.Context, userID string) (*domain.User, error)
 }
 
 func (m *mockAuthUseCase) Login(ctx context.Context, req inbound.LoginRequest) (*inbound.AuthResponse, error) {
@@ -36,7 +36,7 @@ func (m *mockAuthUseCase) Register(ctx context.Context, req inbound.RegisterRequ
 	return nil, nil
 }
 
-func (m *mockAuthUseCase) GetProfile(ctx context.Context, userID int) (*domain.User, error) {
+func (m *mockAuthUseCase) GetProfile(ctx context.Context, userID string) (*domain.User, error) {
 	if m.getProfileFunc != nil {
 		return m.getProfileFunc(ctx, userID)
 	}
@@ -87,7 +87,7 @@ func TestAuthHandler_Login(t *testing.T) {
 				m.loginFunc = func(ctx context.Context, req inbound.LoginRequest) (*inbound.AuthResponse, error) {
 					return &inbound.AuthResponse{
 						Token: "valid-jwt-token",
-						User:  &domain.User{ID: 1, Username: "doctor_a", Role: domain.RoleDoctor},
+						User:  &domain.User{ID: "01919df4-8e3b-7412-a1f9-90b567c9e201", Username: "doctor_a", Role: domain.RoleDoctor},
 					}, nil
 				}
 			},
@@ -186,7 +186,7 @@ func TestAuthHandler_Register(t *testing.T) {
 				m.registerFunc = func(ctx context.Context, req inbound.RegisterRequest) (*inbound.AuthResponse, error) {
 					return &inbound.AuthResponse{
 						Token: "valid-jwt-token",
-						User:  &domain.User{ID: 10, Username: "new_user", Name: "New User", Role: domain.RolePatient},
+						User:  &domain.User{ID: "01919df4-8e3b-7412-a1f9-90b567c9e205", Username: "new_user", Name: "New User", Role: domain.RolePatient},
 					}, nil
 				}
 			},
@@ -286,11 +286,11 @@ func TestAuthHandler_GetMe(t *testing.T) {
 		{
 			name: "GetMe 200 OK",
 			contextSetup: func(c echo.Context) {
-				c.Set(middleware.ContextKeyUserID, 1)
+				c.Set(middleware.ContextKeyUserID, "01919df4-8e3b-7412-a1f9-90b567c9e201")
 			},
 			mockSetup: func(m *mockAuthUseCase) {
-				m.getProfileFunc = func(ctx context.Context, userID int) (*domain.User, error) {
-					return &domain.User{ID: 1, Username: "doctor_a", Name: "Dr. Sarah Adams", Role: domain.RoleDoctor}, nil
+				m.getProfileFunc = func(ctx context.Context, userID string) (*domain.User, error) {
+					return &domain.User{ID: "01919df4-8e3b-7412-a1f9-90b567c9e201", Username: "doctor_a", Name: "Dr. Sarah Adams", Role: domain.RoleDoctor}, nil
 				}
 			},
 			expectedCode: http.StatusOK,
@@ -302,9 +302,9 @@ func TestAuthHandler_GetMe(t *testing.T) {
 			expectedCode: http.StatusUnauthorized,
 		},
 		{
-			name: "GetMe Invalid User ID (<= 0)",
+			name: "GetMe Invalid User ID (empty)",
 			contextSetup: func(c echo.Context) {
-				c.Set(middleware.ContextKeyUserID, 0)
+				c.Set(middleware.ContextKeyUserID, "")
 			},
 			mockSetup:    func(m *mockAuthUseCase) {},
 			expectedCode: http.StatusUnauthorized,
@@ -312,10 +312,10 @@ func TestAuthHandler_GetMe(t *testing.T) {
 		{
 			name: "GetMe User Not Found",
 			contextSetup: func(c echo.Context) {
-				c.Set(middleware.ContextKeyUserID, 999)
+				c.Set(middleware.ContextKeyUserID, "01919df4-8e3b-7412-a1f9-90b567c9e999")
 			},
 			mockSetup: func(m *mockAuthUseCase) {
-				m.getProfileFunc = func(ctx context.Context, userID int) (*domain.User, error) {
+				m.getProfileFunc = func(ctx context.Context, userID string) (*domain.User, error) {
 					return nil, domain.ErrUserNotFound
 				}
 			},
@@ -324,10 +324,10 @@ func TestAuthHandler_GetMe(t *testing.T) {
 		{
 			name: "GetMe Invalid Input from UseCase",
 			contextSetup: func(c echo.Context) {
-				c.Set(middleware.ContextKeyUserID, 1)
+				c.Set(middleware.ContextKeyUserID, "01919df4-8e3b-7412-a1f9-90b567c9e201")
 			},
 			mockSetup: func(m *mockAuthUseCase) {
-				m.getProfileFunc = func(ctx context.Context, userID int) (*domain.User, error) {
+				m.getProfileFunc = func(ctx context.Context, userID string) (*domain.User, error) {
 					return nil, domain.ErrInvalidInput
 				}
 			},
@@ -336,10 +336,10 @@ func TestAuthHandler_GetMe(t *testing.T) {
 		{
 			name: "GetMe Internal Server Error",
 			contextSetup: func(c echo.Context) {
-				c.Set(middleware.ContextKeyUserID, 1)
+				c.Set(middleware.ContextKeyUserID, "01919df4-8e3b-7412-a1f9-90b567c9e201")
 			},
 			mockSetup: func(m *mockAuthUseCase) {
-				m.getProfileFunc = func(ctx context.Context, userID int) (*domain.User, error) {
+				m.getProfileFunc = func(ctx context.Context, userID string) (*domain.User, error) {
 					return nil, errors.New("db error")
 				}
 			},

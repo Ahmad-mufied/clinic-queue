@@ -313,20 +313,20 @@ func TestAuditLogFilter_NormalizeSort(t *testing.T) {
 }
 
 func TestAuditLog_StructFields(t *testing.T) {
-	userID := 10
+	userID := "01919df4-8e3b-7412-a1f9-90b567c9e203"
 	now := time.Now().UTC()
 	log := AuditLog{
-		ID:        1,
+		ID:        "01919df4-8e3b-7412-a1f9-90b567c9e301",
 		UserID:    &userID,
 		ActorName: "Dr. Who",
 		Role:      "doctor",
 		Action:    ActionConsultationStarted,
-		Details:   map[string]any{"ticket_id": 101},
+		Details:   map[string]any{"ticket_id": "01919df4-8e3b-7412-a1f9-90b567c9e401"},
 		IPAddress: "10.0.0.1",
 		CreatedAt: now,
 	}
 
-	if log.ID != 1 || *log.UserID != 10 || log.ActorName != "Dr. Who" || log.Role != "doctor" ||
+	if log.ID != "01919df4-8e3b-7412-a1f9-90b567c9e301" || *log.UserID != "01919df4-8e3b-7412-a1f9-90b567c9e203" || log.ActorName != "Dr. Who" || log.Role != "doctor" ||
 		log.Action != ActionConsultationStarted || log.IPAddress != "10.0.0.1" || log.CreatedAt != now {
 		t.Errorf("unexpected field values on AuditLog")
 	}

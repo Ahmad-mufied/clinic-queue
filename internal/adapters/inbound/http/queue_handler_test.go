@@ -16,19 +16,19 @@ import (
 )
 
 type mockQueueUseCase struct {
-	joinQueueFunc      func(ctx context.Context, userID *int, patientName string) (*domain.QueueTicket, error)
-	getMyTicketFunc    func(ctx context.Context, userID int) (*domain.QueueTicket, error)
+	joinQueueFunc      func(ctx context.Context, userID *string, patientName string) (*domain.QueueTicket, error)
+	getMyTicketFunc    func(ctx context.Context, userID string) (*domain.QueueTicket, error)
 	getQueueStatusFunc func(ctx context.Context) (*domain.QueueStatus, error)
 }
 
-func (m *mockQueueUseCase) JoinQueue(ctx context.Context, userID *int, patientName string) (*domain.QueueTicket, error) {
+func (m *mockQueueUseCase) JoinQueue(ctx context.Context, userID *string, patientName string) (*domain.QueueTicket, error) {
 	if m.joinQueueFunc != nil {
 		return m.joinQueueFunc(ctx, userID, patientName)
 	}
 	return nil, nil
 }
 
-func (m *mockQueueUseCase) GetMyTicket(ctx context.Context, userID int) (*domain.QueueTicket, error) {
+func (m *mockQueueUseCase) GetMyTicket(ctx context.Context, userID string) (*domain.QueueTicket, error) {
 	if m.getMyTicketFunc != nil {
 		return m.getMyTicketFunc(ctx, userID)
 	}
@@ -46,7 +46,7 @@ func TestQueueHandler_JoinQueue(t *testing.T) {
 	tests := []struct {
 		name           string
 		body           string
-		setContextUser *int
+		setContextUser *string
 		mockSetup      func(uc *mockQueueUseCase)
 		wantStatus     int
 		wantBodySubstr string
@@ -67,7 +67,7 @@ func TestQueueHandler_JoinQueue(t *testing.T) {
 			name:           "UseCase returns ErrInvalidInput -> 400",
 			body:           `{"patient_name": "John"}`,
 			mockSetup: func(uc *mockQueueUseCase) {
-				uc.joinQueueFunc = func(ctx context.Context, userID *int, patientName string) (*domain.QueueTicket, error) {
+				uc.joinQueueFunc = func(ctx context.Context, userID *string, patientName string) (*domain.QueueTicket, error) {
 					return nil, domain.ErrInvalidInput
 				}
 			},
@@ -78,7 +78,7 @@ func TestQueueHandler_JoinQueue(t *testing.T) {
 			name:           "UseCase returns ErrActiveTicketExists -> 409 Conflict",
 			body:           `{"patient_name": "John"}`,
 			mockSetup: func(uc *mockQueueUseCase) {
-				uc.joinQueueFunc = func(ctx context.Context, userID *int, patientName string) (*domain.QueueTicket, error) {
+				uc.joinQueueFunc = func(ctx context.Context, userID *string, patientName string) (*domain.QueueTicket, error) {
 					return nil, domain.ErrActiveTicketExists
 				}
 			},
@@ -89,7 +89,7 @@ func TestQueueHandler_JoinQueue(t *testing.T) {
 			name:           "UseCase returns ErrNoDoctorsAvailable -> 503 Service Unavailable",
 			body:           `{"patient_name": "John"}`,
 			mockSetup: func(uc *mockQueueUseCase) {
-				uc.joinQueueFunc = func(ctx context.Context, userID *int, patientName string) (*domain.QueueTicket, error) {
+				uc.joinQueueFunc = func(ctx context.Context, userID *string, patientName string) (*domain.QueueTicket, error) {
 					return nil, domain.ErrNoDoctorsAvailable
 				}
 			},
@@ -100,7 +100,7 @@ func TestQueueHandler_JoinQueue(t *testing.T) {
 			name:           "UseCase returns internal error -> 500",
 			body:           `{"patient_name": "John"}`,
 			mockSetup: func(uc *mockQueueUseCase) {
-				uc.joinQueueFunc = func(ctx context.Context, userID *int, patientName string) (*domain.QueueTicket, error) {
+				uc.joinQueueFunc = func(ctx context.Context, userID *string, patientName string) (*domain.QueueTicket, error) {
 					return nil, errors.New("database unreachable")
 				}
 			},
@@ -110,12 +110,12 @@ func TestQueueHandler_JoinQueue(t *testing.T) {
 		{
 			name:           "Success: Authenticated patient joins queue -> 201 Created",
 			body:           `{"patient_name": "John Doe"}`,
-			setContextUser: func() *int { id := 42; return &id }(),
+			setContextUser: strPtr("01919df4-8e3b-7412-a1f9-90b567c9e201"),
 			mockSetup: func(uc *mockQueueUseCase) {
-				uc.joinQueueFunc = func(ctx context.Context, userID *int, patientName string) (*domain.QueueTicket, error) {
+				uc.joinQueueFunc = func(ctx context.Context, userID *string, patientName string) (*domain.QueueTicket, error) {
 					wait := 16
 					return &domain.QueueTicket{
-						ID:                       101,
+						ID:                       "01919df4-8e3b-7412-a1f9-90b567c9e401",
 						UserID:                   userID,
 						PatientName:              patientName,
 						QueueNumber:              "A-11",
@@ -135,10 +135,10 @@ func TestQueueHandler_JoinQueue(t *testing.T) {
 			body:           `{"patient_name": "Alice Walker"}`,
 			setContextUser: nil,
 			mockSetup: func(uc *mockQueueUseCase) {
-				uc.joinQueueFunc = func(ctx context.Context, userID *int, patientName string) (*domain.QueueTicket, error) {
+				uc.joinQueueFunc = func(ctx context.Context, userID *string, patientName string) (*domain.QueueTicket, error) {
 					wait := 0
 					return &domain.QueueTicket{
-						ID:                       102,
+						ID:                       "01919df4-8e3b-7412-a1f9-90b567c9e402",
 						PatientName:              patientName,
 						QueueNumber:              "A-01",
 						Status:                   domain.TicketStatusWaiting,
@@ -191,7 +191,7 @@ func TestQueueHandler_JoinQueue(t *testing.T) {
 func TestQueueHandler_GetMyTicket(t *testing.T) {
 	tests := []struct {
 		name           string
-		setContextUser *int
+		setContextUser *string
 		mockSetup      func(uc *mockQueueUseCase)
 		wantStatus     int
 		wantBodySubstr string
@@ -203,16 +203,16 @@ func TestQueueHandler_GetMyTicket(t *testing.T) {
 			wantBodySubstr: "Unauthorized",
 		},
 		{
-			name:           "Context user ID <= 0 returns 401",
-			setContextUser: func() *int { id := 0; return &id }(),
+			name:           "Context user ID empty returns 401",
+			setContextUser: strPtr(""),
 			wantStatus:     http.StatusUnauthorized,
 			wantBodySubstr: "Unauthorized",
 		},
 		{
 			name:           "Ticket not found returns 404",
-			setContextUser: func() *int { id := 15; return &id }(),
+			setContextUser: strPtr("01919df4-8e3b-7412-a1f9-90b567c9e201"),
 			mockSetup: func(uc *mockQueueUseCase) {
-				uc.getMyTicketFunc = func(ctx context.Context, userID int) (*domain.QueueTicket, error) {
+				uc.getMyTicketFunc = func(ctx context.Context, userID string) (*domain.QueueTicket, error) {
 					return nil, domain.ErrTicketNotFound
 				}
 			},
@@ -221,9 +221,9 @@ func TestQueueHandler_GetMyTicket(t *testing.T) {
 		},
 		{
 			name:           "UseCase returns ErrInvalidInput -> 400",
-			setContextUser: func() *int { id := 15; return &id }(),
+			setContextUser: strPtr("01919df4-8e3b-7412-a1f9-90b567c9e201"),
 			mockSetup: func(uc *mockQueueUseCase) {
-				uc.getMyTicketFunc = func(ctx context.Context, userID int) (*domain.QueueTicket, error) {
+				uc.getMyTicketFunc = func(ctx context.Context, userID string) (*domain.QueueTicket, error) {
 					return nil, domain.ErrInvalidInput
 				}
 			},
@@ -232,9 +232,9 @@ func TestQueueHandler_GetMyTicket(t *testing.T) {
 		},
 		{
 			name:           "UseCase returns internal error -> 500",
-			setContextUser: func() *int { id := 15; return &id }(),
+			setContextUser: strPtr("01919df4-8e3b-7412-a1f9-90b567c9e201"),
 			mockSetup: func(uc *mockQueueUseCase) {
-				uc.getMyTicketFunc = func(ctx context.Context, userID int) (*domain.QueueTicket, error) {
+				uc.getMyTicketFunc = func(ctx context.Context, userID string) (*domain.QueueTicket, error) {
 					return nil, errors.New("query failure")
 				}
 			},
@@ -243,12 +243,12 @@ func TestQueueHandler_GetMyTicket(t *testing.T) {
 		},
 		{
 			name:           "Success: Returns active ticket with wait time -> 200 OK",
-			setContextUser: func() *int { id := 15; return &id }(),
+			setContextUser: strPtr("01919df4-8e3b-7412-a1f9-90b567c9e201"),
 			mockSetup: func(uc *mockQueueUseCase) {
-				uc.getMyTicketFunc = func(ctx context.Context, userID int) (*domain.QueueTicket, error) {
+				uc.getMyTicketFunc = func(ctx context.Context, userID string) (*domain.QueueTicket, error) {
 					wait := 12
 					return &domain.QueueTicket{
-						ID:                       105,
+						ID:                       "01919df4-8e3b-7412-a1f9-90b567c9e401",
 						UserID:                   &userID,
 						PatientName:              "John Doe",
 						QueueNumber:              "A-05",
@@ -322,7 +322,7 @@ func TestQueueHandler_GetQueueStatus(t *testing.T) {
 				uc.getQueueStatusFunc = func(ctx context.Context) (*domain.QueueStatus, error) {
 					return &domain.QueueStatus{
 						OnlineDoctors: []domain.DoctorAvailability{
-							{ID: 1, Name: "Doctor A", AvgConsultationTimeMinutes: 3, IsOnline: true, Status: domain.DoctorStatusAvailable},
+							{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Doctor A", AvgConsultationTimeMinutes: 3, IsOnline: true, Status: domain.DoctorStatusAvailable},
 						},
 						TotalWaiting: 1,
 						QueueList: []domain.QueueTicketSummary{

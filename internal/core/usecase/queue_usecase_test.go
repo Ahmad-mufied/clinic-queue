@@ -13,9 +13,9 @@ import (
 
 type mockQueueRepoPort struct {
 	createTicketFunc                  func(ctx context.Context, ticket *domain.QueueTicket) (*domain.QueueTicket, error)
-	findActiveTicketByUserIDFunc      func(ctx context.Context, userID int) (*domain.QueueTicket, error)
+	findActiveTicketByUserIDFunc      func(ctx context.Context, userID string) (*domain.QueueTicket, error)
 	findActiveTicketByPatientNameFunc func(ctx context.Context, patientName string) (*domain.QueueTicket, error)
-	findByIDFunc                      func(ctx context.Context, id int) (*domain.QueueTicket, error)
+	findByIDFunc                      func(ctx context.Context, id string) (*domain.QueueTicket, error)
 	getWaitingTicketsFunc             func(ctx context.Context) ([]*domain.QueueTicket, error)
 	countWaitingAheadFunc             func(ctx context.Context, createdAt time.Time) (int, error)
 	getNextQueueNumberFunc            func(ctx context.Context) (string, error)
@@ -28,7 +28,7 @@ func (m *mockQueueRepoPort) CreateTicket(ctx context.Context, ticket *domain.Que
 	return ticket, nil
 }
 
-func (m *mockQueueRepoPort) FindActiveTicketByUserID(ctx context.Context, userID int) (*domain.QueueTicket, error) {
+func (m *mockQueueRepoPort) FindActiveTicketByUserID(ctx context.Context, userID string) (*domain.QueueTicket, error) {
 	if m.findActiveTicketByUserIDFunc != nil {
 		return m.findActiveTicketByUserIDFunc(ctx, userID)
 	}
@@ -42,7 +42,7 @@ func (m *mockQueueRepoPort) FindActiveTicketByPatientName(ctx context.Context, p
 	return nil, nil
 }
 
-func (m *mockQueueRepoPort) FindByID(ctx context.Context, id int) (*domain.QueueTicket, error) {
+func (m *mockQueueRepoPort) FindByID(ctx context.Context, id string) (*domain.QueueTicket, error) {
 	if m.findByIDFunc != nil {
 		return m.findByIDFunc(ctx, id)
 	}
@@ -73,7 +73,7 @@ func (m *mockQueueRepoPort) GetNextQueueNumber(ctx context.Context) (string, err
 type mockDoctorRepoPort struct {
 	getActiveDoctorsFunc          func(ctx context.Context) ([]*domain.Doctor, error)
 	getAllDoctorsWithSessionsFunc func(ctx context.Context) ([]domain.DoctorAvailability, error)
-	getDoctorByIDFunc             func(ctx context.Context, id int) (*domain.Doctor, error)
+	getDoctorByIDFunc             func(ctx context.Context, id string) (*domain.Doctor, error)
 }
 
 func (m *mockDoctorRepoPort) GetActiveDoctors(ctx context.Context) ([]*domain.Doctor, error) {
@@ -90,25 +90,24 @@ func (m *mockDoctorRepoPort) GetAllDoctorsWithSessions(ctx context.Context) ([]d
 	return nil, nil
 }
 
-func (m *mockDoctorRepoPort) GetDoctorByID(ctx context.Context, id int) (*domain.Doctor, error) {
+func (m *mockDoctorRepoPort) GetDoctorByID(ctx context.Context, id string) (*domain.Doctor, error) {
 	if m.getDoctorByIDFunc != nil {
 		return m.getDoctorByIDFunc(ctx, id)
 	}
 	return nil, nil
 }
 
-func (m *mockDoctorRepoPort) UpdateOnlineStatus(ctx context.Context, doctorID int, isOnline bool) error {
+func (m *mockDoctorRepoPort) UpdateOnlineStatus(ctx context.Context, doctorID string, isOnline bool) error {
 	return nil
 }
 
-func (m *mockDoctorRepoPort) GetActiveSessionByDoctorID(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
+func (m *mockDoctorRepoPort) GetActiveSessionByDoctorID(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
 	return nil, nil
 }
 
-func (m *mockDoctorRepoPort) UpdateDoctorAvgTime(ctx context.Context, doctorID int, avgTime int) error {
+func (m *mockDoctorRepoPort) UpdateDoctorAvgTime(ctx context.Context, doctorID string, avgTime int) error {
 	return nil
 }
-
 
 type mockEventPubPort struct {
 	publishEventFunc func(ctx context.Context, eventType string, payload any) error
@@ -135,13 +134,17 @@ func intPtr(v int) *int {
 	return &v
 }
 
+func strPtr(v string) *string {
+	return &v
+}
+
 func TestQueueUseCase_JoinQueue(t *testing.T) {
 	errDB := errors.New("database error")
-	userIDVal := 10
+	userIDVal := "01919df4-8e3b-7412-a1f9-90b567c9e203"
 
 	tests := []struct {
 		name         string
-		userID       *int
+		userID       *string
 		patientName  string
 		setupMocks   func(q *mockQueueRepoPort, d *mockDoctorRepoPort, e *mockEventPubPort)
 		wantErrIs    error
@@ -164,8 +167,8 @@ func TestQueueUseCase_JoinQueue(t *testing.T) {
 			userID:      &userIDVal,
 			patientName: "John Doe",
 			setupMocks: func(q *mockQueueRepoPort, d *mockDoctorRepoPort, e *mockEventPubPort) {
-				q.findActiveTicketByUserIDFunc = func(ctx context.Context, userID int) (*domain.QueueTicket, error) {
-					return &domain.QueueTicket{ID: 1, QueueNumber: "A-01", Status: domain.TicketStatusWaiting}, nil
+				q.findActiveTicketByUserIDFunc = func(ctx context.Context, userID string) (*domain.QueueTicket, error) {
+					return &domain.QueueTicket{ID: "01919df4-8e3b-7412-a1f9-90b567c9e401", QueueNumber: "A-01", Status: domain.TicketStatusWaiting}, nil
 				}
 			},
 			wantErrIs: domain.ErrActiveTicketExists,
@@ -175,7 +178,7 @@ func TestQueueUseCase_JoinQueue(t *testing.T) {
 			userID:      &userIDVal,
 			patientName: "John Doe",
 			setupMocks: func(q *mockQueueRepoPort, d *mockDoctorRepoPort, e *mockEventPubPort) {
-				q.findActiveTicketByUserIDFunc = func(ctx context.Context, userID int) (*domain.QueueTicket, error) {
+				q.findActiveTicketByUserIDFunc = func(ctx context.Context, userID string) (*domain.QueueTicket, error) {
 					return nil, errDB
 				}
 			},
@@ -187,7 +190,7 @@ func TestQueueUseCase_JoinQueue(t *testing.T) {
 			patientName: "John Doe",
 			setupMocks: func(q *mockQueueRepoPort, d *mockDoctorRepoPort, e *mockEventPubPort) {
 				q.findActiveTicketByPatientNameFunc = func(ctx context.Context, name string) (*domain.QueueTicket, error) {
-					return &domain.QueueTicket{ID: 2, QueueNumber: "A-02", Status: domain.TicketStatusWaiting}, nil
+					return &domain.QueueTicket{ID: "01919df4-8e3b-7412-a1f9-90b567c9e402", QueueNumber: "A-02", Status: domain.TicketStatusWaiting}, nil
 				}
 			},
 			wantErrIs: domain.ErrActiveTicketExists,
@@ -231,7 +234,7 @@ func TestQueueUseCase_JoinQueue(t *testing.T) {
 			patientName: "John Doe",
 			setupMocks: func(q *mockQueueRepoPort, d *mockDoctorRepoPort, e *mockEventPubPort) {
 				d.getAllDoctorsWithSessionsFunc = func(ctx context.Context) ([]domain.DoctorAvailability, error) {
-					return []domain.DoctorAvailability{{ID: 1, Name: "Doc A", AvgConsultationTimeMinutes: 3, IsOnline: true}}, nil
+					return []domain.DoctorAvailability{{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Doc A", AvgConsultationTimeMinutes: 3, IsOnline: true}}, nil
 				}
 				d.getActiveDoctorsFunc = func(ctx context.Context) ([]*domain.Doctor, error) {
 					return nil, errDB
@@ -245,10 +248,10 @@ func TestQueueUseCase_JoinQueue(t *testing.T) {
 			patientName: "John Doe",
 			setupMocks: func(q *mockQueueRepoPort, d *mockDoctorRepoPort, e *mockEventPubPort) {
 				d.getAllDoctorsWithSessionsFunc = func(ctx context.Context) ([]domain.DoctorAvailability, error) {
-					return []domain.DoctorAvailability{{ID: 1, Name: "Doc A", AvgConsultationTimeMinutes: 3, IsOnline: true}}, nil
+					return []domain.DoctorAvailability{{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Doc A", AvgConsultationTimeMinutes: 3, IsOnline: true}}, nil
 				}
 				d.getActiveDoctorsFunc = func(ctx context.Context) ([]*domain.Doctor, error) {
-					return []*domain.Doctor{{ID: 1, Name: "Doc A", AvgConsultationTime: 3, IsOnline: true}}, nil
+					return []*domain.Doctor{{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Doc A", AvgConsultationTime: 3, IsOnline: true}}, nil
 				}
 				q.getWaitingTicketsFunc = func(ctx context.Context) ([]*domain.QueueTicket, error) {
 					return nil, errDB
@@ -262,13 +265,13 @@ func TestQueueUseCase_JoinQueue(t *testing.T) {
 			patientName: "John Doe",
 			setupMocks: func(q *mockQueueRepoPort, d *mockDoctorRepoPort, e *mockEventPubPort) {
 				d.getAllDoctorsWithSessionsFunc = func(ctx context.Context) ([]domain.DoctorAvailability, error) {
-					return []domain.DoctorAvailability{{ID: 1, Name: "Doc Invalid", AvgConsultationTimeMinutes: 0, IsOnline: true}}, nil
+					return []domain.DoctorAvailability{{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Doc Invalid", AvgConsultationTimeMinutes: 0, IsOnline: true}}, nil
 				}
 				d.getActiveDoctorsFunc = func(ctx context.Context) ([]*domain.Doctor, error) {
-					return []*domain.Doctor{{ID: 1, Name: "Doc Invalid", AvgConsultationTime: 0, IsOnline: true}}, nil
+					return []*domain.Doctor{{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Doc Invalid", AvgConsultationTime: 0, IsOnline: true}}, nil
 				}
 				q.getWaitingTicketsFunc = func(ctx context.Context) ([]*domain.QueueTicket, error) {
-					return []*domain.QueueTicket{{ID: 1, QueueNumber: "A-01"}}, nil
+					return []*domain.QueueTicket{{ID: "01919df4-8e3b-7412-a1f9-90b567c9e401", QueueNumber: "A-01"}}, nil
 				}
 			},
 			wantErrStr: "calculate estimated waiting time",
@@ -279,10 +282,10 @@ func TestQueueUseCase_JoinQueue(t *testing.T) {
 			patientName: "John Doe",
 			setupMocks: func(q *mockQueueRepoPort, d *mockDoctorRepoPort, e *mockEventPubPort) {
 				d.getAllDoctorsWithSessionsFunc = func(ctx context.Context) ([]domain.DoctorAvailability, error) {
-					return []domain.DoctorAvailability{{ID: 1, Name: "Doc A", AvgConsultationTimeMinutes: 3, IsOnline: true}}, nil
+					return []domain.DoctorAvailability{{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Doc A", AvgConsultationTimeMinutes: 3, IsOnline: true}}, nil
 				}
 				d.getActiveDoctorsFunc = func(ctx context.Context) ([]*domain.Doctor, error) {
-					return []*domain.Doctor{{ID: 1, Name: "Doc A", AvgConsultationTime: 3, IsOnline: true}}, nil
+					return []*domain.Doctor{{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Doc A", AvgConsultationTime: 3, IsOnline: true}}, nil
 				}
 				q.getWaitingTicketsFunc = func(ctx context.Context) ([]*domain.QueueTicket, error) {
 					return []*domain.QueueTicket{}, nil
@@ -299,10 +302,10 @@ func TestQueueUseCase_JoinQueue(t *testing.T) {
 			patientName: "John Doe",
 			setupMocks: func(q *mockQueueRepoPort, d *mockDoctorRepoPort, e *mockEventPubPort) {
 				d.getAllDoctorsWithSessionsFunc = func(ctx context.Context) ([]domain.DoctorAvailability, error) {
-					return []domain.DoctorAvailability{{ID: 1, Name: "Doc A", AvgConsultationTimeMinutes: 3, IsOnline: true}}, nil
+					return []domain.DoctorAvailability{{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Doc A", AvgConsultationTimeMinutes: 3, IsOnline: true}}, nil
 				}
 				d.getActiveDoctorsFunc = func(ctx context.Context) ([]*domain.Doctor, error) {
-					return []*domain.Doctor{{ID: 1, Name: "Doc A", AvgConsultationTime: 3, IsOnline: true}}, nil
+					return []*domain.Doctor{{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Doc A", AvgConsultationTime: 3, IsOnline: true}}, nil
 				}
 				q.getWaitingTicketsFunc = func(ctx context.Context) ([]*domain.QueueTicket, error) {
 					return []*domain.QueueTicket{}, nil
@@ -322,7 +325,7 @@ func TestQueueUseCase_JoinQueue(t *testing.T) {
 			patientName: "John Doe",
 			setupMocks: func(q *mockQueueRepoPort, d *mockDoctorRepoPort, e *mockEventPubPort) {
 				d.getAllDoctorsWithSessionsFunc = func(ctx context.Context) ([]domain.DoctorAvailability, error) {
-					return []domain.DoctorAvailability{{ID: 1, Name: "Doc A", AvgConsultationTimeMinutes: 3, IsOnline: false}}, nil
+					return []domain.DoctorAvailability{{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Doc A", AvgConsultationTimeMinutes: 3, IsOnline: false}}, nil
 				}
 				d.getActiveDoctorsFunc = func(ctx context.Context) ([]*domain.Doctor, error) {
 					return []*domain.Doctor{}, nil
@@ -335,7 +338,7 @@ func TestQueueUseCase_JoinQueue(t *testing.T) {
 				}
 				q.createTicketFunc = func(ctx context.Context, ticket *domain.QueueTicket) (*domain.QueueTicket, error) {
 					t := *ticket
-					t.ID = 101
+					t.ID = "01919df4-8e3b-7412-a1f9-90b567c9e401"
 					t.CreatedAt = time.Now()
 					return &t, nil
 				}
@@ -352,20 +355,20 @@ func TestQueueUseCase_JoinQueue(t *testing.T) {
 			patientName: "John Doe",
 			setupMocks: func(q *mockQueueRepoPort, d *mockDoctorRepoPort, e *mockEventPubPort) {
 				d.getAllDoctorsWithSessionsFunc = func(ctx context.Context) ([]domain.DoctorAvailability, error) {
-					return []domain.DoctorAvailability{{ID: 1, Name: "Doctor 1", AvgConsultationTimeMinutes: 3, IsOnline: true}}, nil
+					return []domain.DoctorAvailability{{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Doctor 1", AvgConsultationTimeMinutes: 3, IsOnline: true}}, nil
 				}
 				d.getActiveDoctorsFunc = func(ctx context.Context) ([]*domain.Doctor, error) {
 					return []*domain.Doctor{
-						{ID: 1, Name: "Doctor 1", AvgConsultationTime: 3, IsOnline: true},
+						{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Doctor 1", AvgConsultationTime: 3, IsOnline: true},
 					}, nil
 				}
 				q.getWaitingTicketsFunc = func(ctx context.Context) ([]*domain.QueueTicket, error) {
 					return []*domain.QueueTicket{
-						{ID: 1, QueueNumber: "A-01"},
-						{ID: 2, QueueNumber: "A-02"},
-						{ID: 3, QueueNumber: "A-03"},
-						{ID: 4, QueueNumber: "A-04"},
-						{ID: 5, QueueNumber: "A-05"},
+						{ID: "01919df4-8e3b-7412-a1f9-90b567c9e401", QueueNumber: "A-01"},
+						{ID: "01919df4-8e3b-7412-a1f9-90b567c9e402", QueueNumber: "A-02"},
+						{ID: "01919df4-8e3b-7412-a1f9-90b567c9e403", QueueNumber: "A-03"},
+						{ID: "01919df4-8e3b-7412-a1f9-90b567c9e404", QueueNumber: "A-04"},
+						{ID: "01919df4-8e3b-7412-a1f9-90b567c9e405", QueueNumber: "A-05"},
 					}, nil
 				}
 				q.getNextQueueNumberFunc = func(ctx context.Context) (string, error) {
@@ -373,7 +376,7 @@ func TestQueueUseCase_JoinQueue(t *testing.T) {
 				}
 				q.createTicketFunc = func(ctx context.Context, ticket *domain.QueueTicket) (*domain.QueueTicket, error) {
 					t := *ticket
-					t.ID = 106
+					t.ID = "01919df4-8e3b-7412-a1f9-90b567c9e406"
 					t.CreatedAt = time.Now()
 					return &t, nil
 				}
@@ -393,11 +396,11 @@ func TestQueueUseCase_JoinQueue(t *testing.T) {
 			patientName: "Anonymous Walkin",
 			setupMocks: func(q *mockQueueRepoPort, d *mockDoctorRepoPort, e *mockEventPubPort) {
 				d.getAllDoctorsWithSessionsFunc = func(ctx context.Context) ([]domain.DoctorAvailability, error) {
-					return []domain.DoctorAvailability{{ID: 1, Name: "Doctor 1", AvgConsultationTimeMinutes: 3, IsOnline: true}}, nil
+					return []domain.DoctorAvailability{{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Doctor 1", AvgConsultationTimeMinutes: 3, IsOnline: true}}, nil
 				}
 				d.getActiveDoctorsFunc = func(ctx context.Context) ([]*domain.Doctor, error) {
 					return []*domain.Doctor{
-						{ID: 1, Name: "Doctor 1", AvgConsultationTime: 3, IsOnline: true},
+						{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Doctor 1", AvgConsultationTime: 3, IsOnline: true},
 					}, nil
 				}
 				q.getWaitingTicketsFunc = func(ctx context.Context) ([]*domain.QueueTicket, error) {
@@ -408,7 +411,7 @@ func TestQueueUseCase_JoinQueue(t *testing.T) {
 				}
 				q.createTicketFunc = func(ctx context.Context, ticket *domain.QueueTicket) (*domain.QueueTicket, error) {
 					t := *ticket
-					t.ID = 101
+					t.ID = "01919df4-8e3b-7412-a1f9-90b567c9e401"
 					t.CreatedAt = time.Now()
 					return &t, nil
 				}
@@ -483,7 +486,7 @@ func TestQueueUseCase_GetMyTicket(t *testing.T) {
 
 	tests := []struct {
 		name         string
-		userID       int
+		userID       string
 		setupMocks   func(q *mockQueueRepoPort, d *mockDoctorRepoPort)
 		wantErrIs    error
 		wantErrStr   string
@@ -494,16 +497,22 @@ func TestQueueUseCase_GetMyTicket(t *testing.T) {
 		wantAhead    int
 	}{
 		{
-			name:       "Invalid userID <= 0 returns ErrInvalidInput",
-			userID:     0,
+			name:       "Invalid userID empty returns ErrInvalidInput",
+			userID:     "",
+			setupMocks: func(q *mockQueueRepoPort, d *mockDoctorRepoPort) {},
+			wantErrIs:  domain.ErrInvalidInput,
+		},
+		{
+			name:       "Invalid userID whitespace returns ErrInvalidInput",
+			userID:     "   ",
 			setupMocks: func(q *mockQueueRepoPort, d *mockDoctorRepoPort) {},
 			wantErrIs:  domain.ErrInvalidInput,
 		},
 		{
 			name:   "Database error on FindActiveTicketByUserID",
-			userID: 10,
+			userID: "01919df4-8e3b-7412-a1f9-90b567c9e203",
 			setupMocks: func(q *mockQueueRepoPort, d *mockDoctorRepoPort) {
-				q.findActiveTicketByUserIDFunc = func(ctx context.Context, userID int) (*domain.QueueTicket, error) {
+				q.findActiveTicketByUserIDFunc = func(ctx context.Context, userID string) (*domain.QueueTicket, error) {
 					return nil, errDB
 				}
 			},
@@ -511,9 +520,9 @@ func TestQueueUseCase_GetMyTicket(t *testing.T) {
 		},
 		{
 			name:   "Ticket not found returns ErrTicketNotFound",
-			userID: 10,
+			userID: "01919df4-8e3b-7412-a1f9-90b567c9e203",
 			setupMocks: func(q *mockQueueRepoPort, d *mockDoctorRepoPort) {
-				q.findActiveTicketByUserIDFunc = func(ctx context.Context, userID int) (*domain.QueueTicket, error) {
+				q.findActiveTicketByUserIDFunc = func(ctx context.Context, userID string) (*domain.QueueTicket, error) {
 					return nil, nil
 				}
 			},
@@ -521,10 +530,10 @@ func TestQueueUseCase_GetMyTicket(t *testing.T) {
 		},
 		{
 			name:   "Database error on CountWaitingAhead",
-			userID: 10,
+			userID: "01919df4-8e3b-7412-a1f9-90b567c9e203",
 			setupMocks: func(q *mockQueueRepoPort, d *mockDoctorRepoPort) {
-				q.findActiveTicketByUserIDFunc = func(ctx context.Context, userID int) (*domain.QueueTicket, error) {
-					return &domain.QueueTicket{ID: 5, QueueNumber: "A-05", Status: domain.TicketStatusWaiting, CreatedAt: now}, nil
+				q.findActiveTicketByUserIDFunc = func(ctx context.Context, userID string) (*domain.QueueTicket, error) {
+					return &domain.QueueTicket{ID: "01919df4-8e3b-7412-a1f9-90b567c9e405", QueueNumber: "A-05", Status: domain.TicketStatusWaiting, CreatedAt: now}, nil
 				}
 				q.countWaitingAheadFunc = func(ctx context.Context, createdAt time.Time) (int, error) {
 					return 0, errDB
@@ -534,10 +543,10 @@ func TestQueueUseCase_GetMyTicket(t *testing.T) {
 		},
 		{
 			name:   "Database error on GetActiveDoctors",
-			userID: 10,
+			userID: "01919df4-8e3b-7412-a1f9-90b567c9e203",
 			setupMocks: func(q *mockQueueRepoPort, d *mockDoctorRepoPort) {
-				q.findActiveTicketByUserIDFunc = func(ctx context.Context, userID int) (*domain.QueueTicket, error) {
-					return &domain.QueueTicket{ID: 5, QueueNumber: "A-05", Status: domain.TicketStatusWaiting, CreatedAt: now}, nil
+				q.findActiveTicketByUserIDFunc = func(ctx context.Context, userID string) (*domain.QueueTicket, error) {
+					return &domain.QueueTicket{ID: "01919df4-8e3b-7412-a1f9-90b567c9e405", QueueNumber: "A-05", Status: domain.TicketStatusWaiting, CreatedAt: now}, nil
 				}
 				q.countWaitingAheadFunc = func(ctx context.Context, createdAt time.Time) (int, error) {
 					return 4, nil
@@ -550,17 +559,17 @@ func TestQueueUseCase_GetMyTicket(t *testing.T) {
 		},
 		{
 			name:   "Success with active doctors and recalculated wait time (4 ahead -> pos 5 -> 12m)",
-			userID: 10,
+			userID: "01919df4-8e3b-7412-a1f9-90b567c9e203",
 			setupMocks: func(q *mockQueueRepoPort, d *mockDoctorRepoPort) {
-				q.findActiveTicketByUserIDFunc = func(ctx context.Context, userID int) (*domain.QueueTicket, error) {
-					return &domain.QueueTicket{ID: 5, QueueNumber: "A-05", Status: domain.TicketStatusWaiting, CreatedAt: now}, nil
+				q.findActiveTicketByUserIDFunc = func(ctx context.Context, userID string) (*domain.QueueTicket, error) {
+					return &domain.QueueTicket{ID: "01919df4-8e3b-7412-a1f9-90b567c9e405", QueueNumber: "A-05", Status: domain.TicketStatusWaiting, CreatedAt: now}, nil
 				}
 				q.countWaitingAheadFunc = func(ctx context.Context, createdAt time.Time) (int, error) {
 					return 4, nil
 				}
 				d.getActiveDoctorsFunc = func(ctx context.Context) ([]*domain.Doctor, error) {
 					return []*domain.Doctor{
-						{ID: 1, Name: "Doctor 1", AvgConsultationTime: 3, IsOnline: true},
+						{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Doctor 1", AvgConsultationTime: 3, IsOnline: true},
 					}, nil
 				}
 			},
@@ -572,10 +581,10 @@ func TestQueueUseCase_GetMyTicket(t *testing.T) {
 		},
 		{
 			name:   "Success when all doctors are offline (wait time is null with notice)",
-			userID: 10,
+			userID: "01919df4-8e3b-7412-a1f9-90b567c9e203",
 			setupMocks: func(q *mockQueueRepoPort, d *mockDoctorRepoPort) {
-				q.findActiveTicketByUserIDFunc = func(ctx context.Context, userID int) (*domain.QueueTicket, error) {
-					return &domain.QueueTicket{ID: 5, QueueNumber: "A-05", Status: domain.TicketStatusWaiting, CreatedAt: now}, nil
+				q.findActiveTicketByUserIDFunc = func(ctx context.Context, userID string) (*domain.QueueTicket, error) {
+					return &domain.QueueTicket{ID: "01919df4-8e3b-7412-a1f9-90b567c9e405", QueueNumber: "A-05", Status: domain.TicketStatusWaiting, CreatedAt: now}, nil
 				}
 				q.countWaitingAheadFunc = func(ctx context.Context, createdAt time.Time) (int, error) {
 					return 2, nil
@@ -592,10 +601,10 @@ func TestQueueUseCase_GetMyTicket(t *testing.T) {
 		},
 		{
 			name:   "Success for ticket in IN_CONSULTATION status (no waiting calculation)",
-			userID: 10,
+			userID: "01919df4-8e3b-7412-a1f9-90b567c9e203",
 			setupMocks: func(q *mockQueueRepoPort, d *mockDoctorRepoPort) {
-				q.findActiveTicketByUserIDFunc = func(ctx context.Context, userID int) (*domain.QueueTicket, error) {
-					return &domain.QueueTicket{ID: 3, QueueNumber: "A-03", Status: domain.TicketStatusInConsultation, CreatedAt: now}, nil
+				q.findActiveTicketByUserIDFunc = func(ctx context.Context, userID string) (*domain.QueueTicket, error) {
+					return &domain.QueueTicket{ID: "01919df4-8e3b-7412-a1f9-90b567c9e403", QueueNumber: "A-03", Status: domain.TicketStatusInConsultation, CreatedAt: now}, nil
 				}
 			},
 			wantQueueNum: "A-03",
@@ -710,12 +719,12 @@ func TestQueueUseCase_GetQueueStatus(t *testing.T) {
 			setupMocks: func(q *mockQueueRepoPort, d *mockDoctorRepoPort) {
 				d.getAllDoctorsWithSessionsFunc = func(ctx context.Context) ([]domain.DoctorAvailability, error) {
 					return []domain.DoctorAvailability{
-						{ID: 1, Name: "Doctor A", AvgConsultationTimeMinutes: 3, IsOnline: true, Status: domain.DoctorStatusAvailable},
+						{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Doctor A", AvgConsultationTimeMinutes: 3, IsOnline: true, Status: domain.DoctorStatusAvailable},
 					}, nil
 				}
 				d.getActiveDoctorsFunc = func(ctx context.Context) ([]*domain.Doctor, error) {
 					return []*domain.Doctor{
-						{ID: 1, Name: "Doctor A", AvgConsultationTime: 3, IsOnline: true},
+						{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Doctor A", AvgConsultationTime: 3, IsOnline: true},
 					}, nil
 				}
 				q.getWaitingTicketsFunc = func(ctx context.Context) ([]*domain.QueueTicket, error) {
@@ -734,7 +743,7 @@ func TestQueueUseCase_GetQueueStatus(t *testing.T) {
 			setupMocks: func(q *mockQueueRepoPort, d *mockDoctorRepoPort) {
 				d.getAllDoctorsWithSessionsFunc = func(ctx context.Context) ([]domain.DoctorAvailability, error) {
 					return []domain.DoctorAvailability{
-						{ID: 1, Name: "Doctor A", AvgConsultationTimeMinutes: 3, IsOnline: false, Status: domain.DoctorStatusOffline},
+						{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Doctor A", AvgConsultationTimeMinutes: 3, IsOnline: false, Status: domain.DoctorStatusOffline},
 					}, nil
 				}
 				d.getActiveDoctorsFunc = func(ctx context.Context) ([]*domain.Doctor, error) {

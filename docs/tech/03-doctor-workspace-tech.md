@@ -1,7 +1,7 @@
 # Technical Specification: Doctor Workspace & Consultation Workflow
 **File:** `docs/tech/03-doctor-workspace-tech.md`  
 **Status:** Approved  
-**Version:** `v1.0.0`
+**Version:** `v1.1.0`
 
 ---
 
@@ -61,7 +61,7 @@ COMMIT;
 ```sql
 -- +goose Up
 CREATE TABLE IF NOT EXISTS doctors (
-    id SERIAL PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     name VARCHAR(100) NOT NULL,
     avg_consultation_time_min INT NOT NULL CHECK (avg_consultation_time_min > 0),
     is_online BOOLEAN NOT NULL DEFAULT FALSE,
@@ -70,9 +70,9 @@ CREATE TABLE IF NOT EXISTS doctors (
 );
 
 CREATE TABLE IF NOT EXISTS consultation_sessions (
-    id SERIAL PRIMARY KEY,
-    doctor_id INT NOT NULL REFERENCES doctors(id) ON DELETE CASCADE,
-    ticket_id INT NOT NULL REFERENCES queue_tickets(id) ON DELETE CASCADE,
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    doctor_id UUID NOT NULL REFERENCES doctors(id) ON DELETE CASCADE,
+    ticket_id UUID NOT NULL REFERENCES queue_tickets(id) ON DELETE CASCADE,
     patient_name VARCHAR(100) NOT NULL,
     started_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     finished_at TIMESTAMP WITH TIME ZONE,
@@ -102,7 +102,7 @@ DROP TABLE IF EXISTS doctors;
 - **Response (200 OK):**
 ```json
 {
-  "doctor_id": 1,
+  "doctor_id": "01919df4-8e3b-7412-a1f9-90b567c9e201",
   "name": "Doctor A",
   "is_online": true,
   "status": "AVAILABLE"
@@ -115,10 +115,10 @@ DROP TABLE IF EXISTS doctors;
 - **Response (200 OK):**
 ```json
 {
-  "session_id": 45,
-  "doctor_id": 1,
+  "session_id": "01919df4-8e3b-7412-a1f9-90b567c9e401",
+  "doctor_id": "01919df4-8e3b-7412-a1f9-90b567c9e201",
   "ticket": {
-    "id": 101,
+    "id": "01919df4-8e3b-7412-a1f9-90b567c9e301",
     "queue_number": "A-01",
     "patient_name": "Alice",
     "status": "IN_CONSULTATION"
@@ -133,7 +133,7 @@ DROP TABLE IF EXISTS doctors;
 - **Response (200 OK):**
 ```json
 {
-  "session_id": 45,
+  "session_id": "01919df4-8e3b-7412-a1f9-90b567c9e401",
   "patient_name": "Alice",
   "actual_duration_minutes": 3.2,
   "finished_at": "2026-08-29T10:03:12Z",
@@ -147,8 +147,8 @@ DROP TABLE IF EXISTS doctors;
 
 | Scenario ID | Endpoint | Method | Condition | Status | Response Summary |
 | :--- | :--- | :---: | :--- | :---: | :--- |
-| **API-DOC-01** | `/api/doctors/status` | `POST` | Toggle to `true` | `200 OK` | Doctor is online & available |
-| **API-DOC-02** | `/api/doctors/call-next` | `POST` | 1 patient waiting | `200 OK` | Patient popped, session active |
+| **API-DOC-01** | `/api/doctors/status` | `POST` | Toggle to `true` | `200 OK` | Doctor is online & available (UUIDv7) |
+| **API-DOC-02** | `/api/doctors/call-next` | `POST` | 1 patient waiting | `200 OK` | Patient popped, session active with UUIDv7 IDs |
 | **API-DOC-03** | `/api/doctors/call-next` | `POST` | 0 patients waiting | `200 OK` | `{"message": "Queue is empty"}` |
 | **API-DOC-04** | `/api/doctors/call-next` | `POST` | Doctor is offline | `400 Bad Request` | `{"error": "Doctor must be online"}` |
 | **API-DOC-05** | `/api/doctors/call-next` | `POST` | Already in session | `409 Conflict` | `{"error": "Active session in progress"}` |
@@ -161,3 +161,4 @@ DROP TABLE IF EXISTS doctors;
 | Version | Date | Author / Role | Change Type | Change Summary / Rationale |
 | :---: | :---: | :---: | :---: | :--- |
 | **v1.0.0** | 2026-08-29 | Backend Lead | **Initial Baseline** | Initial technical specification for doctor shift lifecycle, atomic `FOR UPDATE SKIP LOCKED` concurrency control, Goose SQL migrations, and REST endpoints. |
+| **v1.1.0** | 2026-08-30 | Backend Lead | **Native UUIDv7 Spec** | Migrated `doctors.id` and `consultation_sessions.id` to Native UUIDv7 (`DEFAULT uuidv7()`), updating domain entities, concurrency query bindings, and DTO structures. |

@@ -53,7 +53,7 @@ func (r *UserRepo) FindByUsername(ctx context.Context, username string) (*domain
 }
 
 // FindByID queries a single user by their primary key ID.
-func (r *UserRepo) FindByID(ctx context.Context, id int) (*domain.User, error) {
+func (r *UserRepo) FindByID(ctx context.Context, id string) (*domain.User, error) {
 	query := `
 		SELECT id, username, password_hash, name, role, doctor_id, created_at, updated_at
 		FROM users
@@ -76,7 +76,7 @@ func (r *UserRepo) FindByID(ctx context.Context, id int) (*domain.User, error) {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("query user by id %d: %w", id, err)
+		return nil, fmt.Errorf("query user by id %s: %w", id, err)
 	}
 
 	user.Role = domain.Role(roleStr)

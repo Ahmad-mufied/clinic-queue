@@ -13,10 +13,10 @@ import (
 type mockDoctorRepo struct {
 	getActiveDoctorsFunc          func(ctx context.Context) ([]*domain.Doctor, error)
 	getAllDoctorsWithSessionsFunc func(ctx context.Context) ([]domain.DoctorAvailability, error)
-	getDoctorByIDFunc             func(ctx context.Context, id int) (*domain.Doctor, error)
-	updateOnlineStatusFunc        func(ctx context.Context, doctorID int, isOnline bool) error
-	getActiveSessionByDoctorID    func(ctx context.Context, doctorID int) (*domain.ConsultationSession, error)
-	updateDoctorAvgTimeFunc       func(ctx context.Context, doctorID int, avgTime int) error
+	getDoctorByIDFunc             func(ctx context.Context, id string) (*domain.Doctor, error)
+	updateOnlineStatusFunc        func(ctx context.Context, doctorID string, isOnline bool) error
+	getActiveSessionByDoctorID    func(ctx context.Context, doctorID string) (*domain.ConsultationSession, error)
+	updateDoctorAvgTimeFunc       func(ctx context.Context, doctorID string, avgTime int) error
 }
 
 func (m *mockDoctorRepo) GetActiveDoctors(ctx context.Context) ([]*domain.Doctor, error) {
@@ -33,56 +33,55 @@ func (m *mockDoctorRepo) GetAllDoctorsWithSessions(ctx context.Context) ([]domai
 	return nil, nil
 }
 
-func (m *mockDoctorRepo) GetDoctorByID(ctx context.Context, id int) (*domain.Doctor, error) {
+func (m *mockDoctorRepo) GetDoctorByID(ctx context.Context, id string) (*domain.Doctor, error) {
 	if m != nil && m.getDoctorByIDFunc != nil {
 		return m.getDoctorByIDFunc(ctx, id)
 	}
 	return nil, nil
 }
 
-func (m *mockDoctorRepo) UpdateOnlineStatus(ctx context.Context, doctorID int, isOnline bool) error {
+func (m *mockDoctorRepo) UpdateOnlineStatus(ctx context.Context, doctorID string, isOnline bool) error {
 	if m != nil && m.updateOnlineStatusFunc != nil {
 		return m.updateOnlineStatusFunc(ctx, doctorID, isOnline)
 	}
 	return nil
 }
 
-func (m *mockDoctorRepo) GetActiveSessionByDoctorID(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
+func (m *mockDoctorRepo) GetActiveSessionByDoctorID(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
 	if m != nil && m.getActiveSessionByDoctorID != nil {
 		return m.getActiveSessionByDoctorID(ctx, doctorID)
 	}
 	return nil, nil
 }
 
-func (m *mockDoctorRepo) UpdateDoctorAvgTime(ctx context.Context, doctorID int, avgTime int) error {
+func (m *mockDoctorRepo) UpdateDoctorAvgTime(ctx context.Context, doctorID string, avgTime int) error {
 	if m != nil && m.updateDoctorAvgTimeFunc != nil {
 		return m.updateDoctorAvgTimeFunc(ctx, doctorID, avgTime)
 	}
 	return nil
 }
 
-
 type mockConsultationRepo struct {
-	callNextTicketAtomicallyFunc   func(ctx context.Context, doctorID int) (*domain.ConsultationSession, error)
-	finishActiveSessionFunc        func(ctx context.Context, doctorID int) (*domain.ConsultationSession, error)
-	getActiveSessionByDoctorIDFunc func(ctx context.Context, doctorID int) (*domain.ConsultationSession, error)
+	callNextTicketAtomicallyFunc   func(ctx context.Context, doctorID string) (*domain.ConsultationSession, error)
+	finishActiveSessionFunc        func(ctx context.Context, doctorID string) (*domain.ConsultationSession, error)
+	getActiveSessionByDoctorIDFunc func(ctx context.Context, doctorID string) (*domain.ConsultationSession, error)
 }
 
-func (m *mockConsultationRepo) CallNextTicketAtomically(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
+func (m *mockConsultationRepo) CallNextTicketAtomically(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
 	if m != nil && m.callNextTicketAtomicallyFunc != nil {
 		return m.callNextTicketAtomicallyFunc(ctx, doctorID)
 	}
 	return nil, nil
 }
 
-func (m *mockConsultationRepo) FinishActiveSession(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
+func (m *mockConsultationRepo) FinishActiveSession(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
 	if m != nil && m.finishActiveSessionFunc != nil {
 		return m.finishActiveSessionFunc(ctx, doctorID)
 	}
 	return nil, nil
 }
 
-func (m *mockConsultationRepo) GetActiveSessionByDoctorID(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
+func (m *mockConsultationRepo) GetActiveSessionByDoctorID(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
 	if m != nil && m.getActiveSessionByDoctorIDFunc != nil {
 		return m.getActiveSessionByDoctorIDFunc(ctx, doctorID)
 	}
@@ -111,13 +110,13 @@ func (m *mockEventPublisher) Close() error {
 var (
 	_ outbound.DoctorRepositoryPort       = (*mockDoctorRepo)(nil)
 	_ outbound.ConsultationRepositoryPort = (*mockConsultationRepo)(nil)
-	_ outbound.EventPublisherPort        = (*mockEventPublisher)(nil)
+	_ outbound.EventPublisherPort         = (*mockEventPublisher)(nil)
 )
 
 func TestDoctorUseCase_ToggleStatus(t *testing.T) {
 	tests := []struct {
 		name        string
-		doctorID    int
+		doctorID    string
 		isOnline    bool
 		doctorRepo  *mockDoctorRepo
 		consultRepo *mockConsultationRepo
@@ -126,17 +125,23 @@ func TestDoctorUseCase_ToggleStatus(t *testing.T) {
 		wantStatus  domain.DoctorStatus
 	}{
 		{
-			name:     "Invalid doctor ID <= 0",
-			doctorID: 0,
+			name:     "Invalid doctor ID empty",
+			doctorID: "",
+			isOnline: true,
+			wantErr:  domain.ErrInvalidInput,
+		},
+		{
+			name:     "Invalid doctor ID whitespace",
+			doctorID: "   ",
 			isOnline: true,
 			wantErr:  domain.ErrInvalidInput,
 		},
 		{
 			name:     "DoctorRepo GetDoctorByID error",
-			doctorID: 1,
+			doctorID: "01919df4-8e3b-7412-a1f9-90b567c9e101",
 			isOnline: true,
 			doctorRepo: &mockDoctorRepo{
-				getDoctorByIDFunc: func(ctx context.Context, id int) (*domain.Doctor, error) {
+				getDoctorByIDFunc: func(ctx context.Context, id string) (*domain.Doctor, error) {
 					return nil, errors.New("db error")
 				},
 			},
@@ -144,10 +149,10 @@ func TestDoctorUseCase_ToggleStatus(t *testing.T) {
 		},
 		{
 			name:     "Doctor not found",
-			doctorID: 99,
+			doctorID: "01919df4-8e3b-7412-a1f9-90b567c9e999",
 			isOnline: true,
 			doctorRepo: &mockDoctorRepo{
-				getDoctorByIDFunc: func(ctx context.Context, id int) (*domain.Doctor, error) {
+				getDoctorByIDFunc: func(ctx context.Context, id string) (*domain.Doctor, error) {
 					return nil, nil
 				},
 			},
@@ -155,15 +160,15 @@ func TestDoctorUseCase_ToggleStatus(t *testing.T) {
 		},
 		{
 			name:     "ConsultationRepo GetActiveSessionByDoctorID error",
-			doctorID: 1,
+			doctorID: "01919df4-8e3b-7412-a1f9-90b567c9e101",
 			isOnline: true,
 			doctorRepo: &mockDoctorRepo{
-				getDoctorByIDFunc: func(ctx context.Context, id int) (*domain.Doctor, error) {
-					return &domain.Doctor{ID: 1, Name: "Dr. Sarah", AvgConsultationTime: 3}, nil
+				getDoctorByIDFunc: func(ctx context.Context, id string) (*domain.Doctor, error) {
+					return &domain.Doctor{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Dr. Sarah", AvgConsultationTime: 3}, nil
 				},
 			},
 			consultRepo: &mockConsultationRepo{
-				getActiveSessionByDoctorIDFunc: func(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
+				getActiveSessionByDoctorIDFunc: func(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
 					return nil, errors.New("session query failed")
 				},
 			},
@@ -171,18 +176,18 @@ func TestDoctorUseCase_ToggleStatus(t *testing.T) {
 		},
 		{
 			name:     "DoctorRepo UpdateOnlineStatus error",
-			doctorID: 1,
+			doctorID: "01919df4-8e3b-7412-a1f9-90b567c9e101",
 			isOnline: true,
 			doctorRepo: &mockDoctorRepo{
-				getDoctorByIDFunc: func(ctx context.Context, id int) (*domain.Doctor, error) {
-					return &domain.Doctor{ID: 1, Name: "Dr. Sarah", AvgConsultationTime: 3}, nil
+				getDoctorByIDFunc: func(ctx context.Context, id string) (*domain.Doctor, error) {
+					return &domain.Doctor{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Dr. Sarah", AvgConsultationTime: 3}, nil
 				},
-				updateOnlineStatusFunc: func(ctx context.Context, doctorID int, isOnline bool) error {
+				updateOnlineStatusFunc: func(ctx context.Context, doctorID string, isOnline bool) error {
 					return errors.New("update online status failed")
 				},
 			},
 			consultRepo: &mockConsultationRepo{
-				getActiveSessionByDoctorIDFunc: func(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
+				getActiveSessionByDoctorIDFunc: func(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
 					return nil, nil
 				},
 			},
@@ -190,18 +195,18 @@ func TestDoctorUseCase_ToggleStatus(t *testing.T) {
 		},
 		{
 			name:     "Success: Go online with no active session -> AVAILABLE",
-			doctorID: 1,
+			doctorID: "01919df4-8e3b-7412-a1f9-90b567c9e101",
 			isOnline: true,
 			doctorRepo: &mockDoctorRepo{
-				getDoctorByIDFunc: func(ctx context.Context, id int) (*domain.Doctor, error) {
-					return &domain.Doctor{ID: 1, Name: "Dr. Sarah", AvgConsultationTime: 3, IsOnline: false}, nil
+				getDoctorByIDFunc: func(ctx context.Context, id string) (*domain.Doctor, error) {
+					return &domain.Doctor{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Dr. Sarah", AvgConsultationTime: 3, IsOnline: false}, nil
 				},
-				updateOnlineStatusFunc: func(ctx context.Context, doctorID int, isOnline bool) error {
+				updateOnlineStatusFunc: func(ctx context.Context, doctorID string, isOnline bool) error {
 					return nil
 				},
 			},
 			consultRepo: &mockConsultationRepo{
-				getActiveSessionByDoctorIDFunc: func(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
+				getActiveSessionByDoctorIDFunc: func(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
 					return nil, nil
 				},
 			},
@@ -215,19 +220,19 @@ func TestDoctorUseCase_ToggleStatus(t *testing.T) {
 		},
 		{
 			name:     "Success: Go online with ongoing session -> IN_CONSULTATION",
-			doctorID: 1,
+			doctorID: "01919df4-8e3b-7412-a1f9-90b567c9e101",
 			isOnline: true,
 			doctorRepo: &mockDoctorRepo{
-				getDoctorByIDFunc: func(ctx context.Context, id int) (*domain.Doctor, error) {
-					return &domain.Doctor{ID: 1, Name: "Dr. Sarah", AvgConsultationTime: 3, IsOnline: false}, nil
+				getDoctorByIDFunc: func(ctx context.Context, id string) (*domain.Doctor, error) {
+					return &domain.Doctor{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Dr. Sarah", AvgConsultationTime: 3, IsOnline: false}, nil
 				},
-				updateOnlineStatusFunc: func(ctx context.Context, doctorID int, isOnline bool) error {
+				updateOnlineStatusFunc: func(ctx context.Context, doctorID string, isOnline bool) error {
 					return nil
 				},
 			},
 			consultRepo: &mockConsultationRepo{
-				getActiveSessionByDoctorIDFunc: func(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
-					return &domain.ConsultationSession{ID: 10, DoctorID: 1, PatientName: "Alice", IsActive: true}, nil
+				getActiveSessionByDoctorIDFunc: func(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
+					return &domain.ConsultationSession{ID: "01919df4-8e3b-7412-a1f9-90b567c9e301", DoctorID: "01919df4-8e3b-7412-a1f9-90b567c9e101", PatientName: "Alice", IsActive: true}, nil
 				},
 			},
 			wantErr:    nil,
@@ -235,18 +240,18 @@ func TestDoctorUseCase_ToggleStatus(t *testing.T) {
 		},
 		{
 			name:     "Success: Go offline -> OFFLINE",
-			doctorID: 1,
+			doctorID: "01919df4-8e3b-7412-a1f9-90b567c9e101",
 			isOnline: false,
 			doctorRepo: &mockDoctorRepo{
-				getDoctorByIDFunc: func(ctx context.Context, id int) (*domain.Doctor, error) {
-					return &domain.Doctor{ID: 1, Name: "Dr. Sarah", AvgConsultationTime: 3, IsOnline: true}, nil
+				getDoctorByIDFunc: func(ctx context.Context, id string) (*domain.Doctor, error) {
+					return &domain.Doctor{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Dr. Sarah", AvgConsultationTime: 3, IsOnline: true}, nil
 				},
-				updateOnlineStatusFunc: func(ctx context.Context, doctorID int, isOnline bool) error {
+				updateOnlineStatusFunc: func(ctx context.Context, doctorID string, isOnline bool) error {
 					return nil
 				},
 			},
 			consultRepo: &mockConsultationRepo{
-				getActiveSessionByDoctorIDFunc: func(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
+				getActiveSessionByDoctorIDFunc: func(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
 					return nil, nil
 				},
 			},
@@ -284,7 +289,7 @@ func TestDoctorUseCase_ToggleStatus(t *testing.T) {
 func TestDoctorUseCase_CallNextPatient(t *testing.T) {
 	tests := []struct {
 		name        string
-		doctorID    int
+		doctorID    string
 		doctorRepo  *mockDoctorRepo
 		consultRepo *mockConsultationRepo
 		eventPub    *mockEventPublisher
@@ -292,15 +297,15 @@ func TestDoctorUseCase_CallNextPatient(t *testing.T) {
 		wantSession bool
 	}{
 		{
-			name:     "Invalid doctor ID <= 0",
-			doctorID: -1,
+			name:     "Invalid doctor ID empty",
+			doctorID: "",
 			wantErr:  domain.ErrInvalidInput,
 		},
 		{
 			name:     "DoctorRepo GetDoctorByID error",
-			doctorID: 1,
+			doctorID: "01919df4-8e3b-7412-a1f9-90b567c9e101",
 			doctorRepo: &mockDoctorRepo{
-				getDoctorByIDFunc: func(ctx context.Context, id int) (*domain.Doctor, error) {
+				getDoctorByIDFunc: func(ctx context.Context, id string) (*domain.Doctor, error) {
 					return nil, errors.New("db error")
 				},
 			},
@@ -308,9 +313,9 @@ func TestDoctorUseCase_CallNextPatient(t *testing.T) {
 		},
 		{
 			name:     "Doctor not found",
-			doctorID: 99,
+			doctorID: "01919df4-8e3b-7412-a1f9-90b567c9e999",
 			doctorRepo: &mockDoctorRepo{
-				getDoctorByIDFunc: func(ctx context.Context, id int) (*domain.Doctor, error) {
+				getDoctorByIDFunc: func(ctx context.Context, id string) (*domain.Doctor, error) {
 					return nil, nil
 				},
 			},
@@ -318,24 +323,24 @@ func TestDoctorUseCase_CallNextPatient(t *testing.T) {
 		},
 		{
 			name:     "Doctor is offline -> ErrDoctorOffline",
-			doctorID: 1,
+			doctorID: "01919df4-8e3b-7412-a1f9-90b567c9e101",
 			doctorRepo: &mockDoctorRepo{
-				getDoctorByIDFunc: func(ctx context.Context, id int) (*domain.Doctor, error) {
-					return &domain.Doctor{ID: 1, Name: "Dr. Sarah", AvgConsultationTime: 3, IsOnline: false}, nil
+				getDoctorByIDFunc: func(ctx context.Context, id string) (*domain.Doctor, error) {
+					return &domain.Doctor{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Dr. Sarah", AvgConsultationTime: 3, IsOnline: false}, nil
 				},
 			},
 			wantErr: domain.ErrDoctorOffline,
 		},
 		{
 			name:     "ConsultationRepo GetActiveSessionByDoctorID error",
-			doctorID: 1,
+			doctorID: "01919df4-8e3b-7412-a1f9-90b567c9e101",
 			doctorRepo: &mockDoctorRepo{
-				getDoctorByIDFunc: func(ctx context.Context, id int) (*domain.Doctor, error) {
-					return &domain.Doctor{ID: 1, Name: "Dr. Sarah", AvgConsultationTime: 3, IsOnline: true}, nil
+				getDoctorByIDFunc: func(ctx context.Context, id string) (*domain.Doctor, error) {
+					return &domain.Doctor{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Dr. Sarah", AvgConsultationTime: 3, IsOnline: true}, nil
 				},
 			},
 			consultRepo: &mockConsultationRepo{
-				getActiveSessionByDoctorIDFunc: func(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
+				getActiveSessionByDoctorIDFunc: func(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
 					return nil, errors.New("check active failed")
 				},
 			},
@@ -343,32 +348,32 @@ func TestDoctorUseCase_CallNextPatient(t *testing.T) {
 		},
 		{
 			name:     "Active consultation already exists -> ErrActiveConsultationExists",
-			doctorID: 1,
+			doctorID: "01919df4-8e3b-7412-a1f9-90b567c9e101",
 			doctorRepo: &mockDoctorRepo{
-				getDoctorByIDFunc: func(ctx context.Context, id int) (*domain.Doctor, error) {
-					return &domain.Doctor{ID: 1, Name: "Dr. Sarah", AvgConsultationTime: 3, IsOnline: true}, nil
+				getDoctorByIDFunc: func(ctx context.Context, id string) (*domain.Doctor, error) {
+					return &domain.Doctor{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Dr. Sarah", AvgConsultationTime: 3, IsOnline: true}, nil
 				},
 			},
 			consultRepo: &mockConsultationRepo{
-				getActiveSessionByDoctorIDFunc: func(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
-					return &domain.ConsultationSession{ID: 1, DoctorID: 1, PatientName: "Alice", IsActive: true}, nil
+				getActiveSessionByDoctorIDFunc: func(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
+					return &domain.ConsultationSession{ID: "01919df4-8e3b-7412-a1f9-90b567c9e301", DoctorID: "01919df4-8e3b-7412-a1f9-90b567c9e101", PatientName: "Alice", IsActive: true}, nil
 				},
 			},
 			wantErr: domain.ErrActiveConsultationExists,
 		},
 		{
 			name:     "ConsultationRepo CallNextTicketAtomically error",
-			doctorID: 1,
+			doctorID: "01919df4-8e3b-7412-a1f9-90b567c9e101",
 			doctorRepo: &mockDoctorRepo{
-				getDoctorByIDFunc: func(ctx context.Context, id int) (*domain.Doctor, error) {
-					return &domain.Doctor{ID: 1, Name: "Dr. Sarah", AvgConsultationTime: 3, IsOnline: true}, nil
+				getDoctorByIDFunc: func(ctx context.Context, id string) (*domain.Doctor, error) {
+					return &domain.Doctor{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Dr. Sarah", AvgConsultationTime: 3, IsOnline: true}, nil
 				},
 			},
 			consultRepo: &mockConsultationRepo{
-				getActiveSessionByDoctorIDFunc: func(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
+				getActiveSessionByDoctorIDFunc: func(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
 					return nil, nil
 				},
-				callNextTicketAtomicallyFunc: func(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
+				callNextTicketAtomicallyFunc: func(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
 					return nil, errors.New("atomic transaction failed")
 				},
 			},
@@ -376,17 +381,17 @@ func TestDoctorUseCase_CallNextPatient(t *testing.T) {
 		},
 		{
 			name:     "Queue is empty -> ErrQueueEmpty",
-			doctorID: 1,
+			doctorID: "01919df4-8e3b-7412-a1f9-90b567c9e101",
 			doctorRepo: &mockDoctorRepo{
-				getDoctorByIDFunc: func(ctx context.Context, id int) (*domain.Doctor, error) {
-					return &domain.Doctor{ID: 1, Name: "Dr. Sarah", AvgConsultationTime: 3, IsOnline: true}, nil
+				getDoctorByIDFunc: func(ctx context.Context, id string) (*domain.Doctor, error) {
+					return &domain.Doctor{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Dr. Sarah", AvgConsultationTime: 3, IsOnline: true}, nil
 				},
 			},
 			consultRepo: &mockConsultationRepo{
-				getActiveSessionByDoctorIDFunc: func(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
+				getActiveSessionByDoctorIDFunc: func(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
 					return nil, nil
 				},
-				callNextTicketAtomicallyFunc: func(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
+				callNextTicketAtomicallyFunc: func(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
 					return nil, nil
 				},
 			},
@@ -394,26 +399,26 @@ func TestDoctorUseCase_CallNextPatient(t *testing.T) {
 		},
 		{
 			name:     "Success: Patient popped and session started",
-			doctorID: 1,
+			doctorID: "01919df4-8e3b-7412-a1f9-90b567c9e101",
 			doctorRepo: &mockDoctorRepo{
-				getDoctorByIDFunc: func(ctx context.Context, id int) (*domain.Doctor, error) {
-					return &domain.Doctor{ID: 1, Name: "Dr. Sarah", AvgConsultationTime: 3, IsOnline: true}, nil
+				getDoctorByIDFunc: func(ctx context.Context, id string) (*domain.Doctor, error) {
+					return &domain.Doctor{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Dr. Sarah", AvgConsultationTime: 3, IsOnline: true}, nil
 				},
 			},
 			consultRepo: &mockConsultationRepo{
-				getActiveSessionByDoctorIDFunc: func(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
+				getActiveSessionByDoctorIDFunc: func(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
 					return nil, nil
 				},
-				callNextTicketAtomicallyFunc: func(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
+				callNextTicketAtomicallyFunc: func(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
 					return &domain.ConsultationSession{
-						ID:          45,
-						DoctorID:    1,
-						TicketID:    101,
+						ID:          "01919df4-8e3b-7412-a1f9-90b567c9e301",
+						DoctorID:    "01919df4-8e3b-7412-a1f9-90b567c9e101",
+						TicketID:    "01919df4-8e3b-7412-a1f9-90b567c9e401",
 						PatientName: "Alice",
 						StartedAt:   time.Now(),
 						IsActive:    true,
 						Ticket: &domain.ConsultationTicket{
-							ID:          101,
+							ID:          "01919df4-8e3b-7412-a1f9-90b567c9e401",
 							QueueNumber: "A-01",
 							PatientName: "Alice",
 							Status:      domain.TicketStatusInConsultation,
@@ -463,7 +468,7 @@ func TestDoctorUseCase_FinishConsultation(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		doctorID    int
+		doctorID    string
 		doctorRepo  *mockDoctorRepo
 		consultRepo *mockConsultationRepo
 		eventPub    *mockEventPublisher
@@ -471,15 +476,15 @@ func TestDoctorUseCase_FinishConsultation(t *testing.T) {
 		wantStatus  domain.DoctorStatus
 	}{
 		{
-			name:     "Invalid doctor ID <= 0",
-			doctorID: 0,
+			name:     "Invalid doctor ID empty",
+			doctorID: "",
 			wantErr:  domain.ErrInvalidInput,
 		},
 		{
 			name:     "DoctorRepo GetDoctorByID error",
-			doctorID: 1,
+			doctorID: "01919df4-8e3b-7412-a1f9-90b567c9e101",
 			doctorRepo: &mockDoctorRepo{
-				getDoctorByIDFunc: func(ctx context.Context, id int) (*domain.Doctor, error) {
+				getDoctorByIDFunc: func(ctx context.Context, id string) (*domain.Doctor, error) {
 					return nil, errors.New("db error")
 				},
 			},
@@ -487,9 +492,9 @@ func TestDoctorUseCase_FinishConsultation(t *testing.T) {
 		},
 		{
 			name:     "Doctor not found",
-			doctorID: 99,
+			doctorID: "01919df4-8e3b-7412-a1f9-90b567c9e999",
 			doctorRepo: &mockDoctorRepo{
-				getDoctorByIDFunc: func(ctx context.Context, id int) (*domain.Doctor, error) {
+				getDoctorByIDFunc: func(ctx context.Context, id string) (*domain.Doctor, error) {
 					return nil, nil
 				},
 			},
@@ -497,14 +502,14 @@ func TestDoctorUseCase_FinishConsultation(t *testing.T) {
 		},
 		{
 			name:     "ConsultationRepo GetActiveSessionByDoctorID error",
-			doctorID: 1,
+			doctorID: "01919df4-8e3b-7412-a1f9-90b567c9e101",
 			doctorRepo: &mockDoctorRepo{
-				getDoctorByIDFunc: func(ctx context.Context, id int) (*domain.Doctor, error) {
-					return &domain.Doctor{ID: 1, Name: "Dr. Sarah", AvgConsultationTime: 3, IsOnline: true}, nil
+				getDoctorByIDFunc: func(ctx context.Context, id string) (*domain.Doctor, error) {
+					return &domain.Doctor{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Dr. Sarah", AvgConsultationTime: 3, IsOnline: true}, nil
 				},
 			},
 			consultRepo: &mockConsultationRepo{
-				getActiveSessionByDoctorIDFunc: func(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
+				getActiveSessionByDoctorIDFunc: func(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
 					return nil, errors.New("session query failed")
 				},
 			},
@@ -512,14 +517,14 @@ func TestDoctorUseCase_FinishConsultation(t *testing.T) {
 		},
 		{
 			name:     "No active consultation found -> ErrNoActiveConsultation",
-			doctorID: 1,
+			doctorID: "01919df4-8e3b-7412-a1f9-90b567c9e101",
 			doctorRepo: &mockDoctorRepo{
-				getDoctorByIDFunc: func(ctx context.Context, id int) (*domain.Doctor, error) {
-					return &domain.Doctor{ID: 1, Name: "Dr. Sarah", AvgConsultationTime: 3, IsOnline: true}, nil
+				getDoctorByIDFunc: func(ctx context.Context, id string) (*domain.Doctor, error) {
+					return &domain.Doctor{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Dr. Sarah", AvgConsultationTime: 3, IsOnline: true}, nil
 				},
 			},
 			consultRepo: &mockConsultationRepo{
-				getActiveSessionByDoctorIDFunc: func(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
+				getActiveSessionByDoctorIDFunc: func(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
 					return nil, nil
 				},
 			},
@@ -527,17 +532,17 @@ func TestDoctorUseCase_FinishConsultation(t *testing.T) {
 		},
 		{
 			name:     "ConsultationRepo FinishActiveSession error",
-			doctorID: 1,
+			doctorID: "01919df4-8e3b-7412-a1f9-90b567c9e101",
 			doctorRepo: &mockDoctorRepo{
-				getDoctorByIDFunc: func(ctx context.Context, id int) (*domain.Doctor, error) {
-					return &domain.Doctor{ID: 1, Name: "Dr. Sarah", AvgConsultationTime: 3, IsOnline: true}, nil
+				getDoctorByIDFunc: func(ctx context.Context, id string) (*domain.Doctor, error) {
+					return &domain.Doctor{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Dr. Sarah", AvgConsultationTime: 3, IsOnline: true}, nil
 				},
 			},
 			consultRepo: &mockConsultationRepo{
-				getActiveSessionByDoctorIDFunc: func(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
-					return &domain.ConsultationSession{ID: 45, DoctorID: 1, PatientName: "Alice", IsActive: true}, nil
+				getActiveSessionByDoctorIDFunc: func(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
+					return &domain.ConsultationSession{ID: "01919df4-8e3b-7412-a1f9-90b567c9e301", DoctorID: "01919df4-8e3b-7412-a1f9-90b567c9e101", PatientName: "Alice", IsActive: true}, nil
 				},
-				finishActiveSessionFunc: func(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
+				finishActiveSessionFunc: func(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
 					return nil, errors.New("finish session db error")
 				},
 			},
@@ -545,17 +550,17 @@ func TestDoctorUseCase_FinishConsultation(t *testing.T) {
 		},
 		{
 			name:     "FinishActiveSession returns nil session -> ErrNoActiveConsultation",
-			doctorID: 1,
+			doctorID: "01919df4-8e3b-7412-a1f9-90b567c9e101",
 			doctorRepo: &mockDoctorRepo{
-				getDoctorByIDFunc: func(ctx context.Context, id int) (*domain.Doctor, error) {
-					return &domain.Doctor{ID: 1, Name: "Dr. Sarah", AvgConsultationTime: 3, IsOnline: true}, nil
+				getDoctorByIDFunc: func(ctx context.Context, id string) (*domain.Doctor, error) {
+					return &domain.Doctor{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Dr. Sarah", AvgConsultationTime: 3, IsOnline: true}, nil
 				},
 			},
 			consultRepo: &mockConsultationRepo{
-				getActiveSessionByDoctorIDFunc: func(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
-					return &domain.ConsultationSession{ID: 45, DoctorID: 1, PatientName: "Alice", IsActive: true}, nil
+				getActiveSessionByDoctorIDFunc: func(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
+					return &domain.ConsultationSession{ID: "01919df4-8e3b-7412-a1f9-90b567c9e301", DoctorID: "01919df4-8e3b-7412-a1f9-90b567c9e101", PatientName: "Alice", IsActive: true}, nil
 				},
-				finishActiveSessionFunc: func(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
+				finishActiveSessionFunc: func(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
 					return nil, nil
 				},
 			},
@@ -563,21 +568,21 @@ func TestDoctorUseCase_FinishConsultation(t *testing.T) {
 		},
 		{
 			name:     "Success: Online doctor finishes consultation -> AVAILABLE",
-			doctorID: 1,
+			doctorID: "01919df4-8e3b-7412-a1f9-90b567c9e101",
 			doctorRepo: &mockDoctorRepo{
-				getDoctorByIDFunc: func(ctx context.Context, id int) (*domain.Doctor, error) {
-					return &domain.Doctor{ID: 1, Name: "Dr. Sarah", AvgConsultationTime: 3, IsOnline: true}, nil
+				getDoctorByIDFunc: func(ctx context.Context, id string) (*domain.Doctor, error) {
+					return &domain.Doctor{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Dr. Sarah", AvgConsultationTime: 3, IsOnline: true}, nil
 				},
 			},
 			consultRepo: &mockConsultationRepo{
-				getActiveSessionByDoctorIDFunc: func(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
-					return &domain.ConsultationSession{ID: 45, DoctorID: 1, PatientName: "Alice", IsActive: true}, nil
+				getActiveSessionByDoctorIDFunc: func(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
+					return &domain.ConsultationSession{ID: "01919df4-8e3b-7412-a1f9-90b567c9e301", DoctorID: "01919df4-8e3b-7412-a1f9-90b567c9e101", PatientName: "Alice", IsActive: true}, nil
 				},
-				finishActiveSessionFunc: func(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
+				finishActiveSessionFunc: func(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
 					return &domain.ConsultationSession{
-						ID:          45,
-						DoctorID:    1,
-						TicketID:    101,
+						ID:          "01919df4-8e3b-7412-a1f9-90b567c9e301",
+						DoctorID:    "01919df4-8e3b-7412-a1f9-90b567c9e101",
+						TicketID:    "01919df4-8e3b-7412-a1f9-90b567c9e401",
 						PatientName: "Alice",
 						StartedAt:   startTime,
 						FinishedAt:  &now,
@@ -595,21 +600,21 @@ func TestDoctorUseCase_FinishConsultation(t *testing.T) {
 		},
 		{
 			name:     "Success: Offline doctor finishes consultation -> OFFLINE",
-			doctorID: 1,
+			doctorID: "01919df4-8e3b-7412-a1f9-90b567c9e101",
 			doctorRepo: &mockDoctorRepo{
-				getDoctorByIDFunc: func(ctx context.Context, id int) (*domain.Doctor, error) {
-					return &domain.Doctor{ID: 1, Name: "Dr. Sarah", AvgConsultationTime: 3, IsOnline: false}, nil
+				getDoctorByIDFunc: func(ctx context.Context, id string) (*domain.Doctor, error) {
+					return &domain.Doctor{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Dr. Sarah", AvgConsultationTime: 3, IsOnline: false}, nil
 				},
 			},
 			consultRepo: &mockConsultationRepo{
-				getActiveSessionByDoctorIDFunc: func(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
-					return &domain.ConsultationSession{ID: 45, DoctorID: 1, PatientName: "Alice", IsActive: true}, nil
+				getActiveSessionByDoctorIDFunc: func(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
+					return &domain.ConsultationSession{ID: "01919df4-8e3b-7412-a1f9-90b567c9e301", DoctorID: "01919df4-8e3b-7412-a1f9-90b567c9e101", PatientName: "Alice", IsActive: true}, nil
 				},
-				finishActiveSessionFunc: func(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
+				finishActiveSessionFunc: func(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
 					return &domain.ConsultationSession{
-						ID:          45,
-						DoctorID:    1,
-						TicketID:    101,
+						ID:          "01919df4-8e3b-7412-a1f9-90b567c9e301",
+						DoctorID:    "01919df4-8e3b-7412-a1f9-90b567c9e101",
+						TicketID:    "01919df4-8e3b-7412-a1f9-90b567c9e401",
 						PatientName: "Alice",
 						StartedAt:   startTime,
 						FinishedAt:  nil,
@@ -651,22 +656,22 @@ func TestDoctorUseCase_FinishConsultation(t *testing.T) {
 func TestDoctorUseCase_GetWorkspace(t *testing.T) {
 	tests := []struct {
 		name        string
-		doctorID    int
+		doctorID    string
 		doctorRepo  *mockDoctorRepo
 		consultRepo *mockConsultationRepo
 		wantErr     error
 		wantStatus  domain.DoctorStatus
 	}{
 		{
-			name:     "Invalid doctor ID <= 0",
-			doctorID: 0,
+			name:     "Invalid doctor ID empty",
+			doctorID: "",
 			wantErr:  domain.ErrInvalidInput,
 		},
 		{
 			name:     "DoctorRepo GetDoctorByID error",
-			doctorID: 1,
+			doctorID: "01919df4-8e3b-7412-a1f9-90b567c9e101",
 			doctorRepo: &mockDoctorRepo{
-				getDoctorByIDFunc: func(ctx context.Context, id int) (*domain.Doctor, error) {
+				getDoctorByIDFunc: func(ctx context.Context, id string) (*domain.Doctor, error) {
 					return nil, errors.New("db error")
 				},
 			},
@@ -674,9 +679,9 @@ func TestDoctorUseCase_GetWorkspace(t *testing.T) {
 		},
 		{
 			name:     "Doctor not found",
-			doctorID: 99,
+			doctorID: "01919df4-8e3b-7412-a1f9-90b567c9e999",
 			doctorRepo: &mockDoctorRepo{
-				getDoctorByIDFunc: func(ctx context.Context, id int) (*domain.Doctor, error) {
+				getDoctorByIDFunc: func(ctx context.Context, id string) (*domain.Doctor, error) {
 					return nil, nil
 				},
 			},
@@ -684,14 +689,14 @@ func TestDoctorUseCase_GetWorkspace(t *testing.T) {
 		},
 		{
 			name:     "ConsultationRepo GetActiveSessionByDoctorID error",
-			doctorID: 1,
+			doctorID: "01919df4-8e3b-7412-a1f9-90b567c9e101",
 			doctorRepo: &mockDoctorRepo{
-				getDoctorByIDFunc: func(ctx context.Context, id int) (*domain.Doctor, error) {
-					return &domain.Doctor{ID: 1, Name: "Dr. Sarah", AvgConsultationTime: 3, IsOnline: true}, nil
+				getDoctorByIDFunc: func(ctx context.Context, id string) (*domain.Doctor, error) {
+					return &domain.Doctor{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Dr. Sarah", AvgConsultationTime: 3, IsOnline: true}, nil
 				},
 			},
 			consultRepo: &mockConsultationRepo{
-				getActiveSessionByDoctorIDFunc: func(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
+				getActiveSessionByDoctorIDFunc: func(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
 					return nil, errors.New("active session query failed")
 				},
 			},
@@ -699,14 +704,14 @@ func TestDoctorUseCase_GetWorkspace(t *testing.T) {
 		},
 		{
 			name:     "Success: Online doctor with no active session -> AVAILABLE",
-			doctorID: 1,
+			doctorID: "01919df4-8e3b-7412-a1f9-90b567c9e101",
 			doctorRepo: &mockDoctorRepo{
-				getDoctorByIDFunc: func(ctx context.Context, id int) (*domain.Doctor, error) {
-					return &domain.Doctor{ID: 1, Name: "Dr. Sarah", AvgConsultationTime: 3, IsOnline: true}, nil
+				getDoctorByIDFunc: func(ctx context.Context, id string) (*domain.Doctor, error) {
+					return &domain.Doctor{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Dr. Sarah", AvgConsultationTime: 3, IsOnline: true}, nil
 				},
 			},
 			consultRepo: &mockConsultationRepo{
-				getActiveSessionByDoctorIDFunc: func(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
+				getActiveSessionByDoctorIDFunc: func(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
 					return nil, nil
 				},
 			},
@@ -715,15 +720,15 @@ func TestDoctorUseCase_GetWorkspace(t *testing.T) {
 		},
 		{
 			name:     "Success: Online doctor with active session -> IN_CONSULTATION",
-			doctorID: 1,
+			doctorID: "01919df4-8e3b-7412-a1f9-90b567c9e101",
 			doctorRepo: &mockDoctorRepo{
-				getDoctorByIDFunc: func(ctx context.Context, id int) (*domain.Doctor, error) {
-					return &domain.Doctor{ID: 1, Name: "Dr. Sarah", AvgConsultationTime: 3, IsOnline: true}, nil
+				getDoctorByIDFunc: func(ctx context.Context, id string) (*domain.Doctor, error) {
+					return &domain.Doctor{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Dr. Sarah", AvgConsultationTime: 3, IsOnline: true}, nil
 				},
 			},
 			consultRepo: &mockConsultationRepo{
-				getActiveSessionByDoctorIDFunc: func(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
-					return &domain.ConsultationSession{ID: 10, DoctorID: 1, PatientName: "Alice", IsActive: true}, nil
+				getActiveSessionByDoctorIDFunc: func(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
+					return &domain.ConsultationSession{ID: "01919df4-8e3b-7412-a1f9-90b567c9e301", DoctorID: "01919df4-8e3b-7412-a1f9-90b567c9e101", PatientName: "Alice", IsActive: true}, nil
 				},
 			},
 			wantErr:    nil,
@@ -731,14 +736,14 @@ func TestDoctorUseCase_GetWorkspace(t *testing.T) {
 		},
 		{
 			name:     "Success: Offline doctor -> OFFLINE",
-			doctorID: 1,
+			doctorID: "01919df4-8e3b-7412-a1f9-90b567c9e101",
 			doctorRepo: &mockDoctorRepo{
-				getDoctorByIDFunc: func(ctx context.Context, id int) (*domain.Doctor, error) {
-					return &domain.Doctor{ID: 1, Name: "Dr. Sarah", AvgConsultationTime: 3, IsOnline: false}, nil
+				getDoctorByIDFunc: func(ctx context.Context, id string) (*domain.Doctor, error) {
+					return &domain.Doctor{ID: "01919df4-8e3b-7412-a1f9-90b567c9e101", Name: "Dr. Sarah", AvgConsultationTime: 3, IsOnline: false}, nil
 				},
 			},
 			consultRepo: &mockConsultationRepo{
-				getActiveSessionByDoctorIDFunc: func(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
+				getActiveSessionByDoctorIDFunc: func(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
 					return nil, nil
 				},
 			},

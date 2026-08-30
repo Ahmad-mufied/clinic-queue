@@ -48,7 +48,7 @@ func (r *QueueRepo) CreateTicket(ctx context.Context, ticket *domain.QueueTicket
 }
 
 // FindActiveTicketByUserID finds an active ticket (WAITING or IN_CONSULTATION) for a specific user ID.
-func (r *QueueRepo) FindActiveTicketByUserID(ctx context.Context, userID int) (*domain.QueueTicket, error) {
+func (r *QueueRepo) FindActiveTicketByUserID(ctx context.Context, userID string) (*domain.QueueTicket, error) {
 	query := `
 		SELECT id, user_id, patient_name, queue_number, status, created_at, called_at, finished_at
 		FROM queue_tickets
@@ -73,7 +73,7 @@ func (r *QueueRepo) FindActiveTicketByUserID(ctx context.Context, userID int) (*
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("query active ticket for user %d: %w", userID, err)
+		return nil, fmt.Errorf("query active ticket for user %s: %w", userID, err)
 	}
 
 	ticket.Status = domain.TicketStatus(statusStr)
@@ -114,7 +114,7 @@ func (r *QueueRepo) FindActiveTicketByPatientName(ctx context.Context, patientNa
 }
 
 // FindByID finds a queue ticket by its primary key ID.
-func (r *QueueRepo) FindByID(ctx context.Context, id int) (*domain.QueueTicket, error) {
+func (r *QueueRepo) FindByID(ctx context.Context, id string) (*domain.QueueTicket, error) {
 	query := `
 		SELECT id, user_id, patient_name, queue_number, status, created_at, called_at, finished_at
 		FROM queue_tickets
@@ -137,7 +137,7 @@ func (r *QueueRepo) FindByID(ctx context.Context, id int) (*domain.QueueTicket, 
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("query queue ticket by id %d: %w", id, err)
+		return nil, fmt.Errorf("query queue ticket by id %s: %w", id, err)
 	}
 
 	ticket.Status = domain.TicketStatus(statusStr)

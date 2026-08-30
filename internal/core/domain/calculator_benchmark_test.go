@@ -16,7 +16,7 @@ func makeBenchmarkDoctors(count int, withActiveSessions bool) []*domain.Doctor {
 	for i := 0; i < count; i++ {
 		avg := avgTimes[i%len(avgTimes)]
 		doc := &domain.Doctor{
-			ID:                  i + 1,
+			ID:                  fmt.Sprintf("01919df4-8e3b-7412-a1f9-90b567c9e1%02d", i+1),
 			Name:                fmt.Sprintf("Doctor %d", i+1),
 			AvgConsultationTime: avg,
 			IsOnline:            true,

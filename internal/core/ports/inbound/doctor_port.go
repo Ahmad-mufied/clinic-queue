@@ -14,14 +14,14 @@ type ToggleShiftRequest struct {
 // DoctorUseCase defines the driving/inbound port for doctor shift management, consultation lifecycle, and workspace monitoring.
 type DoctorUseCase interface {
 	// ToggleStatus updates the doctor's online availability and broadcasts updated doctor counts.
-	ToggleStatus(ctx context.Context, doctorID int, isOnline bool) (*domain.DoctorShiftResponse, error)
+	ToggleStatus(ctx context.Context, doctorID string, isOnline bool) (*domain.DoctorShiftResponse, error)
 
 	// CallNextPatient atomically pops the next waiting patient from the queue and starts a consultation session.
-	CallNextPatient(ctx context.Context, doctorID int) (*domain.ConsultationSession, error)
+	CallNextPatient(ctx context.Context, doctorID string) (*domain.ConsultationSession, error)
 
 	// FinishConsultation closes the active consultation session and recalculates public queue wait times.
-	FinishConsultation(ctx context.Context, doctorID int) (*domain.ConsultationFinishResponse, error)
+	FinishConsultation(ctx context.Context, doctorID string) (*domain.ConsultationFinishResponse, error)
 
 	// GetWorkspace retrieves the complete workspace state including room status and active session timer.
-	GetWorkspace(ctx context.Context, doctorID int) (*domain.DoctorWorkspace, error)
+	GetWorkspace(ctx context.Context, doctorID string) (*domain.DoctorWorkspace, error)
 }

@@ -280,10 +280,8 @@ func resetDatabase(ctx context.Context, dbURL string) error {
 
 	resetSQL := `
 		TRUNCATE TABLE audit_logs, consultation_sessions, queue_tickets RESTART IDENTITY CASCADE;
-		DELETE FROM doctors WHERE id > 2;
-		DELETE FROM users WHERE id > 5;
-		UPDATE doctors SET avg_consultation_time_min = 3, is_online = true WHERE id = 1;
-		UPDATE doctors SET avg_consultation_time_min = 4, is_online = true WHERE id = 2;
+		UPDATE doctors SET avg_consultation_time_min = 3, is_online = true WHERE id = '01919df4-8e3b-7412-a1f9-90b567c9e101';
+		UPDATE doctors SET avg_consultation_time_min = 4, is_online = true WHERE id = '01919df4-8e3b-7412-a1f9-90b567c9e102';
 	`
 	_, err = pool.Exec(ctx, resetSQL)
 	if err != nil {
@@ -293,7 +291,7 @@ func resetDatabase(ctx context.Context, dbURL string) error {
 }
 
 // Seed helper for inserting custom audit logs if required.
-func insertTestAuditLog(ctx context.Context, dbURL, action, role, actor string, userID *int) error {
+func insertTestAuditLog(ctx context.Context, dbURL, action, role, actor string, userID *string) error {
 	pool, err := pgxpool.New(ctx, dbURL)
 	if err != nil {
 		return err
@@ -401,10 +399,10 @@ func main() {
 		_ = json.Unmarshal(resp.Body, &body)
 		tokenDoctorA = body["token"].(string)
 		userObj := body["user"].(map[string]interface{})
-		if userObj["role"] == "doctor" && userObj["doctor_id"] == float64(1) {
-			tracker.Record("AUTH-02", "Authentication", "/api/auth/login", "Doctor A", "Valid Doctor A Login", "HTTP 200, role=doctor, doctor_id=1", "HTTP 200 & doctor_id=1", "PASS", "", resp.Duration)
+		if userObj["role"] == "doctor" && userObj["doctor_id"] == "01919df4-8e3b-7412-a1f9-90b567c9e101" {
+			tracker.Record("AUTH-02", "Authentication", "/api/auth/login", "Doctor A", "Valid Doctor A Login", "HTTP 200, role=doctor, doctor_id=01919df4-8e3b-7412-a1f9-90b567c9e101", "HTTP 200 & doctor_id=01919df4-8e3b-7412-a1f9-90b567c9e101", "PASS", "", resp.Duration)
 		} else {
-			tracker.Record("AUTH-02", "Authentication", "/api/auth/login", "Doctor A", "Valid Doctor A Login", "role=doctor, doctor_id=1", fmt.Sprintf("role=%v, doctor_id=%v", userObj["role"], userObj["doctor_id"]), "FAIL", "Mismatch in claims", resp.Duration)
+			tracker.Record("AUTH-02", "Authentication", "/api/auth/login", "Doctor A", "Valid Doctor A Login", "role=doctor, doctor_id=01919df4-8e3b-7412-a1f9-90b567c9e101", fmt.Sprintf("role=%v, doctor_id=%v", userObj["role"], userObj["doctor_id"]), "FAIL", "Mismatch in claims", resp.Duration)
 		}
 	} else {
 		tracker.Record("AUTH-02", "Authentication", "/api/auth/login", "Doctor A", "Valid Doctor A Login", "HTTP 200", fmt.Sprintf("HTTP %d", resp.StatusCode), "FAIL", string(resp.Body), resp.Duration)
@@ -417,7 +415,7 @@ func main() {
 		var body map[string]interface{}
 		_ = json.Unmarshal(resp.Body, &body)
 		tokenDoctorB = body["token"].(string)
-		tracker.Record("AUTH-03", "Authentication", "/api/auth/login", "Doctor B", "Valid Doctor B Login", "HTTP 200, role=doctor, doctor_id=2", "HTTP 200 & doctor_id=2", "PASS", "", resp.Duration)
+		tracker.Record("AUTH-03", "Authentication", "/api/auth/login", "Doctor B", "Valid Doctor B Login", "HTTP 200, role=doctor, doctor_id=01919df4-8e3b-7412-a1f9-90b567c9e102", "HTTP 200 & doctor_id=01919df4-8e3b-7412-a1f9-90b567c9e102", "PASS", "", resp.Duration)
 	} else {
 		tracker.Record("AUTH-03", "Authentication", "/api/auth/login", "Doctor B", "Valid Doctor B Login", "HTTP 200", fmt.Sprintf("HTTP %d", resp.StatusCode), "FAIL", string(resp.Body), resp.Duration)
 	}
@@ -451,7 +449,7 @@ func main() {
 	if err == nil && resp.StatusCode == http.StatusOK {
 		var user domainUserCheck
 		_ = json.Unmarshal(resp.Body, &user)
-		if user.Username == "doctor_a" && user.DoctorID != nil && *user.DoctorID == 1 {
+		if user.Username == "doctor_a" && user.DoctorID != nil && *user.DoctorID == "01919df4-8e3b-7412-a1f9-90b567c9e101" {
 			tracker.Record("AUTH-06", "Authentication", "/api/auth/me", "Doctor A", "Get Profile Me", "HTTP 200 & username=doctor_a", "HTTP 200 & username=doctor_a", "PASS", "", resp.Duration)
 		} else {
 			tracker.Record("AUTH-06", "Authentication", "/api/auth/me", "Doctor A", "Get Profile Me", "doctor_a", user.Username, "FAIL", "Mismatch in me profile", resp.Duration)
@@ -546,7 +544,7 @@ func main() {
 	assertRBAC(tracker, "RBAC-05", "/api/admin/stats", "Patient John", "Patient calling Admin Stats", http.StatusForbidden, resp)
 
 	// RBAC-06: Patient calling Admin Config -> 403
-	resp, _ = client.Request("POST", "/api/admin/doctors", tokenPatientJ, map[string]interface{}{"doctor_id": 1, "avg_consultation_time_min": 5})
+	resp, _ = client.Request("POST", "/api/admin/doctors", tokenPatientJ, map[string]interface{}{"doctor_id": "01919df4-8e3b-7412-a1f9-90b567c9e101", "avg_consultation_time_min": 5})
 	assertRBAC(tracker, "RBAC-06", "/api/admin/doctors", "Patient John", "Patient calling Admin Doctor Config", http.StatusForbidden, resp)
 
 	// RBAC-07: Patient calling Admin Audit Logs -> 403
@@ -558,7 +556,7 @@ func main() {
 	assertRBAC(tracker, "RBAC-08", "/api/admin/stats", "Doctor A", "Doctor calling Admin Stats", http.StatusForbidden, resp)
 
 	// RBAC-09: Doctor calling Admin Config -> 403
-	resp, _ = client.Request("POST", "/api/admin/doctors", tokenDoctorA, map[string]interface{}{"doctor_id": 1, "avg_consultation_time_min": 5})
+	resp, _ = client.Request("POST", "/api/admin/doctors", tokenDoctorA, map[string]interface{}{"doctor_id": "01919df4-8e3b-7412-a1f9-90b567c9e101", "avg_consultation_time_min": 5})
 	assertRBAC(tracker, "RBAC-09", "/api/admin/doctors", "Doctor A", "Doctor calling Admin Doctor Config", http.StatusForbidden, resp)
 
 	// RBAC-10: Doctor calling Admin Audit Logs -> 403
@@ -1001,7 +999,7 @@ func main() {
 	}
 
 	// ADMIN-02: Admin Updates Doctor A Configuration
-	configBody := map[string]interface{}{"doctor_id": 1, "avg_consultation_time_min": 5}
+	configBody := map[string]interface{}{"doctor_id": "01919df4-8e3b-7412-a1f9-90b567c9e101", "avg_consultation_time_min": 5}
 	resp, err = client.Request("POST", "/api/admin/doctors", tokenAdmin, configBody)
 	if err == nil && resp.StatusCode == http.StatusOK {
 		var doc map[string]interface{}
@@ -1014,10 +1012,10 @@ func main() {
 	}
 
 	// Restore Doctor A back to 3m
-	_, _ = client.Request("POST", "/api/admin/doctors", tokenAdmin, map[string]interface{}{"doctor_id": 1, "avg_consultation_time_min": 3})
+	_, _ = client.Request("POST", "/api/admin/doctors", tokenAdmin, map[string]interface{}{"doctor_id": "01919df4-8e3b-7412-a1f9-90b567c9e101", "avg_consultation_time_min": 3})
 
 	// ADMIN-03: Negative - Update Doctor Config with <= 0 duration
-	resp, _ = client.Request("POST", "/api/admin/doctors", tokenAdmin, map[string]interface{}{"doctor_id": 1, "avg_consultation_time_min": 0})
+	resp, _ = client.Request("POST", "/api/admin/doctors", tokenAdmin, map[string]interface{}{"doctor_id": "01919df4-8e3b-7412-a1f9-90b567c9e101", "avg_consultation_time_min": 0})
 	if resp != nil && resp.StatusCode == http.StatusBadRequest {
 		tracker.Record("ADMIN-03", "Executive Analytics", "/api/admin/doctors", "Admin", "Zero Consultation Duration Guard", "HTTP 400 Bad Request", "HTTP 400 Bad Request", "PASS", "", resp.Duration)
 	} else {
@@ -1025,7 +1023,7 @@ func main() {
 	}
 
 	// ADMIN-04: Negative - Update Doctor Config with negative duration
-	resp, _ = client.Request("POST", "/api/admin/doctors", tokenAdmin, map[string]interface{}{"doctor_id": 1, "avg_consultation_time_min": -4})
+	resp, _ = client.Request("POST", "/api/admin/doctors", tokenAdmin, map[string]interface{}{"doctor_id": "01919df4-8e3b-7412-a1f9-90b567c9e101", "avg_consultation_time_min": -4})
 	if resp != nil && resp.StatusCode == http.StatusBadRequest {
 		tracker.Record("ADMIN-04", "Executive Analytics", "/api/admin/doctors", "Admin", "Negative Consultation Duration Guard", "HTTP 400 Bad Request", "HTTP 400 Bad Request", "PASS", "", resp.Duration)
 	} else {
@@ -1033,7 +1031,7 @@ func main() {
 	}
 
 	// ADMIN-05: Negative - Update Doctor Config for Non-Existent Doctor
-	resp, _ = client.Request("POST", "/api/admin/doctors", tokenAdmin, map[string]interface{}{"doctor_id": 9999, "avg_consultation_time_min": 5})
+	resp, _ = client.Request("POST", "/api/admin/doctors", tokenAdmin, map[string]interface{}{"doctor_id": "01919df4-8e3b-7412-a1f9-999999999999", "avg_consultation_time_min": 5})
 	if resp != nil && resp.StatusCode == http.StatusNotFound {
 		tracker.Record("ADMIN-05", "Executive Analytics", "/api/admin/doctors", "Admin", "Non-Existent Doctor Config Guard", "HTTP 404 Not Found", "HTTP 404 Not Found", "PASS", "", resp.Duration)
 	} else {
@@ -1044,8 +1042,8 @@ func main() {
 	fmt.Printf("\n%s[SUITE 7: PRD 05 - Activity Logging & Audit Trail Pipeline]%s\n", ColorBold, ColorReset)
 
 	// Seed several audit logs for testing query and filter
-	adminID := 5
-	docAID := 1
+	adminID := "01919df4-8e3b-7412-a1f9-90b567c9e205"
+	docAID := "01919df4-8e3b-7412-a1f9-90b567c9e201"
 	_ = insertTestAuditLog(context.Background(), dbURL, "QUEUE_JOINED", "patient", "John Doe", nil)
 	_ = insertTestAuditLog(context.Background(), dbURL, "CONSULTATION_STARTED", "doctor", "Dr. Sarah Adams", &docAID)
 	_ = insertTestAuditLog(context.Background(), dbURL, "CONSULTATION_FINISHED", "doctor", "Dr. Sarah Adams", &docAID)
@@ -1204,9 +1202,9 @@ func assertRBAC(t *TestSuiteTracker, id, endpoint, persona, scenario string, exp
 }
 
 type domainUserCheck struct {
-	ID       int    `json:"id"`
-	Username string `json:"username"`
-	Name     string `json:"name"`
-	Role     string `json:"role"`
-	DoctorID *int   `json:"doctor_id"`
+	ID       string  `json:"id"`
+	Username string  `json:"username"`
+	Name     string  `json:"name"`
+	Role     string  `json:"role"`
+	DoctorID *string `json:"doctor_id"`
 }

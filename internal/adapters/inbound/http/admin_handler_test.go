@@ -66,7 +66,7 @@ func TestAdminHandler_GetStats(t *testing.T) {
 						},
 						DoctorPerformance: []domain.DoctorPerformance{
 							{
-								DoctorID:                     1,
+								DoctorID:                     "01919df4-8e3b-7412-a1f9-90b567c9e101",
 								DoctorName:                   "Doctor A",
 								TargetAvgMinutes:             3,
 								IsOnline:                     true,
@@ -128,7 +128,7 @@ func TestAdminHandler_UpdateDoctorConfig(t *testing.T) {
 		},
 		{
 			name: "UseCase returns ErrInvalidInput returns 400",
-			body: `{"doctor_id":0,"avg_consultation_time_min":4}`,
+			body: `{"doctor_id":"   ","avg_consultation_time_min":4}`,
 			mockSetup: func(uc *mockAdminUseCase) {
 				uc.updateDoctorConfigFunc = func(ctx context.Context, dto inbound.UpdateDoctorConfigDTO) (*domain.Doctor, error) {
 					return nil, domain.ErrInvalidInput
@@ -139,7 +139,7 @@ func TestAdminHandler_UpdateDoctorConfig(t *testing.T) {
 		},
 		{
 			name: "UseCase returns ErrInvalidConsultationTime returns 400",
-			body: `{"doctor_id":1,"avg_consultation_time_min":0}`,
+			body: `{"doctor_id":"01919df4-8e3b-7412-a1f9-90b567c9e101","avg_consultation_time_min":0}`,
 			mockSetup: func(uc *mockAdminUseCase) {
 				uc.updateDoctorConfigFunc = func(ctx context.Context, dto inbound.UpdateDoctorConfigDTO) (*domain.Doctor, error) {
 					return nil, domain.ErrInvalidConsultationTime
@@ -150,7 +150,7 @@ func TestAdminHandler_UpdateDoctorConfig(t *testing.T) {
 		},
 		{
 			name: "UseCase returns ErrDoctorNotFound returns 404",
-			body: `{"doctor_id":99,"avg_consultation_time_min":4}`,
+			body: `{"doctor_id":"01919df4-8e3b-7412-a1f9-90b567c9e999","avg_consultation_time_min":4}`,
 			mockSetup: func(uc *mockAdminUseCase) {
 				uc.updateDoctorConfigFunc = func(ctx context.Context, dto inbound.UpdateDoctorConfigDTO) (*domain.Doctor, error) {
 					return nil, domain.ErrDoctorNotFound
@@ -161,7 +161,7 @@ func TestAdminHandler_UpdateDoctorConfig(t *testing.T) {
 		},
 		{
 			name: "UseCase returns generic internal error returns 500",
-			body: `{"doctor_id":1,"avg_consultation_time_min":4}`,
+			body: `{"doctor_id":"01919df4-8e3b-7412-a1f9-90b567c9e101","avg_consultation_time_min":4}`,
 			mockSetup: func(uc *mockAdminUseCase) {
 				uc.updateDoctorConfigFunc = func(ctx context.Context, dto inbound.UpdateDoctorConfigDTO) (*domain.Doctor, error) {
 					return nil, errors.New("db error")
@@ -172,11 +172,11 @@ func TestAdminHandler_UpdateDoctorConfig(t *testing.T) {
 		},
 		{
 			name: "Success returns 200 OK with updated doctor",
-			body: `{"doctor_id":1,"avg_consultation_time_min":4}`,
+			body: `{"doctor_id":"01919df4-8e3b-7412-a1f9-90b567c9e101","avg_consultation_time_min":4}`,
 			mockSetup: func(uc *mockAdminUseCase) {
 				uc.updateDoctorConfigFunc = func(ctx context.Context, dto inbound.UpdateDoctorConfigDTO) (*domain.Doctor, error) {
 					return &domain.Doctor{
-						ID:                  1,
+						ID:                  "01919df4-8e3b-7412-a1f9-90b567c9e101",
 						Name:                "Doctor A",
 						AvgConsultationTime: 4,
 						IsOnline:            true,

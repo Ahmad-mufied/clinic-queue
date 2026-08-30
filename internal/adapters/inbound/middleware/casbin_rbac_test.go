@@ -29,9 +29,9 @@ func createTestToken(secret string, claims *domain.JWTCustomClaims) string {
 }
 
 func TestJWTAuth(t *testing.T) {
-	docID := 1
+	docID := "01919df4-8e3b-7412-a1f9-90b567c9e101"
 	validDoctorClaims := &domain.JWTCustomClaims{
-		UserID:   1,
+		UserID:   "01919df4-8e3b-7412-a1f9-90b567c9e201",
 		Username: "doctor_a",
 		Role:     domain.RoleDoctor,
 		DoctorID: &docID,
@@ -43,7 +43,7 @@ func TestJWTAuth(t *testing.T) {
 	}
 
 	validPatientClaims := &domain.JWTCustomClaims{
-		UserID:   2,
+		UserID:   "01919df4-8e3b-7412-a1f9-90b567c9e202",
 		Username: "patient_john",
 		Role:     domain.RolePatient,
 		Name:     "John Doe",
@@ -54,7 +54,7 @@ func TestJWTAuth(t *testing.T) {
 	}
 
 	expiredClaims := &domain.JWTCustomClaims{
-		UserID:   3,
+		UserID:   "01919df4-8e3b-7412-a1f9-90b567c9e203",
 		Username: "patient_expired",
 		Role:     domain.RolePatient,
 		Name:     "Expired Patient",
@@ -119,16 +119,16 @@ func TestJWTAuth(t *testing.T) {
 					t.Errorf("expected claims for doctor_a, got %+v", claims)
 				}
 				id, ok := GetUserID(c)
-				if !ok || id != 1 {
-					t.Errorf("expected user_id 1, got %d", id)
+				if !ok || id != "01919df4-8e3b-7412-a1f9-90b567c9e201" {
+					t.Errorf("expected user_id 01919df4-8e3b-7412-a1f9-90b567c9e201, got %s", id)
 				}
 				role, ok := GetUserRole(c)
 				if !ok || role != "doctor" {
 					t.Errorf("expected role doctor, got %s", role)
 				}
 				dID, ok := GetDoctorID(c)
-				if !ok || dID == nil || *dID != 1 {
-					t.Errorf("expected doctor_id 1, got %v", dID)
+				if !ok || dID == nil || *dID != "01919df4-8e3b-7412-a1f9-90b567c9e101" {
+					t.Errorf("expected doctor_id 01919df4-8e3b-7412-a1f9-90b567c9e101, got %v", dID)
 				}
 			},
 		},
@@ -183,8 +183,8 @@ func TestContextHelpers_Empty(t *testing.T) {
 	if claims, ok := GetUserClaims(c); ok || claims != nil {
 		t.Errorf("expected false for empty claims, got %+v", claims)
 	}
-	if id, ok := GetUserID(c); ok || id != 0 {
-		t.Errorf("expected false for empty user_id, got %d", id)
+	if id, ok := GetUserID(c); ok || id != "" {
+		t.Errorf("expected false for empty user_id, got %s", id)
 	}
 	if role, ok := GetUserRole(c); ok || role != "" {
 		t.Errorf("expected false for empty role, got %s", role)
@@ -195,9 +195,9 @@ func TestContextHelpers_Empty(t *testing.T) {
 
 	// Test with invalid type sets
 	c.Set(ContextKeyUser, "invalid_claims_type")
-	c.Set(ContextKeyUserID, "invalid_id_type")
+	c.Set(ContextKeyUserID, 12345)
 	c.Set(ContextKeyRole, 12345)
-	c.Set(ContextKeyDoctorID, "invalid_doctor_id_type")
+	c.Set(ContextKeyDoctorID, 12345)
 
 	if _, ok := GetUserClaims(c); ok {
 		t.Errorf("expected false for invalid claims type")

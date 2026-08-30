@@ -64,8 +64,9 @@ It satisfies healthcare compliance standards, enables forensic accountability, a
 
 ---
 
-## 5. Acceptance Criteria
+## 5. Acceptance Criteria & Identity Specification
 
+### 5.1 Acceptance Criteria
 - [x] Every state-changing API request produces an audit log entry via decoupled NATS JetStream `AuditWorker`.
 - [x] Audit logs table includes `created_at`, `user_id`, `actor_name`, `role`, `action`, `details` (JSONB), and `ip_address`.
 - [x] Log entries are strictly immutable (append-only) with index on `id DESC` and `(action, created_at DESC)`.
@@ -76,12 +77,17 @@ It satisfies healthcare compliance standards, enables forensic accountability, a
 - [x] Automatic infinite scroll auto-fetches records on scroll threshold without manual button clicks.
 - [x] Live audit stream broadcasts new events to admin subscribers via SSE with sub-second table synchronization.
 
+### 5.2 Identity & Identifier Separation (Database UUIDv7 vs Human Actor Badges)
+- **Database Identity (`id`, `user_id`):** 128-bit Native UUIDv7 string (e.g. `01919df4-8e3b-7412-a1f9-90b567c9e536`) for immutable primary keys, cursor comparison (`WHERE id < $cursor`), and relational integrity.
+- **Human Display Identity (`actor_name` & `role`):** Clear user badges (`Dr. Michael Chen (@doctor_b)`, `Patient Lucas`, `Clinic Admin (@admin)`) displayed directly in the UI table feed and inspector modal overview cards, while preserving full UUIDv7 keys in the forensic JSON payload viewer.
+
 ---
 
 ## 6. Document Revision History & Requirement Changelog
 
 | Version | Date | Author / Role | Change Type | Change Summary / Rationale |
 | :---: | :---: | :---: | :---: | :--- |
-| **v1.2.0** | 2026-08-30 | Lead Solution Architect | **Feature Enhancement** | Added keyword search (Actor, Action, IP), Date Range filters, and Bidirectional Sorting (ASC/DESC) to the Audit Trail pipeline. |
+| **v1.0.0** | 2026-08-29 | Solution Architect | **Initial Baseline** | Initial creation of the Comprehensive Activity Logging PRD. |
 | **v1.1.0** | 2026-08-30 | Lead Solution Architect | **Architecture Enhancement** | Upgraded to Cursor-Based Infinite Lazy Loading (`id < cursor`), decoupled NATS JetStream async `AuditWorker` ingestion, internal table container scrolling with sticky header, and auto-fetch on scroll threshold. |
-| **v1.0.0** | 2026-08-29 | Solution Architect | **Initial Baseline** | Initial creation of the Comprehensive Activity Logging PRD, detailing event taxonomy, JSONB payload schemas, immutability constraints, and live SSE log streaming. |
+| **v1.2.0** | 2026-08-30 | Lead Solution Architect | **Feature Enhancement** | Added keyword search (Actor, Action, IP), Date Range filters, and Bidirectional Sorting (ASC/DESC) to the Audit Trail pipeline. |
+| **v1.3.0** | 2026-08-30 | Lead Solution Architect | **Identity Design Standard** | Added Section 5.2 defining separation of internal UUIDv7 audit IDs and user IDs from human-friendly actor badges and usernames in UI activity feeds. |

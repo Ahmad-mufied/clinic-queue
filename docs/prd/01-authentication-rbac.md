@@ -54,13 +54,18 @@ It also provides a **One-Click Demo Switcher** allowing technical evaluators and
 
 ---
 
-## 4. Acceptance Criteria
+## 4. Acceptance Criteria & Identity Specification
 
+### 4.1 Acceptance Criteria
 - [ ] JWT tokens are signed using a secure secret key with a configurable expiration (default: 24h).
 - [ ] Passwords stored in PostgreSQL are hashed with `bcrypt` (cost factor $\geq 10$).
 - [ ] Casbin policies restrict routes according to the 3-role matrix (`patient`, `doctor`, `admin`).
 - [ ] Failed login attempts and successful logins emit `AUTH_LOGIN` audit log entries.
 - [ ] Pre-seeded demo credentials exist for Doctor A, Doctor B, Patient John, and Admin.
+
+### 4.2 Identity & Identifier Separation (Database UUIDv7 vs Display Username)
+- **Database Identity (`id`):** 128-bit Native UUIDv7 string (e.g. `01919df4-8e3b-7412-a1f9-90b567c9e101`) for unguessable primary keys and JWT `user_id` subject claim.
+- **Human Display Identity (`username` & `name`):** Memorable handles (`@doctor_a`, `@patient_john`, `@admin`) and full names (`Dr. Sarah Adams`) for UI logins, sidebar badges, and staff recognition.
 
 ---
 
@@ -68,4 +73,5 @@ It also provides a **One-Click Demo Switcher** allowing technical evaluators and
 
 | Version | Date | Author / Role | Change Type | Change Summary / Rationale |
 | :---: | :---: | :---: | :---: | :--- |
-| **v1.0.0** | 2026-08-29 | Solution Architect | **Initial Baseline** | Initial creation of the Authentication & RBAC feature PRD, defining JWT authentication, Casbin role model (Patient, Doctor, Admin), positive/negative/edge scenarios, and demo quick-switcher requirements. |
+| **v1.0.0** | 2026-08-29 | Solution Architect | **Initial Baseline** | Initial creation of the Authentication & RBAC feature PRD. |
+| **v1.1.0** | 2026-08-30 | Solution Architect | **Identity Design Standard** | Added Section 4.2 defining separation of internal UUIDv7 user IDs from human-facing login usernames and display names. |

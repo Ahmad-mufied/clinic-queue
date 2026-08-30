@@ -218,7 +218,7 @@ func (c *HighConcurrencyClient) Request(method, path, token string, body any) AP
 }
 
 // GenerateJWT creates a signed JWT token directly for stress testing scenarios.
-func GenerateJWT(secret string, userID int, username string, role domain.Role, doctorID *int, name string) (string, error) {
+func GenerateJWT(secret string, userID string, username string, role domain.Role, doctorID *string, name string) (string, error) {
 	claims := &domain.JWTCustomClaims{
 		UserID:    userID,
 		Username:  username,
@@ -302,8 +302,8 @@ func main() {
 	_, err = pool.Exec(ctx, `
 		DELETE FROM users WHERE username LIKE 'patient_burst_%' OR username LIKE 'doc_contention_%';
 		TRUNCATE TABLE audit_logs, consultation_sessions, queue_tickets RESTART IDENTITY CASCADE;
-		UPDATE doctors SET avg_consultation_time_min = 3, is_online = true WHERE id = 1;
-		UPDATE doctors SET avg_consultation_time_min = 4, is_online = true WHERE id = 2;
+		UPDATE doctors SET avg_consultation_time_min = 3, is_online = true WHERE id = '01919df4-8e3b-7412-a1f9-90b567c9e101';
+		UPDATE doctors SET avg_consultation_time_min = 4, is_online = true WHERE id = '01919df4-8e3b-7412-a1f9-90b567c9e102';
 	`)
 	if err != nil {
 		fmt.Printf("%s[ERROR] Failed to reset database: %v%s\n", ColorRed, err, ColorReset)
@@ -314,7 +314,7 @@ func main() {
 	fmt.Printf("--> Pre-registering %d distinct patient accounts in parallel...\n", burstCount)
 
 	patientTokens := make([]string, burstCount)
-	patientUserIDs := make([]int, burstCount)
+	patientUserIDs := make([]string, burstCount)
 
 	var regWg sync.WaitGroup
 	regDurations := make([]time.Duration, burstCount)
@@ -340,7 +340,7 @@ func main() {
 				var authResp struct {
 					Token string `json:"token"`
 					User  struct {
-						ID int `json:"id"`
+						ID string `json:"id"`
 					} `json:"user"`
 				}
 				if err := json.Unmarshal(res.Body, &authResp); err == nil && authResp.Token != "" {
@@ -359,7 +359,7 @@ func main() {
 		fmt.Printf("%s[WARNING] %d patient registrations failed, generating direct JWT fallback%s\n", ColorYellow, regFail, ColorReset)
 		for i := 0; i < burstCount; i++ {
 			if patientTokens[i] == "" {
-				token, _ := GenerateJWT(jwtSecret, 1000+i, fmt.Sprintf("patient_burst_%04d", i+1), domain.RolePatient, nil, fmt.Sprintf("Burst Patient %d", i+1))
+				token, _ := GenerateJWT(jwtSecret, fmt.Sprintf("01919df4-8e3b-7412-a1f9-90b567c9%04d", 1000+i), fmt.Sprintf("patient_burst_%04d", i+1), domain.RolePatient, nil, fmt.Sprintf("Burst Patient %d", i+1))
 				patientTokens[i] = token
 			}
 		}
@@ -371,7 +371,7 @@ func main() {
 
 	joinDurations := make([]time.Duration, burstCount)
 	joinStatusCodes := make([]int, burstCount)
-	joinTicketIDs := make([]int, burstCount)
+	joinTicketIDs := make([]string, burstCount)
 	joinQueueNumbers := make([]string, burstCount)
 	var joinSuccess, joinFail int32
 
@@ -398,12 +398,12 @@ func main() {
 			if res.StatusCode == http.StatusCreated {
 				var joinResp struct {
 					Ticket struct {
-						ID          int    `json:"id"`
+						ID          string `json:"id"`
 						QueueNumber string `json:"queue_number"`
 						Status      string `json:"status"`
 					} `json:"ticket"`
 				}
-				if err := json.Unmarshal(res.Body, &joinResp); err == nil && joinResp.Ticket.ID > 0 {
+				if err := json.Unmarshal(res.Body, &joinResp); err == nil && joinResp.Ticket.ID != "" {
 					joinTicketIDs[idx] = joinResp.Ticket.ID
 					joinQueueNumbers[idx] = joinResp.Ticket.QueueNumber
 					atomic.AddInt32(&joinSuccess, 1)
@@ -428,9 +428,9 @@ func main() {
 	PrintStatsTable("TEST 1: 500 CONCURRENT QUEUE JOIN BURST", test1Stats)
 
 	// Invariant validations
-	uniqueTicketIDs := make(map[int]struct{})
+	uniqueTicketIDs := make(map[string]struct{})
 	for _, id := range joinTicketIDs {
-		if id > 0 {
+		if id != "" {
 			uniqueTicketIDs[id] = struct{}{}
 		}
 	}
@@ -475,17 +475,18 @@ func main() {
 	fmt.Printf("--> Upserting %d online doctor records and generating JWTs...\n", doctorCount)
 	doctorTokens := make([]string, doctorCount)
 	for i := 1; i <= doctorCount; i++ {
+		docUUID := fmt.Sprintf("01919df4-8e3b-7412-a1f9-90b567c9%04d", i)
 		_, err := pool.Exec(ctx, `
 			INSERT INTO doctors (id, name, avg_consultation_time_min, is_online)
 			VALUES ($1, $2, 3, true)
 			ON CONFLICT (id) DO UPDATE SET is_online = true, avg_consultation_time_min = 3
-		`, i, fmt.Sprintf("Dr. Contention %d", i))
+		`, docUUID, fmt.Sprintf("Dr. Contention %d", i))
 		if err != nil {
 			fmt.Printf("%s[ERROR] Failed to upsert doctor %d: %v%s\n", ColorRed, i, err, ColorReset)
 		}
 
-		docID := i
-		token, err := GenerateJWT(jwtSecret, 5000+i, fmt.Sprintf("doc_contention_%d", i), domain.RoleDoctor, &docID, fmt.Sprintf("Dr. Contention %d", i))
+		docIDStr := docUUID
+		token, err := GenerateJWT(jwtSecret, fmt.Sprintf("01919df4-8e3b-7412-a1f9-90b567c8%04d", i), fmt.Sprintf("doc_contention_%d", i), domain.RoleDoctor, &docIDStr, fmt.Sprintf("Dr. Contention %d", i))
 		if err != nil {
 			fmt.Printf("%s[ERROR] Failed to generate doctor token %d: %v%s\n", ColorRed, i, err, ColorReset)
 		}
@@ -500,8 +501,8 @@ func main() {
 		StatusCode  int
 		HasSession  bool
 		IsEmptyMsg  bool
-		SessionID   int
-		TicketID    int
+		SessionID   string
+		TicketID    string
 		PatientName string
 		Duration    time.Duration
 		Err         error
@@ -537,7 +538,7 @@ func main() {
 					cr.IsEmptyMsg = true
 				} else {
 					var sess domain.ConsultationSession
-					if err := json.Unmarshal(res.Body, &sess); err == nil && sess.ID > 0 {
+					if err := json.Unmarshal(res.Body, &sess); err == nil && sess.ID != "" {
 						cr.HasSession = true
 						cr.SessionID = sess.ID
 						cr.TicketID = sess.TicketID
@@ -557,7 +558,7 @@ func main() {
 	contentionTotalDur := time.Since(contentionStart)
 
 	var winCount, emptyCount, errorCount int
-	assignedTicketIDs := make(map[int]int) // ticket_id -> doctor_id
+	assignedTicketIDs := make(map[string]int) // ticket_id -> doctor_id
 
 	for _, r := range results {
 		if r.StatusCode != http.StatusOK {
@@ -565,7 +566,7 @@ func main() {
 		} else if r.HasSession {
 			winCount++
 			if prevDoc, exists := assignedTicketIDs[r.TicketID]; exists {
-				fmt.Printf("%s[CRITICAL DOUBLE BOOKING]%s Ticket %d was assigned to Doc %d AND Doc %d!\n",
+				fmt.Printf("%s[CRITICAL DOUBLE BOOKING]%s Ticket %s was assigned to Doc %d AND Doc %d!\n",
 					ColorRed, ColorReset, r.TicketID, prevDoc, r.DocID)
 			}
 			assignedTicketIDs[r.TicketID] = r.DocID
@@ -707,7 +708,7 @@ func main() {
 	fmt.Printf("--> Firing %d rapid clinic state mutations across API endpoints...\n", mutationCount)
 
 	broadcastLatencies := make([]time.Duration, 0, mutationCount*sseClientCount)
-	var sseUserID int
+	var sseUserID string
 	_ = pool.QueryRow(ctx, `
 		INSERT INTO users (username, password_hash, name, role)
 		VALUES ('patient_sse_test', '$2a$10$LtdYqpQiGxxNVRcHAVEIU.ehPKtqxNt8g1yaK2YltTbhBLPbst2H.', 'SSE Patient', 'patient')
@@ -803,7 +804,7 @@ func main() {
 	fmt.Printf("--> Seeding 500 realistic audit log entries and 100 consultation history rows...\n")
 
 	// Ensure a base historical ticket exists for foreign key references
-	var baseTicketID int
+	var baseTicketID string
 	err = pool.QueryRow(ctx, `
 		INSERT INTO queue_tickets (patient_name, queue_number, status, created_at)
 		VALUES ('Historical Patient', 'H-01', 'COMPLETED', NOW() - INTERVAL '1 hour')
@@ -811,7 +812,7 @@ func main() {
 	`).Scan(&baseTicketID)
 	if err != nil {
 		fmt.Printf("%s[WARNING] Base ticket insert: %v%s\n", ColorYellow, err, ColorReset)
-		baseTicketID = 1
+		baseTicketID = "01919df4-8e3b-7412-a1f9-90b567c9e101"
 	}
 
 	for i := 1; i <= 500; i++ {
@@ -837,14 +838,14 @@ func main() {
 	for i := 1; i <= 100; i++ {
 		_, err := pool.Exec(ctx, `
 			INSERT INTO consultation_sessions (doctor_id, ticket_id, patient_name, started_at, finished_at, is_active)
-			VALUES (1, $1, $2, NOW() - INTERVAL '30 minutes', NOW() - INTERVAL '25 minutes', false)
+			VALUES ('01919df4-8e3b-7412-a1f9-90b567c9e101', $1, $2, NOW() - INTERVAL '30 minutes', NOW() - INTERVAL '25 minutes', false)
 		`, baseTicketID, fmt.Sprintf("Historical Patient %d", i))
 		if err != nil && i == 1 {
 			fmt.Printf("%s[ERROR] Session insert error: %v%s\n", ColorRed, err, ColorReset)
 		}
 	}
 
-	adminToken, err := GenerateJWT(jwtSecret, 999, "admin", domain.RoleAdmin, nil, "Clinic Administrator")
+	adminToken, err := GenerateJWT(jwtSecret, "01919df4-8e3b-7412-a1f9-90b567c9e205", "admin", domain.RoleAdmin, nil, "Clinic Administrator")
 	if err != nil {
 		fmt.Printf("%s[ERROR] Failed to generate admin token: %v%s\n", ColorRed, err, ColorReset)
 	}
@@ -972,11 +973,11 @@ func main() {
 
 	// Clean up temporary stress test data
 	_, _ = pool.Exec(ctx, `
-		DELETE FROM doctors WHERE id > 2;
+		DELETE FROM doctors WHERE id NOT IN ('01919df4-8e3b-7412-a1f9-90b567c9e101', '01919df4-8e3b-7412-a1f9-90b567c9e102');
 		DELETE FROM users WHERE username LIKE 'patient_burst_%' OR username LIKE 'doc_contention_%' OR username = 'patient_sse_test';
 		TRUNCATE TABLE audit_logs, consultation_sessions, queue_tickets RESTART IDENTITY CASCADE;
-		UPDATE doctors SET avg_consultation_time_min = 3, is_online = true WHERE id = 1;
-		UPDATE doctors SET avg_consultation_time_min = 4, is_online = true WHERE id = 2;
+		UPDATE doctors SET avg_consultation_time_min = 3, is_online = true WHERE id = '01919df4-8e3b-7412-a1f9-90b567c9e101';
+		UPDATE doctors SET avg_consultation_time_min = 4, is_online = true WHERE id = '01919df4-8e3b-7412-a1f9-90b567c9e102';
 	`)
 
 	if report.AllPassed {

@@ -1,6 +1,9 @@
 package domain
 
-import "math"
+import (
+	"math"
+	"strings"
+)
 
 // AnalyticsSummary represents the high-level daily KPI summary for the clinic.
 type AnalyticsSummary struct {
@@ -13,7 +16,7 @@ type AnalyticsSummary struct {
 
 // DoctorPerformance represents individual doctor productivity, duration metrics, and utilization rates.
 type DoctorPerformance struct {
-	DoctorID                     int     `json:"doctor_id"`
+	DoctorID                     string  `json:"doctor_id"`
 	DoctorName                   string  `json:"doctor_name"`
 	TargetAvgMinutes             int     `json:"target_avg_minutes"`
 	IsOnline                     bool    `json:"is_online"`
@@ -30,13 +33,13 @@ type AdminDashboardStats struct {
 
 // UpdateDoctorConfigRequest defines the domain request parameters to change doctor consultation target time.
 type UpdateDoctorConfigRequest struct {
-	DoctorID               int `json:"doctor_id"`
-	AvgConsultationTimeMin int `json:"avg_consultation_time_min"`
+	DoctorID               string `json:"doctor_id"`
+	AvgConsultationTimeMin int    `json:"avg_consultation_time_min"`
 }
 
 // Validate checks whether the update doctor config request parameters are valid.
 func (req *UpdateDoctorConfigRequest) Validate() error {
-	if req == nil || req.DoctorID <= 0 {
+	if req == nil || strings.TrimSpace(req.DoctorID) == "" {
 		return ErrInvalidInput
 	}
 	if req.AvgConsultationTimeMin <= 0 {

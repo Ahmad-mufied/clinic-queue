@@ -14,7 +14,7 @@ import (
 
 type mockUserRepositoryPort struct {
 	findByUsernameFunc func(ctx context.Context, username string) (*domain.User, error)
-	findByIDFunc       func(ctx context.Context, id int) (*domain.User, error)
+	findByIDFunc       func(ctx context.Context, id string) (*domain.User, error)
 	createUserFunc     func(ctx context.Context, user *domain.User) (*domain.User, error)
 }
 
@@ -25,7 +25,7 @@ func (m *mockUserRepositoryPort) FindByUsername(ctx context.Context, username st
 	return nil, nil
 }
 
-func (m *mockUserRepositoryPort) FindByID(ctx context.Context, id int) (*domain.User, error) {
+func (m *mockUserRepositoryPort) FindByID(ctx context.Context, id string) (*domain.User, error) {
 	if m.findByIDFunc != nil {
 		return m.findByIDFunc(ctx, id)
 	}
@@ -41,7 +41,7 @@ func (m *mockUserRepositoryPort) CreateUser(ctx context.Context, user *domain.Us
 
 func TestAuthUseCase_Login(t *testing.T) {
 	passHash, _ := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
-	docID := 1
+	docID := "01919df4-8e3b-7412-a1f9-90b567c9e101"
 
 	tests := []struct {
 		name        string
@@ -57,7 +57,7 @@ func TestAuthUseCase_Login(t *testing.T) {
 			mockSetup: func(m *mockUserRepositoryPort) {
 				m.findByUsernameFunc = func(ctx context.Context, username string) (*domain.User, error) {
 					return &domain.User{
-						ID:           1,
+						ID:           "01919df4-8e3b-7412-a1f9-90b567c9e201",
 						Username:     "doctor_a",
 						PasswordHash: string(passHash),
 						Name:         "Dr. Sarah Adams",
@@ -82,7 +82,7 @@ func TestAuthUseCase_Login(t *testing.T) {
 			mockSetup: func(m *mockUserRepositoryPort) {
 				m.findByUsernameFunc = func(ctx context.Context, username string) (*domain.User, error) {
 					return &domain.User{
-						ID:           3,
+						ID:           "01919df4-8e3b-7412-a1f9-90b567c9e203",
 						Username:     "patient_john",
 						PasswordHash: string(passHash),
 						Name:         "John Doe",
@@ -106,7 +106,7 @@ func TestAuthUseCase_Login(t *testing.T) {
 			mockSetup: func(m *mockUserRepositoryPort) {
 				m.findByUsernameFunc = func(ctx context.Context, username string) (*domain.User, error) {
 					return &domain.User{
-						ID:           5,
+						ID:           "01919df4-8e3b-7412-a1f9-90b567c9e205",
 						Username:     "admin",
 						PasswordHash: string(passHash),
 						Name:         "Clinic Administrator",
@@ -155,7 +155,7 @@ func TestAuthUseCase_Login(t *testing.T) {
 			mockSetup: func(m *mockUserRepositoryPort) {
 				m.findByUsernameFunc = func(ctx context.Context, username string) (*domain.User, error) {
 					return &domain.User{
-						ID:           1,
+						ID:           "01919df4-8e3b-7412-a1f9-90b567c9e201",
 						Username:     "doctor_a",
 						PasswordHash: string(passHash),
 						Name:         "Dr. Sarah Adams",
@@ -222,7 +222,7 @@ func TestAuthUseCase_Register(t *testing.T) {
 					return nil, nil
 				}
 				m.createUserFunc = func(ctx context.Context, user *domain.User) (*domain.User, error) {
-					user.ID = 10
+					user.ID = "01919df4-8e3b-7412-a1f9-90b567c9e210"
 					return user, nil
 				}
 			},
@@ -231,8 +231,8 @@ func TestAuthUseCase_Register(t *testing.T) {
 				if resp.Token == "" {
 					t.Errorf("expected non-empty token")
 				}
-				if resp.User == nil || resp.User.Role != domain.RolePatient || resp.User.ID != 10 {
-					t.Errorf("expected patient user with ID 10, got %+v", resp.User)
+				if resp.User == nil || resp.User.Role != domain.RolePatient || resp.User.ID != "01919df4-8e3b-7412-a1f9-90b567c9e210" {
+					t.Errorf("expected patient user with ID 01919df4-8e3b-7412-a1f9-90b567c9e210, got %+v", resp.User)
 				}
 			},
 		},
@@ -262,7 +262,7 @@ func TestAuthUseCase_Register(t *testing.T) {
 			req:  inbound.RegisterRequest{Username: "existing_patient", Password: "password123", Name: "Existing Patient"},
 			mockSetup: func(m *mockUserRepositoryPort) {
 				m.findByUsernameFunc = func(ctx context.Context, username string) (*domain.User, error) {
-					return &domain.User{ID: 2, Username: "existing_patient"}, nil
+					return &domain.User{ID: "01919df4-8e3b-7412-a1f9-90b567c9e202", Username: "existing_patient"}, nil
 				}
 			},
 			wantErr:     true,
@@ -333,7 +333,7 @@ func TestAuthUseCase_Register(t *testing.T) {
 func TestAuthUseCase_GetProfile(t *testing.T) {
 	tests := []struct {
 		name        string
-		userID      int
+		userID      string
 		mockSetup   func(m *mockUserRepositoryPort)
 		wantErr     bool
 		expectedErr error
@@ -341,11 +341,11 @@ func TestAuthUseCase_GetProfile(t *testing.T) {
 	}{
 		{
 			name:   "Get Profile Success",
-			userID: 1,
+			userID: "01919df4-8e3b-7412-a1f9-90b567c9e201",
 			mockSetup: func(m *mockUserRepositoryPort) {
-				m.findByIDFunc = func(ctx context.Context, id int) (*domain.User, error) {
+				m.findByIDFunc = func(ctx context.Context, id string) (*domain.User, error) {
 					return &domain.User{
-						ID:       1,
+						ID:       "01919df4-8e3b-7412-a1f9-90b567c9e201",
 						Username: "doctor_a",
 						Name:     "Dr. Sarah Adams",
 						Role:     domain.RoleDoctor,
@@ -354,23 +354,30 @@ func TestAuthUseCase_GetProfile(t *testing.T) {
 			},
 			wantErr: false,
 			checkUser: func(t *testing.T, user *domain.User) {
-				if user == nil || user.ID != 1 || user.Username != "doctor_a" {
+				if user == nil || user.ID != "01919df4-8e3b-7412-a1f9-90b567c9e201" || user.Username != "doctor_a" {
 					t.Errorf("unexpected user object: %+v", user)
 				}
 			},
 		},
 		{
-			name:        "Invalid User ID (<= 0)",
-			userID:      0,
+			name:        "Invalid User ID (Empty String)",
+			userID:      "",
+			mockSetup:   func(m *mockUserRepositoryPort) {},
+			wantErr:     true,
+			expectedErr: domain.ErrInvalidInput,
+		},
+		{
+			name:        "Invalid User ID (Whitespace String)",
+			userID:      "   ",
 			mockSetup:   func(m *mockUserRepositoryPort) {},
 			wantErr:     true,
 			expectedErr: domain.ErrInvalidInput,
 		},
 		{
 			name:   "User Not Found",
-			userID: 999,
+			userID: "01919df4-8e3b-7412-a1f9-90b567c9e999",
 			mockSetup: func(m *mockUserRepositoryPort) {
-				m.findByIDFunc = func(ctx context.Context, id int) (*domain.User, error) {
+				m.findByIDFunc = func(ctx context.Context, id string) (*domain.User, error) {
 					return nil, nil
 				}
 			},
@@ -379,9 +386,9 @@ func TestAuthUseCase_GetProfile(t *testing.T) {
 		},
 		{
 			name:   "Database Error on FindByID",
-			userID: 1,
+			userID: "01919df4-8e3b-7412-a1f9-90b567c9e201",
 			mockSetup: func(m *mockUserRepositoryPort) {
-				m.findByIDFunc = func(ctx context.Context, id int) (*domain.User, error) {
+				m.findByIDFunc = func(ctx context.Context, id string) (*domain.User, error) {
 					return nil, errors.New("db query error")
 				}
 			},
@@ -437,7 +444,7 @@ func TestAuthUseCase_WithEventPublisher(t *testing.T) {
 				return nil, nil
 			}
 			return &domain.User{
-				ID:           1,
+				ID:           "01919df4-8e3b-7412-a1f9-90b567c9e201",
 				Username:     "existing_user",
 				PasswordHash: string(passHash),
 				Name:         "Existing User",
@@ -445,7 +452,7 @@ func TestAuthUseCase_WithEventPublisher(t *testing.T) {
 			}, nil
 		},
 		createUserFunc: func(ctx context.Context, user *domain.User) (*domain.User, error) {
-			user.ID = 2
+			user.ID = "01919df4-8e3b-7412-a1f9-90b567c9e202"
 			return user, nil
 		},
 	}

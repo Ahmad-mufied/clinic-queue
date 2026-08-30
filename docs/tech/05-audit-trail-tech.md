@@ -1,7 +1,7 @@
 # Technical Specification: Comprehensive Activity Logging & Audit Trail
 **File:** `docs/tech/05-audit-trail-tech.md`  
 **Status:** Approved  
-**Version:** `v1.0.0`
+**Version:** `v1.3.0`
 
 ---
 
@@ -44,8 +44,8 @@ sequenceDiagram
 ```sql
 -- +goose Up
 CREATE TABLE IF NOT EXISTS audit_logs (
-    id SERIAL PRIMARY KEY,
-    user_id INT REFERENCES users(id) ON DELETE SET NULL,
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
     actor_name VARCHAR(100) NOT NULL,
     role VARCHAR(20) NOT NULL,
     action VARCHAR(50) NOT NULL,
@@ -75,34 +75,33 @@ DROP TABLE IF EXISTS audit_logs;
   - `search` (optional string, case-insensitive keyword across `actor_name`, `ip_address`, `action`)
   - `action` (optional string, e.g., `CONSULTATION_FINISHED`, `QUEUE_JOINED`)
   - `role` (optional string, e.g., `doctor`, `patient`, `admin`)
-  - `user_id` (optional integer, exact user ID match)
+  - `user_id` (optional string, exact UUIDv7 match)
   - `from` / `start_date` (optional RFC3339 / ISO date string, e.g., `2026-08-30` or `2026-08-30T00:00:00Z`)
   - `to` / `end_date` (optional RFC3339 / ISO date string, e.g., `2026-08-30` or `2026-08-30T23:59:59Z`)
   - `order` / `sort_order` (optional string, `"desc"` [default, Newest First] or `"asc"` [Oldest First])
-  - `cursor` (optional integer, ID of last seen record)
+  - `cursor` (optional string, UUIDv7 of last seen record)
   - `limit` (integer, default: 15, max: 100)
-  - `page` (optional integer, fallback offset pagination, default: 1)
 - **Response (200 OK):**
 ```json
 {
   "limit": 15,
-  "next_cursor": 21,
+  "next_cursor": "01919df4-8e3b-7412-a1f9-90b567c9e521",
   "has_more": true,
   "total_records": 154,
   "total_pages": 11,
   "logs": [
     {
-      "id": 36,
-      "user_id": 2,
+      "id": "01919df4-8e3b-7412-a1f9-90b567c9e536",
+      "user_id": "01919df4-8e3b-7412-a1f9-90b567c9e102",
       "actor_name": "Dr. Michael Chen",
       "role": "doctor",
       "action": "CONSULTATION_FINISHED",
       "details": {
         "actual_duration_minutes": 3.2,
-        "doctor_id": 2,
+        "doctor_id": "01919df4-8e3b-7412-a1f9-90b567c9e202",
         "doctor_name": "Dr. Michael Chen",
         "patient_name": "Lucas Smith",
-        "session_id": 10
+        "session_id": "01919df4-8e3b-7412-a1f9-90b567c9e410"
       },
       "ip_address": "127.0.0.1",
       "created_at": "2026-08-30T06:49:40Z"
@@ -117,8 +116,8 @@ DROP TABLE IF EXISTS audit_logs;
 
 | Scenario ID | Endpoint | Method | Query / Payload | Status | Response Summary |
 | :--- | :--- | :---: | :--- | :---: | :--- |
-| **API-AUD-01** | `/api/admin/audit-logs` | `GET` | `?limit=15` | `200 OK` | Returns initial cursor page with `next_cursor` & `has_more` |
-| **API-AUD-02** | `/api/admin/audit-logs` | `GET` | `?cursor=21&limit=15` | `200 OK` | Returns next slice where `id < 21` without pagination drift |
+| **API-AUD-01** | `/api/admin/audit-logs` | `GET` | `?limit=15` | `200 OK` | Returns initial cursor page with UUIDv7 `next_cursor` & `has_more` |
+| **API-AUD-02** | `/api/admin/audit-logs` | `GET` | `?cursor=UUIDv7&limit=15` | `200 OK` | Returns next slice without pagination drift |
 | **API-AUD-03** | `/api/admin/audit-logs` | `GET` | `?search=Michael` | `200 OK` | Returns activity logs matching keyword across actor/action/IP |
 | **API-AUD-04** | `/api/admin/audit-logs` | `GET` | `?order=asc&limit=15` | `200 OK` | Returns oldest logs first (`WHERE id > $cursor ORDER BY id ASC`) |
 | **API-AUD-05** | `/api/admin/audit-logs` | `GET` | `?from=2026-08-01&to=2026-08-30` | `200 OK` | Filtered list within date range |
@@ -131,6 +130,7 @@ DROP TABLE IF EXISTS audit_logs;
 
 | Version | Date | Author / Role | Change Type | Change Summary / Rationale |
 | :---: | :---: | :---: | :---: | :--- |
-| **v1.2.0** | 2026-08-30 | Lead Backend Architect | **Feature Enhancement** | Added keyword search (`search`), Date Range filtering (`start_date`, `end_date`), and bidirectional cursor sorting (`order=asc/desc`). |
-| **v1.1.0** | 2026-08-30 | Lead Backend Architect | **Architecture Enhancement** | Upgraded to Cursor Pagination engine (`WHERE id < $cursor LIMIT $limit + 1`), added `next_cursor` and `has_more` response metadata, and integrated NATS JetStream `AuditWorker` event ingestion. |
 | **v1.0.0** | 2026-08-29 | Backend Lead | **Initial Baseline** | Initial technical specification for asynchronous audit logging pipeline, GIN-indexed JSONB storage in PostgreSQL 18, and filterable paginated REST API. |
+| **v1.1.0** | 2026-08-30 | Lead Backend Architect | **Architecture Enhancement** | Upgraded to Cursor Pagination engine, added `next_cursor` and `has_more` response metadata, and integrated NATS JetStream `AuditWorker` event ingestion. |
+| **v1.2.0** | 2026-08-30 | Lead Backend Architect | **Feature Enhancement** | Added keyword search (`search`), Date Range filtering (`start_date`, `end_date`), and bidirectional cursor sorting (`order=asc/desc`). |
+| **v1.3.0** | 2026-08-30 | Lead Backend Architect | **Native UUIDv7 Spec** | Migrated `audit_logs.id` and `audit_logs.user_id` to Native UUIDv7 (`DEFAULT uuidv7()`), updating cursor query bindings and JSON serialization. |

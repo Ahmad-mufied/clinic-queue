@@ -62,9 +62,10 @@ func (h *QueueHandler) JoinQueue(c echo.Context) error {
 		})
 	}
 
-	var userID *int
-	if id, ok := middleware.GetUserID(c); ok && id > 0 {
-		userID = &id
+	var userID *string
+	if id, ok := middleware.GetUserID(c); ok && strings.TrimSpace(id) != "" {
+		trimmedID := strings.TrimSpace(id)
+		userID = &trimmedID
 	}
 
 	ticket, err := h.queueUseCase.JoinQueue(c.Request().Context(), userID, trimmedName)
@@ -80,7 +81,7 @@ func (h *QueueHandler) JoinQueue(c echo.Context) error {
 // GetMyTicket handles GET /api/queue/my-ticket.
 func (h *QueueHandler) GetMyTicket(c echo.Context) error {
 	userID, ok := middleware.GetUserID(c)
-	if !ok || userID <= 0 {
+	if !ok || strings.TrimSpace(userID) == "" {
 		return c.JSON(http.StatusUnauthorized, map[string]string{
 			"error": "Unauthorized",
 		})

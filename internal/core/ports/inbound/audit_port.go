@@ -8,7 +8,7 @@ import (
 
 // RecordAuditLogDTO represents the input payload for creating a new audit trail record.
 type RecordAuditLogDTO struct {
-	UserID    *int           `json:"user_id,omitempty"`
+	UserID    *string        `json:"user_id,omitempty"`
 	ActorName string         `json:"actor_name"`
 	Role      string         `json:"role"`
 	Action    string         `json:"action"`

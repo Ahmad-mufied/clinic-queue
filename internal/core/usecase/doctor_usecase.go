@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"clinic-queue/internal/core/domain"
@@ -33,8 +34,8 @@ func NewDoctorUseCase(
 var _ inbound.DoctorUseCase = (*DoctorUseCase)(nil)
 
 // ToggleStatus updates the doctor's online availability and broadcasts status change events.
-func (u *DoctorUseCase) ToggleStatus(ctx context.Context, doctorID int, isOnline bool) (*domain.DoctorShiftResponse, error) {
-	if doctorID <= 0 {
+func (u *DoctorUseCase) ToggleStatus(ctx context.Context, doctorID string, isOnline bool) (*domain.DoctorShiftResponse, error) {
+	if strings.TrimSpace(doctorID) == "" {
 		return nil, domain.ErrInvalidInput
 	}
 
@@ -77,8 +78,8 @@ func (u *DoctorUseCase) ToggleStatus(ctx context.Context, doctorID int, isOnline
 }
 
 // CallNextPatient atomically pops the next waiting patient from the queue and creates a consultation session.
-func (u *DoctorUseCase) CallNextPatient(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
-	if doctorID <= 0 {
+func (u *DoctorUseCase) CallNextPatient(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
+	if strings.TrimSpace(doctorID) == "" {
 		return nil, domain.ErrInvalidInput
 	}
 
@@ -126,8 +127,8 @@ func (u *DoctorUseCase) CallNextPatient(ctx context.Context, doctorID int) (*dom
 }
 
 // FinishConsultation marks the active session completed, computes actual duration, and resets doctor availability.
-func (u *DoctorUseCase) FinishConsultation(ctx context.Context, doctorID int) (*domain.ConsultationFinishResponse, error) {
-	if doctorID <= 0 {
+func (u *DoctorUseCase) FinishConsultation(ctx context.Context, doctorID string) (*domain.ConsultationFinishResponse, error) {
+	if strings.TrimSpace(doctorID) == "" {
 		return nil, domain.ErrInvalidInput
 	}
 
@@ -191,8 +192,8 @@ func (u *DoctorUseCase) FinishConsultation(ctx context.Context, doctorID int) (*
 }
 
 // GetWorkspace retrieves doctor workspace data, including active session and real-time status.
-func (u *DoctorUseCase) GetWorkspace(ctx context.Context, doctorID int) (*domain.DoctorWorkspace, error) {
-	if doctorID <= 0 {
+func (u *DoctorUseCase) GetWorkspace(ctx context.Context, doctorID string) (*domain.DoctorWorkspace, error) {
+	if strings.TrimSpace(doctorID) == "" {
 		return nil, domain.ErrInvalidInput
 	}
 

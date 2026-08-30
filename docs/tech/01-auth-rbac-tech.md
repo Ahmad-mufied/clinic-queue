@@ -1,7 +1,7 @@
 # Technical Specification: Authentication & Casbin RBAC
 **File:** `docs/tech/01-auth-rbac-tech.md`  
 **Status:** Approved  
-**Version:** `v1.0.0`
+**Version:** `v1.4.0`
 
 ---
 
@@ -95,12 +95,12 @@ g, admin, public
 ```sql
 -- +goose Up
 CREATE TABLE IF NOT EXISTS users (
-    id SERIAL PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT uuidv7(),
     username VARCHAR(50) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     name VARCHAR(100) NOT NULL,
     role VARCHAR(20) NOT NULL CHECK (role IN ('patient', 'doctor', 'admin')),
-    doctor_id INT,
+    doctor_id UUID,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -131,11 +131,11 @@ DROP TABLE IF EXISTS users;
 {
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "user": {
-    "id": 1,
+    "id": "01919df4-8e3b-7412-a1f9-90b567c9e101",
     "username": "doctor_a",
     "name": "Dr. Sarah Adams",
     "role": "doctor",
-    "doctor_id": 1
+    "doctor_id": "01919df4-8e3b-7412-a1f9-90b567c9e201"
   }
 }
 ```
@@ -156,7 +156,7 @@ DROP TABLE IF EXISTS users;
 {
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "user": {
-    "id": 5,
+    "id": "01919df4-8e3b-7412-a1f9-90b567c9e105",
     "username": "john_doe",
     "name": "John Doe",
     "role": "patient"
@@ -167,7 +167,7 @@ DROP TABLE IF EXISTS users;
 ### 4.3 Current Profile Endpoint
 - **URL:** `GET /api/auth/me`
 - **Access:** Authenticated (Bearer Token)
-- **Response (200 OK):** Current user object.
+- **Response (200 OK):** Current user object with UUIDv7 ID.
 
 ---
 
@@ -175,7 +175,7 @@ DROP TABLE IF EXISTS users;
 
 | Scenario ID | Endpoint | Method | Header / Payload | Status | Response Summary |
 | :--- | :--- | :---: | :--- | :---: | :--- |
-| **API-AUTH-01** | `/api/auth/login` | `POST` | Valid credentials | `200 OK` | Returns JWT and user payload |
+| **API-AUTH-01** | `/api/auth/login` | `POST` | Valid credentials | `200 OK` | Returns JWT and user payload with UUIDv7 |
 | **API-AUTH-02** | `/api/auth/login` | `POST` | Invalid password | `401 Unauthorized` | `{"error": "Invalid username or password"}` |
 | **API-AUTH-03** | `/api/admin/stats` | `GET` | Patient JWT Token | `403 Forbidden` | `{"error": "Access denied: insufficient privileges"}` |
 | **API-AUTH-04** | `/api/auth/register`| `POST` | Duplicate username | `409 Conflict` | `{"error": "Username is already taken"}` |
@@ -192,13 +192,13 @@ To achieve **100% Code Coverage**, both Hexagonal UseCases and Inbound Driving H
 type mockUserRepoPort struct {
     findByUsernameFunc func(ctx context.Context, username string) (*domain.User, error)
     createUserFunc     func(ctx context.Context, user *domain.User) (*domain.User, error)
-    findByIDFunc       func(ctx context.Context, id int) (*domain.User, error)
+    findByIDFunc       func(ctx context.Context, id string) (*domain.User, error)
 }
 ```
 
 | Test Case Name | Input | Mock Outbound Port Behavior | Expected Output / Error |
 | :--- | :--- | :--- | :--- |
-| `Doctor Login Success` | `doctor_a`, `password123` | Returns user with role `doctor` & `doctor_id: 1` | Returns JWT with doctor claims |
+| `Doctor Login Success` | `doctor_a`, `password123` | Returns user with role `doctor` & `doctor_id: UUIDv7` | Returns JWT with doctor claims |
 | `Patient Login Success`| `patient_john`, `password123` | Returns user with role `patient` | Returns JWT with patient claims |
 | `Admin Login Success`  | `admin`, `password123` | Returns user with role `admin` | Returns JWT with admin claims |
 | `User Not Found`       | `unknown_user`, `pass` | Returns `nil, nil` | Returns `ErrInvalidCredentials` |
@@ -206,8 +206,8 @@ type mockUserRepoPort struct {
 | `DB Query Failure`     | `doctor_a`, `pass` | Returns `nil, sql.ErrConnDone` | Returns error propagated |
 | `Register Patient OK`  | `new_user`, `pass`, `Name` | `FindByUsername` -> nil, `CreateUser` -> OK | Returns new User + JWT Token |
 | `Register Duplicate`   | `doctor_a`, `pass`, `Name` | `FindByUsername` -> Returns existing user | Returns `ErrUsernameTaken` |
-| `Get Profile Success`  | `userID: 1` | `FindByID` -> Returns user | Returns user without password hash |
-| `Get Profile Not Found`| `userID: 999` | `FindByID` -> Returns `nil, nil` | Returns `ErrUserNotFound` |
+| `Get Profile Success`  | `userID: valid UUIDv7` | `FindByID` -> Returns user | Returns user without password hash |
+| `Get Profile Not Found`| `userID: unknown UUIDv7` | `FindByID` -> Returns `nil, nil` | Returns `ErrUserNotFound` |
 
 ### 6.2 Inbound Handler Test Matrix (`internal/adapters/inbound/http/auth_handler_test.go`)
 
@@ -232,3 +232,4 @@ type mockUserRepoPort struct {
 | **v1.1.0** | 2026-08-29 | Backend Lead | **Testing Spec** | Added Section 6: Unit Testing Strategy, Mock Repository design, and comprehensive Table-Driven Test matrices for Service and Handler layers. |
 | **v1.2.0** | 2026-08-29 | Backend Lead | **Hexagonal Refactor** | Refactored testing paths and mock ports to strictly align with Hexagonal Architecture (`core/usecase` and `adapters/inbound/http`). |
 | **v1.3.0** | 2026-08-29 | Backend Lead | **Policy & E2E Alignment** | Added Casbin role inheritance (`g, role, public`) allowing authenticated personas to access public/profile routes; verified with live E2E integration tests. |
+| **v1.4.0** | 2026-08-30 | Backend Lead | **Native UUIDv7 Spec** | Migrated `users.id` and `users.doctor_id` to Native UUIDv7 (`DEFAULT uuidv7()`), updating JWT claims, Ports, UseCases, and Table-Driven test assertions. |

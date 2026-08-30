@@ -16,45 +16,49 @@ import (
 )
 
 type mockDoctorUseCase struct {
-	toggleStatusFunc       func(ctx context.Context, doctorID int, isOnline bool) (*domain.DoctorShiftResponse, error)
-	callNextPatientFunc    func(ctx context.Context, doctorID int) (*domain.ConsultationSession, error)
-	finishConsultationFunc func(ctx context.Context, doctorID int) (*domain.ConsultationFinishResponse, error)
-	getWorkspaceFunc       func(ctx context.Context, doctorID int) (*domain.DoctorWorkspace, error)
+	toggleStatusFunc       func(ctx context.Context, doctorID string, isOnline bool) (*domain.DoctorShiftResponse, error)
+	callNextPatientFunc    func(ctx context.Context, doctorID string) (*domain.ConsultationSession, error)
+	finishConsultationFunc func(ctx context.Context, doctorID string) (*domain.ConsultationFinishResponse, error)
+	getWorkspaceFunc       func(ctx context.Context, doctorID string) (*domain.DoctorWorkspace, error)
 }
 
-func (m *mockDoctorUseCase) ToggleStatus(ctx context.Context, doctorID int, isOnline bool) (*domain.DoctorShiftResponse, error) {
+func (m *mockDoctorUseCase) ToggleStatus(ctx context.Context, doctorID string, isOnline bool) (*domain.DoctorShiftResponse, error) {
 	if m.toggleStatusFunc != nil {
 		return m.toggleStatusFunc(ctx, doctorID, isOnline)
 	}
 	return nil, nil
 }
 
-func (m *mockDoctorUseCase) CallNextPatient(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
+func (m *mockDoctorUseCase) CallNextPatient(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
 	if m.callNextPatientFunc != nil {
 		return m.callNextPatientFunc(ctx, doctorID)
 	}
 	return nil, nil
 }
 
-func (m *mockDoctorUseCase) FinishConsultation(ctx context.Context, doctorID int) (*domain.ConsultationFinishResponse, error) {
+func (m *mockDoctorUseCase) FinishConsultation(ctx context.Context, doctorID string) (*domain.ConsultationFinishResponse, error) {
 	if m.finishConsultationFunc != nil {
 		return m.finishConsultationFunc(ctx, doctorID)
 	}
 	return nil, nil
 }
 
-func (m *mockDoctorUseCase) GetWorkspace(ctx context.Context, doctorID int) (*domain.DoctorWorkspace, error) {
+func (m *mockDoctorUseCase) GetWorkspace(ctx context.Context, doctorID string) (*domain.DoctorWorkspace, error) {
 	if m.getWorkspaceFunc != nil {
 		return m.getWorkspaceFunc(ctx, doctorID)
 	}
 	return nil, nil
 }
 
+func strPtr(s string) *string {
+	return &s
+}
+
 func TestDoctorHandler_ToggleStatus(t *testing.T) {
 	tests := []struct {
 		name             string
 		body             string
-		setContextDoctor *int
+		setContextDoctor *string
 		mockSetup        func(uc *mockDoctorUseCase)
 		wantStatus       int
 		wantBodySubstr   string
@@ -67,25 +71,25 @@ func TestDoctorHandler_ToggleStatus(t *testing.T) {
 			wantBodySubstr:   "Doctor profile required",
 		},
 		{
-			name:             "Invalid doctor ID <= 0 returns 403",
+			name:             "Invalid doctor ID empty returns 403",
 			body:             `{"is_online": true}`,
-			setContextDoctor: func() *int { id := 0; return &id }(),
+			setContextDoctor: strPtr(""),
 			wantStatus:       http.StatusForbidden,
 			wantBodySubstr:   "Doctor profile required",
 		},
 		{
 			name:             "Invalid JSON payload returns 400",
 			body:             `{invalid json`,
-			setContextDoctor: func() *int { id := 1; return &id }(),
+			setContextDoctor: strPtr("01919df4-8e3b-7412-a1f9-90b567c9e101"),
 			wantStatus:       http.StatusBadRequest,
 			wantBodySubstr:   "Invalid request payload",
 		},
 		{
 			name:             "Doctor not found returns 404",
 			body:             `{"is_online": true}`,
-			setContextDoctor: func() *int { id := 99; return &id }(),
+			setContextDoctor: strPtr("01919df4-8e3b-7412-a1f9-90b567c9e999"),
 			mockSetup: func(uc *mockDoctorUseCase) {
-				uc.toggleStatusFunc = func(ctx context.Context, doctorID int, isOnline bool) (*domain.DoctorShiftResponse, error) {
+				uc.toggleStatusFunc = func(ctx context.Context, doctorID string, isOnline bool) (*domain.DoctorShiftResponse, error) {
 					return nil, domain.ErrDoctorNotFound
 				}
 			},
@@ -95,9 +99,9 @@ func TestDoctorHandler_ToggleStatus(t *testing.T) {
 		{
 			name:             "UseCase returns ErrInvalidInput -> 400",
 			body:             `{"is_online": true}`,
-			setContextDoctor: func() *int { id := 1; return &id }(),
+			setContextDoctor: strPtr("01919df4-8e3b-7412-a1f9-90b567c9e101"),
 			mockSetup: func(uc *mockDoctorUseCase) {
-				uc.toggleStatusFunc = func(ctx context.Context, doctorID int, isOnline bool) (*domain.DoctorShiftResponse, error) {
+				uc.toggleStatusFunc = func(ctx context.Context, doctorID string, isOnline bool) (*domain.DoctorShiftResponse, error) {
 					return nil, domain.ErrInvalidInput
 				}
 			},
@@ -107,9 +111,9 @@ func TestDoctorHandler_ToggleStatus(t *testing.T) {
 		{
 			name:             "UseCase returns internal error -> 500",
 			body:             `{"is_online": true}`,
-			setContextDoctor: func() *int { id := 1; return &id }(),
+			setContextDoctor: strPtr("01919df4-8e3b-7412-a1f9-90b567c9e101"),
 			mockSetup: func(uc *mockDoctorUseCase) {
-				uc.toggleStatusFunc = func(ctx context.Context, doctorID int, isOnline bool) (*domain.DoctorShiftResponse, error) {
+				uc.toggleStatusFunc = func(ctx context.Context, doctorID string, isOnline bool) (*domain.DoctorShiftResponse, error) {
 					return nil, errors.New("database update error")
 				}
 			},
@@ -119,11 +123,11 @@ func TestDoctorHandler_ToggleStatus(t *testing.T) {
 		{
 			name:             "Success returns 200 OK with updated shift status",
 			body:             `{"is_online": true}`,
-			setContextDoctor: func() *int { id := 1; return &id }(),
+			setContextDoctor: strPtr("01919df4-8e3b-7412-a1f9-90b567c9e101"),
 			mockSetup: func(uc *mockDoctorUseCase) {
-				uc.toggleStatusFunc = func(ctx context.Context, doctorID int, isOnline bool) (*domain.DoctorShiftResponse, error) {
+				uc.toggleStatusFunc = func(ctx context.Context, doctorID string, isOnline bool) (*domain.DoctorShiftResponse, error) {
 					return &domain.DoctorShiftResponse{
-						DoctorID: 1,
+						DoctorID: "01919df4-8e3b-7412-a1f9-90b567c9e101",
 						Name:     "Doctor A",
 						IsOnline: true,
 						Status:   domain.DoctorStatusAvailable,
@@ -172,7 +176,7 @@ func TestDoctorHandler_ToggleStatus(t *testing.T) {
 func TestDoctorHandler_CallNextPatient(t *testing.T) {
 	tests := []struct {
 		name             string
-		setContextDoctor *int
+		setContextDoctor *string
 		mockSetup        func(uc *mockDoctorUseCase)
 		wantStatus       int
 		wantBodySubstr   string
@@ -185,9 +189,9 @@ func TestDoctorHandler_CallNextPatient(t *testing.T) {
 		},
 		{
 			name:             "Doctor is offline returns 400 Bad Request",
-			setContextDoctor: func() *int { id := 1; return &id }(),
+			setContextDoctor: strPtr("01919df4-8e3b-7412-a1f9-90b567c9e101"),
 			mockSetup: func(uc *mockDoctorUseCase) {
-				uc.callNextPatientFunc = func(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
+				uc.callNextPatientFunc = func(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
 					return nil, domain.ErrDoctorOffline
 				}
 			},
@@ -196,9 +200,9 @@ func TestDoctorHandler_CallNextPatient(t *testing.T) {
 		},
 		{
 			name:             "Active consultation exists returns 409 Conflict",
-			setContextDoctor: func() *int { id := 1; return &id }(),
+			setContextDoctor: strPtr("01919df4-8e3b-7412-a1f9-90b567c9e101"),
 			mockSetup: func(uc *mockDoctorUseCase) {
-				uc.callNextPatientFunc = func(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
+				uc.callNextPatientFunc = func(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
 					return nil, domain.ErrActiveConsultationExists
 				}
 			},
@@ -207,9 +211,9 @@ func TestDoctorHandler_CallNextPatient(t *testing.T) {
 		},
 		{
 			name:             "Queue is empty returns 200 OK with empty notice",
-			setContextDoctor: func() *int { id := 1; return &id }(),
+			setContextDoctor: strPtr("01919df4-8e3b-7412-a1f9-90b567c9e101"),
 			mockSetup: func(uc *mockDoctorUseCase) {
-				uc.callNextPatientFunc = func(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
+				uc.callNextPatientFunc = func(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
 					return nil, domain.ErrQueueEmpty
 				}
 			},
@@ -218,9 +222,9 @@ func TestDoctorHandler_CallNextPatient(t *testing.T) {
 		},
 		{
 			name:             "Doctor not found returns 404",
-			setContextDoctor: func() *int { id := 99; return &id }(),
+			setContextDoctor: strPtr("01919df4-8e3b-7412-a1f9-90b567c9e999"),
 			mockSetup: func(uc *mockDoctorUseCase) {
-				uc.callNextPatientFunc = func(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
+				uc.callNextPatientFunc = func(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
 					return nil, domain.ErrDoctorNotFound
 				}
 			},
@@ -229,9 +233,9 @@ func TestDoctorHandler_CallNextPatient(t *testing.T) {
 		},
 		{
 			name:             "UseCase returns ErrInvalidInput -> 400",
-			setContextDoctor: func() *int { id := 1; return &id }(),
+			setContextDoctor: strPtr("01919df4-8e3b-7412-a1f9-90b567c9e101"),
 			mockSetup: func(uc *mockDoctorUseCase) {
-				uc.callNextPatientFunc = func(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
+				uc.callNextPatientFunc = func(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
 					return nil, domain.ErrInvalidInput
 				}
 			},
@@ -240,9 +244,9 @@ func TestDoctorHandler_CallNextPatient(t *testing.T) {
 		},
 		{
 			name:             "UseCase returns generic internal error -> 500",
-			setContextDoctor: func() *int { id := 1; return &id }(),
+			setContextDoctor: strPtr("01919df4-8e3b-7412-a1f9-90b567c9e101"),
 			mockSetup: func(uc *mockDoctorUseCase) {
-				uc.callNextPatientFunc = func(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
+				uc.callNextPatientFunc = func(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
 					return nil, errors.New("db error")
 				}
 			},
@@ -251,18 +255,18 @@ func TestDoctorHandler_CallNextPatient(t *testing.T) {
 		},
 		{
 			name:             "Success returns 200 OK with session data",
-			setContextDoctor: func() *int { id := 1; return &id }(),
+			setContextDoctor: strPtr("01919df4-8e3b-7412-a1f9-90b567c9e101"),
 			mockSetup: func(uc *mockDoctorUseCase) {
-				uc.callNextPatientFunc = func(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
+				uc.callNextPatientFunc = func(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
 					return &domain.ConsultationSession{
-						ID:          45,
-						DoctorID:    1,
-						TicketID:    101,
+						ID:          "01919df4-8e3b-7412-a1f9-90b567c9e301",
+						DoctorID:    "01919df4-8e3b-7412-a1f9-90b567c9e101",
+						TicketID:    "01919df4-8e3b-7412-a1f9-90b567c9e401",
 						PatientName: "Alice",
 						StartedAt:   time.Date(2026, 8, 29, 10, 0, 0, 0, time.UTC),
 						IsActive:    true,
 						Ticket: &domain.ConsultationTicket{
-							ID:          101,
+							ID:          "01919df4-8e3b-7412-a1f9-90b567c9e401",
 							QueueNumber: "A-01",
 							PatientName: "Alice",
 							Status:      domain.TicketStatusInConsultation,
@@ -271,7 +275,7 @@ func TestDoctorHandler_CallNextPatient(t *testing.T) {
 				}
 			},
 			wantStatus:     http.StatusOK,
-			wantBodySubstr: `"session_id":45`,
+			wantBodySubstr: `"session_id":"01919df4-8e3b-7412-a1f9-90b567c9e301"`,
 		},
 	}
 
@@ -311,7 +315,7 @@ func TestDoctorHandler_CallNextPatient(t *testing.T) {
 func TestDoctorHandler_FinishConsultation(t *testing.T) {
 	tests := []struct {
 		name             string
-		setContextDoctor *int
+		setContextDoctor *string
 		mockSetup        func(uc *mockDoctorUseCase)
 		wantStatus       int
 		wantBodySubstr   string
@@ -324,9 +328,9 @@ func TestDoctorHandler_FinishConsultation(t *testing.T) {
 		},
 		{
 			name:             "No active consultation found returns 400 Bad Request",
-			setContextDoctor: func() *int { id := 1; return &id }(),
+			setContextDoctor: strPtr("01919df4-8e3b-7412-a1f9-90b567c9e101"),
 			mockSetup: func(uc *mockDoctorUseCase) {
-				uc.finishConsultationFunc = func(ctx context.Context, doctorID int) (*domain.ConsultationFinishResponse, error) {
+				uc.finishConsultationFunc = func(ctx context.Context, doctorID string) (*domain.ConsultationFinishResponse, error) {
 					return nil, domain.ErrNoActiveConsultation
 				}
 			},
@@ -335,9 +339,9 @@ func TestDoctorHandler_FinishConsultation(t *testing.T) {
 		},
 		{
 			name:             "Doctor not found returns 404",
-			setContextDoctor: func() *int { id := 99; return &id }(),
+			setContextDoctor: strPtr("01919df4-8e3b-7412-a1f9-90b567c9e999"),
 			mockSetup: func(uc *mockDoctorUseCase) {
-				uc.finishConsultationFunc = func(ctx context.Context, doctorID int) (*domain.ConsultationFinishResponse, error) {
+				uc.finishConsultationFunc = func(ctx context.Context, doctorID string) (*domain.ConsultationFinishResponse, error) {
 					return nil, domain.ErrDoctorNotFound
 				}
 			},
@@ -346,9 +350,9 @@ func TestDoctorHandler_FinishConsultation(t *testing.T) {
 		},
 		{
 			name:             "UseCase returns ErrInvalidInput -> 400",
-			setContextDoctor: func() *int { id := 1; return &id }(),
+			setContextDoctor: strPtr("01919df4-8e3b-7412-a1f9-90b567c9e101"),
 			mockSetup: func(uc *mockDoctorUseCase) {
-				uc.finishConsultationFunc = func(ctx context.Context, doctorID int) (*domain.ConsultationFinishResponse, error) {
+				uc.finishConsultationFunc = func(ctx context.Context, doctorID string) (*domain.ConsultationFinishResponse, error) {
 					return nil, domain.ErrInvalidInput
 				}
 			},
@@ -357,9 +361,9 @@ func TestDoctorHandler_FinishConsultation(t *testing.T) {
 		},
 		{
 			name:             "UseCase returns internal error -> 500",
-			setContextDoctor: func() *int { id := 1; return &id }(),
+			setContextDoctor: strPtr("01919df4-8e3b-7412-a1f9-90b567c9e101"),
 			mockSetup: func(uc *mockDoctorUseCase) {
-				uc.finishConsultationFunc = func(ctx context.Context, doctorID int) (*domain.ConsultationFinishResponse, error) {
+				uc.finishConsultationFunc = func(ctx context.Context, doctorID string) (*domain.ConsultationFinishResponse, error) {
 					return nil, errors.New("update query failed")
 				}
 			},
@@ -368,11 +372,11 @@ func TestDoctorHandler_FinishConsultation(t *testing.T) {
 		},
 		{
 			name:             "Success returns 200 OK with finish consultation response",
-			setContextDoctor: func() *int { id := 1; return &id }(),
+			setContextDoctor: strPtr("01919df4-8e3b-7412-a1f9-90b567c9e101"),
 			mockSetup: func(uc *mockDoctorUseCase) {
-				uc.finishConsultationFunc = func(ctx context.Context, doctorID int) (*domain.ConsultationFinishResponse, error) {
+				uc.finishConsultationFunc = func(ctx context.Context, doctorID string) (*domain.ConsultationFinishResponse, error) {
 					return &domain.ConsultationFinishResponse{
-						SessionID:             45,
+						SessionID:             "01919df4-8e3b-7412-a1f9-90b567c9e301",
 						PatientName:           "Alice",
 						ActualDurationMinutes: 3.2,
 						FinishedAt:            time.Date(2026, 8, 29, 10, 3, 12, 0, time.UTC),
@@ -421,7 +425,7 @@ func TestDoctorHandler_FinishConsultation(t *testing.T) {
 func TestDoctorHandler_GetWorkspace(t *testing.T) {
 	tests := []struct {
 		name             string
-		setContextDoctor *int
+		setContextDoctor *string
 		mockSetup        func(uc *mockDoctorUseCase)
 		wantStatus       int
 		wantBodySubstr   string
@@ -434,9 +438,9 @@ func TestDoctorHandler_GetWorkspace(t *testing.T) {
 		},
 		{
 			name:             "Doctor not found returns 404",
-			setContextDoctor: func() *int { id := 99; return &id }(),
+			setContextDoctor: strPtr("01919df4-8e3b-7412-a1f9-90b567c9e999"),
 			mockSetup: func(uc *mockDoctorUseCase) {
-				uc.getWorkspaceFunc = func(ctx context.Context, doctorID int) (*domain.DoctorWorkspace, error) {
+				uc.getWorkspaceFunc = func(ctx context.Context, doctorID string) (*domain.DoctorWorkspace, error) {
 					return nil, domain.ErrDoctorNotFound
 				}
 			},
@@ -445,9 +449,9 @@ func TestDoctorHandler_GetWorkspace(t *testing.T) {
 		},
 		{
 			name:             "UseCase returns ErrInvalidInput -> 400",
-			setContextDoctor: func() *int { id := 1; return &id }(),
+			setContextDoctor: strPtr("01919df4-8e3b-7412-a1f9-90b567c9e101"),
 			mockSetup: func(uc *mockDoctorUseCase) {
-				uc.getWorkspaceFunc = func(ctx context.Context, doctorID int) (*domain.DoctorWorkspace, error) {
+				uc.getWorkspaceFunc = func(ctx context.Context, doctorID string) (*domain.DoctorWorkspace, error) {
 					return nil, domain.ErrInvalidInput
 				}
 			},
@@ -456,9 +460,9 @@ func TestDoctorHandler_GetWorkspace(t *testing.T) {
 		},
 		{
 			name:             "UseCase returns internal error -> 500",
-			setContextDoctor: func() *int { id := 1; return &id }(),
+			setContextDoctor: strPtr("01919df4-8e3b-7412-a1f9-90b567c9e101"),
 			mockSetup: func(uc *mockDoctorUseCase) {
-				uc.getWorkspaceFunc = func(ctx context.Context, doctorID int) (*domain.DoctorWorkspace, error) {
+				uc.getWorkspaceFunc = func(ctx context.Context, doctorID string) (*domain.DoctorWorkspace, error) {
 					return nil, errors.New("db error")
 				}
 			},
@@ -467,11 +471,11 @@ func TestDoctorHandler_GetWorkspace(t *testing.T) {
 		},
 		{
 			name:             "Success returns 200 OK with workspace data",
-			setContextDoctor: func() *int { id := 1; return &id }(),
+			setContextDoctor: strPtr("01919df4-8e3b-7412-a1f9-90b567c9e101"),
 			mockSetup: func(uc *mockDoctorUseCase) {
-				uc.getWorkspaceFunc = func(ctx context.Context, doctorID int) (*domain.DoctorWorkspace, error) {
+				uc.getWorkspaceFunc = func(ctx context.Context, doctorID string) (*domain.DoctorWorkspace, error) {
 					return &domain.DoctorWorkspace{
-						DoctorID:            1,
+						DoctorID:            "01919df4-8e3b-7412-a1f9-90b567c9e101",
 						DoctorName:          "Dr. Sarah Adams",
 						AvgConsultationTime: 3,
 						IsOnline:            true,

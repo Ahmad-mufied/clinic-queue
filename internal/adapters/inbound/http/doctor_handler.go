@@ -3,6 +3,7 @@ package http
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"clinic-queue/internal/adapters/inbound/middleware"
 	"clinic-queue/internal/core/domain"
@@ -31,9 +32,9 @@ func (h *DoctorHandler) RegisterRoutes(e *echo.Echo, authMW echo.MiddlewareFunc,
 }
 
 // getContextDoctorID retrieves and validates the doctor ID from the request context claims.
-func (h *DoctorHandler) getContextDoctorID(c echo.Context) (*int, error) {
+func (h *DoctorHandler) getContextDoctorID(c echo.Context) (*string, error) {
 	docID, ok := middleware.GetDoctorID(c)
-	if !ok || docID == nil || *docID <= 0 {
+	if !ok || docID == nil || strings.TrimSpace(*docID) == "" {
 		return nil, domain.ErrDoctorProfileMissing
 	}
 	return docID, nil

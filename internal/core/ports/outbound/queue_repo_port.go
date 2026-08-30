@@ -13,13 +13,13 @@ type QueueRepositoryPort interface {
 	CreateTicket(ctx context.Context, ticket *domain.QueueTicket) (*domain.QueueTicket, error)
 
 	// FindActiveTicketByUserID finds an active ticket (WAITING or IN_CONSULTATION) for a specific user ID.
-	FindActiveTicketByUserID(ctx context.Context, userID int) (*domain.QueueTicket, error)
+	FindActiveTicketByUserID(ctx context.Context, userID string) (*domain.QueueTicket, error)
 
 	// FindActiveTicketByPatientName finds an active ticket (WAITING or IN_CONSULTATION) by patient name.
 	FindActiveTicketByPatientName(ctx context.Context, patientName string) (*domain.QueueTicket, error)
 
 	// FindByID finds a queue ticket by its primary key ID.
-	FindByID(ctx context.Context, id int) (*domain.QueueTicket, error)
+	FindByID(ctx context.Context, id string) (*domain.QueueTicket, error)
 
 	// GetWaitingTickets retrieves all tickets currently in WAITING status ordered chronologically.
 	GetWaitingTickets(ctx context.Context) ([]*domain.QueueTicket, error)

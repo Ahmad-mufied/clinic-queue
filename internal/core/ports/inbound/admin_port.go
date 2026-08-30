@@ -8,8 +8,8 @@ import (
 
 // UpdateDoctorConfigDTO defines the input payload for updating doctor consultation configurations.
 type UpdateDoctorConfigDTO struct {
-	DoctorID               int `json:"doctor_id"`
-	AvgConsultationTimeMin int `json:"avg_consultation_time_min"`
+	DoctorID               string `json:"doctor_id"`
+	AvgConsultationTimeMin int    `json:"avg_consultation_time_min"`
 }
 
 // AdminUseCase defines the driving/inbound port for executive business analytics and doctor configuration management.

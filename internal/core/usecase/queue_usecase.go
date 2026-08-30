@@ -35,14 +35,14 @@ var _ inbound.QueueUseCase = (*QueueUseCase)(nil)
 const noticeAllDoctorsOffline = "Estimated wait time is currently unavailable because all doctors are offline / on break. Calculation will activate once a doctor starts duty."
 
 // JoinQueue registers a patient in the clinic queue, calculates their wait time, and publishes an update event.
-func (u *QueueUseCase) JoinQueue(ctx context.Context, userID *int, patientName string) (*domain.QueueTicket, error) {
+func (u *QueueUseCase) JoinQueue(ctx context.Context, userID *string, patientName string) (*domain.QueueTicket, error) {
 	trimmedName := strings.TrimSpace(patientName)
 	if trimmedName == "" {
 		return nil, domain.ErrInvalidInput
 	}
 
 	// Prevent duplicate active tickets for logged-in user
-	if userID != nil && *userID > 0 {
+	if userID != nil && strings.TrimSpace(*userID) != "" {
 		activeTicket, err := u.queueRepo.FindActiveTicketByUserID(ctx, *userID)
 		if err != nil {
 			return nil, fmt.Errorf("check active user ticket: %w", err)
@@ -125,8 +125,8 @@ func (u *QueueUseCase) JoinQueue(ctx context.Context, userID *int, patientName s
 }
 
 // GetMyTicket retrieves the active ticket for a user with updated dynamic wait estimation.
-func (u *QueueUseCase) GetMyTicket(ctx context.Context, userID int) (*domain.QueueTicket, error) {
-	if userID <= 0 {
+func (u *QueueUseCase) GetMyTicket(ctx context.Context, userID string) (*domain.QueueTicket, error) {
+	if strings.TrimSpace(userID) == "" {
 		return nil, domain.ErrInvalidInput
 	}
 

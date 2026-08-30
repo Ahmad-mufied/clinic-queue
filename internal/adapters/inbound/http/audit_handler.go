@@ -94,22 +94,14 @@ func (h *AuditHandler) GetAuditLogs(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid limit parameter"})
 	}
 
-	var cursor *int
-	if cursorStr := c.QueryParam("cursor"); cursorStr != "" {
-		curVal, err := parsePositiveQueryParam(cursorStr, 0)
-		if err != nil || curVal <= 0 {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid cursor parameter"})
-		}
-		cursor = &curVal
+	var cursor *string
+	if cursorStr := strings.TrimSpace(c.QueryParam("cursor")); cursorStr != "" {
+		cursor = &cursorStr
 	}
 
-	var userID *int
-	if uidStr := c.QueryParam("user_id"); uidStr != "" {
-		uid, err := parsePositiveQueryParam(uidStr, 0)
-		if err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid user_id parameter"})
-		}
-		userID = &uid
+	var userID *string
+	if uidStr := strings.TrimSpace(c.QueryParam("user_id")); uidStr != "" {
+		userID = &uidStr
 	}
 
 	fromStr := c.QueryParam("from")

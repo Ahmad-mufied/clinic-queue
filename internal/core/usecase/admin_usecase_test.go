@@ -32,10 +32,10 @@ func (m *mockAnalyticsRepoPort) GetDoctorProductivityList(ctx context.Context) (
 type mockAdminDoctorRepoPort struct {
 	getActiveDoctorsFunc          func(ctx context.Context) ([]*domain.Doctor, error)
 	getAllDoctorsWithSessionsFunc func(ctx context.Context) ([]domain.DoctorAvailability, error)
-	getDoctorByIDFunc             func(ctx context.Context, id int) (*domain.Doctor, error)
-	updateOnlineStatusFunc        func(ctx context.Context, doctorID int, isOnline bool) error
-	getActiveSessionByDoctorID    func(ctx context.Context, doctorID int) (*domain.ConsultationSession, error)
-	updateDoctorAvgTimeFunc       func(ctx context.Context, doctorID int, avgTime int) error
+	getDoctorByIDFunc             func(ctx context.Context, id string) (*domain.Doctor, error)
+	updateOnlineStatusFunc        func(ctx context.Context, doctorID string, isOnline bool) error
+	getActiveSessionByDoctorID    func(ctx context.Context, doctorID string) (*domain.ConsultationSession, error)
+	updateDoctorAvgTimeFunc       func(ctx context.Context, doctorID string, avgTime int) error
 }
 
 func (m *mockAdminDoctorRepoPort) GetActiveDoctors(ctx context.Context) ([]*domain.Doctor, error) {
@@ -52,28 +52,28 @@ func (m *mockAdminDoctorRepoPort) GetAllDoctorsWithSessions(ctx context.Context)
 	return nil, nil
 }
 
-func (m *mockAdminDoctorRepoPort) GetDoctorByID(ctx context.Context, id int) (*domain.Doctor, error) {
+func (m *mockAdminDoctorRepoPort) GetDoctorByID(ctx context.Context, id string) (*domain.Doctor, error) {
 	if m != nil && m.getDoctorByIDFunc != nil {
 		return m.getDoctorByIDFunc(ctx, id)
 	}
 	return nil, nil
 }
 
-func (m *mockAdminDoctorRepoPort) UpdateOnlineStatus(ctx context.Context, doctorID int, isOnline bool) error {
+func (m *mockAdminDoctorRepoPort) UpdateOnlineStatus(ctx context.Context, doctorID string, isOnline bool) error {
 	if m != nil && m.updateOnlineStatusFunc != nil {
 		return m.updateOnlineStatusFunc(ctx, doctorID, isOnline)
 	}
 	return nil
 }
 
-func (m *mockAdminDoctorRepoPort) GetActiveSessionByDoctorID(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
+func (m *mockAdminDoctorRepoPort) GetActiveSessionByDoctorID(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
 	if m != nil && m.getActiveSessionByDoctorID != nil {
 		return m.getActiveSessionByDoctorID(ctx, doctorID)
 	}
 	return nil, nil
 }
 
-func (m *mockAdminDoctorRepoPort) UpdateDoctorAvgTime(ctx context.Context, doctorID int, avgTime int) error {
+func (m *mockAdminDoctorRepoPort) UpdateDoctorAvgTime(ctx context.Context, doctorID string, avgTime int) error {
 	if m != nil && m.updateDoctorAvgTimeFunc != nil {
 		return m.updateDoctorAvgTimeFunc(ctx, doctorID, avgTime)
 	}
@@ -152,7 +152,7 @@ func TestAdminUseCase_GetAnalyticsStats(t *testing.T) {
 				getDoctorProductivityListFunc: func(ctx context.Context) ([]domain.DoctorPerformance, error) {
 					return []domain.DoctorPerformance{
 						{
-							DoctorID:                     1,
+							DoctorID:                     "01919df4-8e3b-7412-a1f9-90b567c9e101",
 							DoctorName:                   "Doctor A",
 							TargetAvgMinutes:             3,
 							IsOnline:                     true,
@@ -161,7 +161,7 @@ func TestAdminUseCase_GetAnalyticsStats(t *testing.T) {
 							UtilizationRatePercentage:    62.0,
 						},
 						{
-							DoctorID:                     2,
+							DoctorID:                     "01919df4-8e3b-7412-a1f9-90b567c9e102",
 							DoctorName:                   "Doctor B",
 							TargetAvgMinutes:             4,
 							IsOnline:                     false,
@@ -237,9 +237,17 @@ func TestAdminUseCase_UpdateDoctorConfig(t *testing.T) {
 		wantPubEvents int
 	}{
 		{
-			name: "Invalid doctor ID <= 0 returns ErrInvalidInput",
+			name: "Invalid doctor ID empty returns ErrInvalidInput",
 			dto: inbound.UpdateDoctorConfigDTO{
-				DoctorID:               0,
+				DoctorID:               "",
+				AvgConsultationTimeMin: 4,
+			},
+			wantErr: domain.ErrInvalidInput,
+		},
+		{
+			name: "Invalid doctor ID whitespace returns ErrInvalidInput",
+			dto: inbound.UpdateDoctorConfigDTO{
+				DoctorID:               "   ",
 				AvgConsultationTimeMin: 4,
 			},
 			wantErr: domain.ErrInvalidInput,
@@ -247,7 +255,7 @@ func TestAdminUseCase_UpdateDoctorConfig(t *testing.T) {
 		{
 			name: "Invalid avg consultation time <= 0 returns ErrInvalidConsultationTime",
 			dto: inbound.UpdateDoctorConfigDTO{
-				DoctorID:               1,
+				DoctorID:               "01919df4-8e3b-7412-a1f9-90b567c9e101",
 				AvgConsultationTimeMin: 0,
 			},
 			wantErr: domain.ErrInvalidConsultationTime,
@@ -255,11 +263,11 @@ func TestAdminUseCase_UpdateDoctorConfig(t *testing.T) {
 		{
 			name: "GetDoctorByID error",
 			dto: inbound.UpdateDoctorConfigDTO{
-				DoctorID:               1,
+				DoctorID:               "01919df4-8e3b-7412-a1f9-90b567c9e101",
 				AvgConsultationTimeMin: 4,
 			},
 			doctorRepo: &mockAdminDoctorRepoPort{
-				getDoctorByIDFunc: func(ctx context.Context, id int) (*domain.Doctor, error) {
+				getDoctorByIDFunc: func(ctx context.Context, id string) (*domain.Doctor, error) {
 					return nil, errors.New("db error")
 				},
 			},
@@ -268,11 +276,11 @@ func TestAdminUseCase_UpdateDoctorConfig(t *testing.T) {
 		{
 			name: "Doctor not found returns ErrDoctorNotFound",
 			dto: inbound.UpdateDoctorConfigDTO{
-				DoctorID:               99,
+				DoctorID:               "01919df4-8e3b-7412-a1f9-90b567c9e999",
 				AvgConsultationTimeMin: 4,
 			},
 			doctorRepo: &mockAdminDoctorRepoPort{
-				getDoctorByIDFunc: func(ctx context.Context, id int) (*domain.Doctor, error) {
+				getDoctorByIDFunc: func(ctx context.Context, id string) (*domain.Doctor, error) {
 					return nil, nil
 				},
 			},
@@ -281,18 +289,18 @@ func TestAdminUseCase_UpdateDoctorConfig(t *testing.T) {
 		{
 			name: "UpdateDoctorAvgTime error",
 			dto: inbound.UpdateDoctorConfigDTO{
-				DoctorID:               1,
+				DoctorID:               "01919df4-8e3b-7412-a1f9-90b567c9e101",
 				AvgConsultationTimeMin: 4,
 			},
 			doctorRepo: &mockAdminDoctorRepoPort{
-				getDoctorByIDFunc: func(ctx context.Context, id int) (*domain.Doctor, error) {
+				getDoctorByIDFunc: func(ctx context.Context, id string) (*domain.Doctor, error) {
 					return &domain.Doctor{
-						ID:                  1,
+						ID:                  "01919df4-8e3b-7412-a1f9-90b567c9e101",
 						Name:                "Doctor A",
 						AvgConsultationTime: 3,
 					}, nil
 				},
-				updateDoctorAvgTimeFunc: func(ctx context.Context, doctorID int, avgTime int) error {
+				updateDoctorAvgTimeFunc: func(ctx context.Context, doctorID string, avgTime int) error {
 					return errors.New("update query failed")
 				},
 			},
@@ -301,18 +309,18 @@ func TestAdminUseCase_UpdateDoctorConfig(t *testing.T) {
 		{
 			name: "Success with NATS event broadcasting",
 			dto: inbound.UpdateDoctorConfigDTO{
-				DoctorID:               1,
+				DoctorID:               "01919df4-8e3b-7412-a1f9-90b567c9e101",
 				AvgConsultationTimeMin: 5,
 			},
 			doctorRepo: &mockAdminDoctorRepoPort{
-				getDoctorByIDFunc: func(ctx context.Context, id int) (*domain.Doctor, error) {
+				getDoctorByIDFunc: func(ctx context.Context, id string) (*domain.Doctor, error) {
 					return &domain.Doctor{
-						ID:                  1,
+						ID:                  "01919df4-8e3b-7412-a1f9-90b567c9e101",
 						Name:                "Doctor A",
 						AvgConsultationTime: 3,
 					}, nil
 				},
-				updateDoctorAvgTimeFunc: func(ctx context.Context, doctorID int, avgTime int) error {
+				updateDoctorAvgTimeFunc: func(ctx context.Context, doctorID string, avgTime int) error {
 					return nil
 				},
 			},
@@ -327,18 +335,18 @@ func TestAdminUseCase_UpdateDoctorConfig(t *testing.T) {
 		{
 			name: "Success with nil eventPub",
 			dto: inbound.UpdateDoctorConfigDTO{
-				DoctorID:               1,
+				DoctorID:               "01919df4-8e3b-7412-a1f9-90b567c9e101",
 				AvgConsultationTimeMin: 4,
 			},
 			doctorRepo: &mockAdminDoctorRepoPort{
-				getDoctorByIDFunc: func(ctx context.Context, id int) (*domain.Doctor, error) {
+				getDoctorByIDFunc: func(ctx context.Context, id string) (*domain.Doctor, error) {
 					return &domain.Doctor{
-						ID:                  1,
+						ID:                  "01919df4-8e3b-7412-a1f9-90b567c9e101",
 						Name:                "Doctor A",
 						AvgConsultationTime: 3,
 					}, nil
 				},
-				updateDoctorAvgTimeFunc: func(ctx context.Context, doctorID int, avgTime int) error {
+				updateDoctorAvgTimeFunc: func(ctx context.Context, doctorID string, avgTime int) error {
 					return nil
 				},
 			},
@@ -395,19 +403,19 @@ func TestMockDefaults(t *testing.T) {
 	if availList != nil || err != nil {
 		t.Errorf("expected nil, nil")
 	}
-	d, err := docMock.GetDoctorByID(context.Background(), 1)
+	d, err := docMock.GetDoctorByID(context.Background(), "01919df4-8e3b-7412-a1f9-90b567c9e101")
 	if d != nil || err != nil {
 		t.Errorf("expected nil, nil")
 	}
-	err = docMock.UpdateOnlineStatus(context.Background(), 1, true)
+	err = docMock.UpdateOnlineStatus(context.Background(), "01919df4-8e3b-7412-a1f9-90b567c9e101", true)
 	if err != nil {
 		t.Errorf("expected nil")
 	}
-	sess, err := docMock.GetActiveSessionByDoctorID(context.Background(), 1)
+	sess, err := docMock.GetActiveSessionByDoctorID(context.Background(), "01919df4-8e3b-7412-a1f9-90b567c9e101")
 	if sess != nil || err != nil {
 		t.Errorf("expected nil, nil")
 	}
-	err = docMock.UpdateDoctorAvgTime(context.Background(), 1, 3)
+	err = docMock.UpdateDoctorAvgTime(context.Background(), "01919df4-8e3b-7412-a1f9-90b567c9e101", 3)
 	if err != nil {
 		t.Errorf("expected nil")
 	}

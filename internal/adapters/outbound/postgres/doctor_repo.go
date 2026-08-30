@@ -51,7 +51,7 @@ func (r *DoctorRepo) GetActiveDoctors(ctx context.Context) ([]*domain.Doctor, er
 	var doctors []*domain.Doctor
 	for rows.Next() {
 		var (
-			id             int
+			id             string
 			name           string
 			avgTime        int
 			isOnline       bool
@@ -113,7 +113,7 @@ func (r *DoctorRepo) GetAllDoctorsWithSessions(ctx context.Context) ([]domain.Do
 	var availabilities []domain.DoctorAvailability
 	for rows.Next() {
 		var (
-			id             int
+			id             string
 			name           string
 			avgTime        int
 			isOnline       bool
@@ -158,7 +158,7 @@ func (r *DoctorRepo) GetAllDoctorsWithSessions(ctx context.Context) ([]domain.Do
 }
 
 // GetDoctorByID retrieves a single doctor by primary key ID.
-func (r *DoctorRepo) GetDoctorByID(ctx context.Context, id int) (*domain.Doctor, error) {
+func (r *DoctorRepo) GetDoctorByID(ctx context.Context, id string) (*domain.Doctor, error) {
 	query := `
 		SELECT 
 			d.id, 
@@ -174,7 +174,7 @@ func (r *DoctorRepo) GetDoctorByID(ctx context.Context, id int) (*domain.Doctor,
 	`
 
 	var (
-		docID          int
+		docID          string
 		name           string
 		avgTime        int
 		isOnline       bool
@@ -187,7 +187,7 @@ func (r *DoctorRepo) GetDoctorByID(ctx context.Context, id int) (*domain.Doctor,
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("query doctor by id %d: %w", id, err)
+		return nil, fmt.Errorf("query doctor by id %s: %w", id, err)
 	}
 
 	var currentSession *domain.ActiveConsultation
@@ -208,7 +208,7 @@ func (r *DoctorRepo) GetDoctorByID(ctx context.Context, id int) (*domain.Doctor,
 }
 
 // UpdateOnlineStatus updates the is_online status of a doctor.
-func (r *DoctorRepo) UpdateOnlineStatus(ctx context.Context, doctorID int, isOnline bool) error {
+func (r *DoctorRepo) UpdateOnlineStatus(ctx context.Context, doctorID string, isOnline bool) error {
 	query := `UPDATE doctors SET is_online = $1, updated_at = NOW() WHERE id = $2`
 	tag, err := r.pool.Exec(ctx, query, isOnline, doctorID)
 	if err != nil {
@@ -221,7 +221,7 @@ func (r *DoctorRepo) UpdateOnlineStatus(ctx context.Context, doctorID int, isOnl
 }
 
 // GetActiveSessionByDoctorID retrieves the active consultation session for a given doctor.
-func (r *DoctorRepo) GetActiveSessionByDoctorID(ctx context.Context, doctorID int) (*domain.ConsultationSession, error) {
+func (r *DoctorRepo) GetActiveSessionByDoctorID(ctx context.Context, doctorID string) (*domain.ConsultationSession, error) {
 	query := `
 		SELECT cs.id, cs.doctor_id, cs.ticket_id, cs.patient_name, cs.started_at, cs.finished_at, cs.is_active,
 		       qt.queue_number, qt.status
@@ -231,9 +231,9 @@ func (r *DoctorRepo) GetActiveSessionByDoctorID(ctx context.Context, doctorID in
 		LIMIT 1
 	`
 	var (
-		sessionID    int
-		docID        int
-		ticketID     int
+		sessionID    string
+		docID        string
+		ticketID     string
 		patientName  string
 		startedAt    time.Time
 		finishedAt   *time.Time
@@ -250,7 +250,7 @@ func (r *DoctorRepo) GetActiveSessionByDoctorID(ctx context.Context, doctorID in
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("query active session by doctor id %d: %w", doctorID, err)
+		return nil, fmt.Errorf("query active session by doctor id %s: %w", doctorID, err)
 	}
 
 	var ticket *domain.ConsultationTicket
@@ -276,7 +276,7 @@ func (r *DoctorRepo) GetActiveSessionByDoctorID(ctx context.Context, doctorID in
 }
 
 // UpdateDoctorAvgTime updates the configured average consultation duration for a doctor.
-func (r *DoctorRepo) UpdateDoctorAvgTime(ctx context.Context, doctorID int, avgTime int) error {
+func (r *DoctorRepo) UpdateDoctorAvgTime(ctx context.Context, doctorID string, avgTime int) error {
 	query := `UPDATE doctors SET avg_consultation_time_min = $1, updated_at = NOW() WHERE id = $2`
 	tag, err := r.pool.Exec(ctx, query, avgTime, doctorID)
 	if err != nil {

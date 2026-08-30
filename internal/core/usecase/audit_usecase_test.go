@@ -56,7 +56,7 @@ var (
 )
 
 func TestAuditUseCase_RecordLog(t *testing.T) {
-	userID := 1
+	userID := "01919df4-8e3b-7412-a1f9-90b567c9e201"
 	now := time.Now().UTC()
 
 	tests := []struct {
@@ -107,7 +107,7 @@ func TestAuditUseCase_RecordLog(t *testing.T) {
 			auditRepo: &mockAuditRepoPort{
 				insertLogFunc: func(ctx context.Context, log *domain.AuditLog) (*domain.AuditLog, error) {
 					return &domain.AuditLog{
-						ID:        100,
+						ID:        "01919df4-8e3b-7412-a1f9-90b567c9e501",
 						UserID:    log.UserID,
 						ActorName: log.ActorName,
 						Role:      log.Role,
@@ -140,12 +140,12 @@ func TestAuditUseCase_RecordLog(t *testing.T) {
 				ActorName: "Dr. Alice",
 				Role:      "doctor",
 				IPAddress: "192.168.1.50",
-				Details:   map[string]any{"doctor_id": 2},
+				Details:   map[string]any{"doctor_id": "01919df4-8e3b-7412-a1f9-90b567c9e102"},
 			},
 			auditRepo: &mockAuditRepoPort{
 				insertLogFunc: func(ctx context.Context, log *domain.AuditLog) (*domain.AuditLog, error) {
 					return &domain.AuditLog{
-						ID:        101,
+						ID:        "01919df4-8e3b-7412-a1f9-90b567c9e502",
 						ActorName: log.ActorName,
 						Role:      log.Role,
 						Action:    log.Action,
@@ -203,14 +203,14 @@ func TestAuditUseCase_GetAuditLogs(t *testing.T) {
 	now := time.Now().UTC()
 
 	tests := []struct {
-		name            string
-		filter          domain.AuditLogFilter
-		auditRepo       *mockAuditRepoPort
-		wantErr         error
-		wantPage        int
-		wantLimit       int
-		wantTotal       int
-		wantLogsCount   int
+		name          string
+		filter        domain.AuditLogFilter
+		auditRepo     *mockAuditRepoPort
+		wantErr       error
+		wantPage      int
+		wantLimit     int
+		wantTotal     int
+		wantLogsCount int
 	}{
 		{
 			name: "repository query failure returns wrapped error",
@@ -241,7 +241,7 @@ func TestAuditUseCase_GetAuditLogs(t *testing.T) {
 						TotalRecords: 1,
 						Logs: []domain.AuditLog{
 							{
-								ID:        1,
+								ID:        "01919df4-8e3b-7412-a1f9-90b567c9e501",
 								ActorName: "dr_smith",
 								Role:      "doctor",
 								Action:    domain.ActionAuthLogin,

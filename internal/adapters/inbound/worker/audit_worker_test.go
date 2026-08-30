@@ -287,6 +287,88 @@ func TestAuditWorker_HandleEventMessage(t *testing.T) {
 			expectRecord:   true,
 		},
 		{
+			name:  "Handle DOCTOR_CONFIG_UPDATED with admin_id",
+			event: "DOCTOR_CONFIG_UPDATED",
+			data: map[string]any{
+				"admin_id":  "01919df4-8e3b-7412-a1f9-90b567c9e203",
+				"doctor_id": "01919df4-8e3b-7412-a1f9-90b567c9e101",
+				"avg_time":  float64(5),
+			},
+			expectedAction: "DOCTOR_CONFIG_UPDATED",
+			expectedRole:   string(domain.RoleAdmin),
+			expectedActor:  "Clinic Administrator",
+			expectRecord:   true,
+		},
+		{
+			name:  "Handle TICKET_CALLED with doctor_id as string",
+			event: "TICKET_CALLED",
+			data: map[string]any{
+				"doctor_id": "01919df4-8e3b-7412-a1f9-90b567c9e101",
+			},
+			expectedAction: "CONSULTATION_STARTED",
+			expectedRole:   string(domain.RoleDoctor),
+			expectedActor:  "Dr. Doctor 01919df4-8e3b-7412-a1f9-90b567c9e101",
+			expectRecord:   true,
+		},
+		{
+			name:  "Handle TICKET_FINISHED with doctor_id as string",
+			event: "TICKET_FINISHED",
+			data: map[string]any{
+				"doctor_id": "01919df4-8e3b-7412-a1f9-90b567c9e101",
+			},
+			expectedAction: "CONSULTATION_FINISHED",
+			expectedRole:   string(domain.RoleDoctor),
+			expectedActor:  "Dr. Doctor 01919df4-8e3b-7412-a1f9-90b567c9e101",
+			expectRecord:   true,
+		},
+		{
+			name:  "Handle DOCTOR_STATUS_CHANGED with doctor_id as string",
+			event: "DOCTOR_STATUS_CHANGED",
+			data: map[string]any{
+				"doctor_id": "01919df4-8e3b-7412-a1f9-90b567c9e101",
+			},
+			expectedAction: "DOCTOR_STATUS_CHANGED",
+			expectedRole:   string(domain.RoleDoctor),
+			expectedActor:  "Dr. Doctor 01919df4-8e3b-7412-a1f9-90b567c9e101",
+			expectRecord:   true,
+		},
+		{
+			name:  "Handle QUEUE_JOINED with invalid/empty user_id types",
+			event: "QUEUE_JOINED",
+			data: map[string]any{
+				"user_id":      "   ",
+				"patient_name": "Walk-in Patient",
+			},
+			expectedAction: "QUEUE_JOINED",
+			expectedRole:   string(domain.RolePatient),
+			expectedActor:  "Walk-in Patient",
+			expectRecord:   true,
+		},
+		{
+			name:  "Handle QUEUE_JOINED with negative float and bool user_id",
+			event: "QUEUE_JOINED",
+			data: map[string]any{
+				"user_id":      float64(-5),
+				"patient_name": "Walk-in Patient",
+			},
+			expectedAction: "QUEUE_JOINED",
+			expectedRole:   string(domain.RolePatient),
+			expectedActor:  "Walk-in Patient",
+			expectRecord:   true,
+		},
+		{
+			name:  "Handle QUEUE_JOINED with bool user_id",
+			event: "QUEUE_JOINED",
+			data: map[string]any{
+				"user_id":      true,
+				"patient_name": "Walk-in Patient",
+			},
+			expectedAction: "QUEUE_JOINED",
+			expectedRole:   string(domain.RolePatient),
+			expectedActor:  "Walk-in Patient",
+			expectRecord:   true,
+		},
+		{
 			name:  "Handle Error in RecordLog gracefully",
 			event: "QUEUE_JOINED",
 			data: map[string]any{
@@ -312,7 +394,7 @@ func TestAuditWorker_HandleEventMessage(t *testing.T) {
 					if tt.expectedActor != "" && dto.ActorName != tt.expectedActor {
 						t.Errorf("expected actor %q, got %q", tt.expectedActor, dto.ActorName)
 					}
-					return &domain.AuditLog{ID: 1}, tt.recordLogErr
+					return &domain.AuditLog{ID: "01919df4-8e3b-7412-a1f9-90b567c9e501"}, tt.recordLogErr
 				},
 			}
 
