@@ -29,9 +29,9 @@ func NewNATSEventPublisher(nc *nats.Conn, js jetstream.JetStream) *NATSEventPubl
 
 var _ outbound.EventPublisherPort = (*NATSEventPublisher)(nil)
 
-// EventMessage represents the envelope for published clinic events.
+// EventMessage represents the standard envelope for published clinic events.
 type EventMessage struct {
-	Event     string    `json:"event"`
+	Type      string    `json:"type"`
 	Data      any       `json:"data"`
 	Timestamp time.Time `json:"timestamp"`
 }
@@ -41,7 +41,7 @@ func (p *NATSEventPublisher) PublishEvent(ctx context.Context, eventType string,
 	subject := fmt.Sprintf("clinic.events.%s", strings.ToLower(eventType))
 
 	msg := EventMessage{
-		Event:     eventType,
+		Type:      eventType,
 		Data:      payload,
 		Timestamp: time.Now().UTC(),
 	}

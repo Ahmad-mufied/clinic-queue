@@ -137,9 +137,21 @@ func (c *SSECollector) Start(ctx context.Context, sseURL string) error {
 				currentEvent = strings.TrimPrefix(line, "event: ")
 			} else if strings.HasPrefix(line, "data: ") {
 				data := strings.TrimPrefix(line, "data: ")
+				var parsed struct {
+					Type  string `json:"type"`
+					Event string `json:"event"`
+				}
+				_ = json.Unmarshal([]byte(data), &parsed)
+				evtName := currentEvent
+				if evtName == "" {
+					evtName = parsed.Type
+					if evtName == "" {
+						evtName = parsed.Event
+					}
+				}
 				c.mu.Lock()
 				c.events = append(c.events, SSEEvent{
-					Event: currentEvent,
+					Event: evtName,
 					Data:  data,
 					Time:  time.Now(),
 				})

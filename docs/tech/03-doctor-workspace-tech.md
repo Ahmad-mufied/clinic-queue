@@ -162,3 +162,4 @@ DROP TABLE IF EXISTS doctors;
 | :---: | :---: | :---: | :---: | :--- |
 | **v1.0.0** | 2026-08-29 | Backend Lead | **Initial Baseline** | Initial technical specification for doctor shift lifecycle, atomic `FOR UPDATE SKIP LOCKED` concurrency control, Goose SQL migrations, and REST endpoints. |
 | **v1.1.0** | 2026-08-30 | Backend Lead | **Native UUIDv7 Spec** | Migrated `doctors.id` and `consultation_sessions.id` to Native UUIDv7 (`DEFAULT uuidv7()`), updating domain entities, concurrency query bindings, and DTO structures. |
+| **v1.2.0** | 2026-08-30 | Backend Lead | **Shift Event Payload Enrichment** | Enriched `QUEUE_UPDATED` payload on `ToggleStatus` with `doctor_name` for clean client-side human-readable notifications. |

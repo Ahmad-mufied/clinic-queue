@@ -116,7 +116,7 @@ func (h *SSEHandler) HandleEvents(c echo.Context) error {
 	defer h.Unsubscribe(clientChan)
 
 	// Send initial connection event
-	initialMsg := fmt.Sprintf("event: CONNECTED\ndata: {\"status\":\"connected\",\"timestamp\":%q}\n\n", time.Now().UTC().Format(time.RFC3339))
+	initialMsg := fmt.Sprintf("data: {\"type\":\"CONNECTED\",\"event\":\"CONNECTED\",\"status\":\"connected\",\"timestamp\":%q}\n\n", time.Now().UTC().Format(time.RFC3339))
 	if _, err := fmt.Fprint(res, initialMsg); err != nil {
 		return nil
 	}
@@ -135,7 +135,7 @@ func (h *SSEHandler) HandleEvents(c echo.Context) error {
 			if !ok {
 				return nil
 			}
-			sseMsg := fmt.Sprintf("event: QUEUE_UPDATED\ndata: %s\n\n", string(eventData))
+			sseMsg := fmt.Sprintf("data: %s\n\n", string(eventData))
 			if _, err := fmt.Fprint(res, sseMsg); err != nil {
 				log.Printf("SSE write error: %v", err)
 				return nil

@@ -68,9 +68,10 @@ func (u *DoctorUseCase) ToggleStatus(ctx context.Context, doctorID string, isOnl
 	if u.eventPub != nil {
 		_ = u.eventPub.PublishEvent(ctx, "DOCTOR_STATUS_CHANGED", resp)
 		_ = u.eventPub.PublishEvent(ctx, "QUEUE_UPDATED", map[string]any{
-			"doctor_id": doctorID,
-			"is_online": isOnline,
-			"status":    status,
+			"doctor_id":   doctorID,
+			"doctor_name": doc.Name,
+			"is_online":   isOnline,
+			"status":      status,
 		})
 	}
 

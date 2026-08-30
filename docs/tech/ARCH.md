@@ -260,13 +260,12 @@ flowchart TD
     SSE -.->|Invalidate Queries & Show Toast| Query
 ```
 
-### 5.2 Real-Time SSE Invalidation Flow
+### 5.2 Real-Time SSE Invalidation Flow & Adaptive Polling
 1. Next.js client connects to `GET /api/events` via `useSSE`.
-2. When backend events (`QUEUE_UPDATED`, `DOCTOR_STATUS_CHANGED`, `TICKET_CALLED`, `TICKET_FINISHED`) arrive over SSE, the hook:
-   - Dispatches a visual alert via **Sonner Toast**.
-   - Invalidates corresponding TanStack Query keys (`['queue-status']`, `['my-ticket']`, `['doctor-workspace']`, `['admin-stats']`), triggering instant seamless re-renders across all active client views.
-
----
+2. When backend events (`QUEUE_UPDATED`, `DOCTOR_STATUS_CHANGED`, `TICKET_CALLED`, `TICKET_FINISHED`, `DOCTOR_CONFIG_UPDATED`, `AUDIT_LOG_CREATED`) arrive over SSE (formatted as standard `data:` envelope), the hook:
+   - Dispatches visual alerts via **Sonner Toast**.
+   - Invalidates corresponding TanStack Query keys (`['queue-status']`, `['my-ticket']`, `['doctor-workspace']`, `['admin-stats']`, `['admin-audit-logs-infinite']`), triggering instant seamless re-renders across all active client views.
+3. **Adaptive Polling Guard:** When SSE stream is active (`isConnected === true`), background polling switches to a lazy 30s interval, reducing network requests and database read load by 90%. If SSE drops, it automatically ramps up to 3s fallback polling until reconnected.
 
 ---
 
@@ -293,3 +292,5 @@ All entity primary keys, relational foreign keys, and security boundaries across
 | **v1.3.0** | 2026-08-29 | Principal Architect | **Infra & E2E Validation** | Updated PostgreSQL 18 volume mount path (`/var/lib/postgresql`) and host port mapping (`5433:5432`) to prevent environment port collisions during integration testing. |
 | **v1.4.0** | 2026-08-29 | Principal Architect | **Frontend Stack Update** | Updated frontend specification to Next.js 15 (App Router) + TypeScript + Tailwind CSS + Radix UI + shadcn/ui + TanStack Query v5 with real-time SSE cache invalidation. |
 | **v1.5.0** | 2026-08-30 | Principal Architect | **Native UUIDv7 & Identity Spec** | Migrated entity identification to Native UUIDv7 (PostgreSQL 18 `uuidv7()` + Go 1.27 `uuid` pkg) and added Section 6.2 Dual-Layer Identity Architecture separating DB keys from human display codes. |
+| **v1.6.0** | 2026-08-30 | Principal Architect | **Adaptive SSE Synchronization** | Documented standard SSE payload envelope and adaptive polling architecture reducing redundant queries by 90% while maintaining sub-second UI synchronization. |
+| **v1.7.0** | 2026-08-30 | Principal Architect | **Canonical Event Envelope Standardization** | Standardized platform event envelope to canonical single `type` field across Go Hexagonal adapters, NATS JetStream, and Next.js SSE client. |

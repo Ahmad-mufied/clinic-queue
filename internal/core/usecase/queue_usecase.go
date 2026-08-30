@@ -119,6 +119,12 @@ func (u *QueueUseCase) JoinQueue(ctx context.Context, userID *string, patientNam
 	// Publish real-time event
 	if u.eventPub != nil {
 		_ = u.eventPub.PublishEvent(ctx, "QUEUE_JOINED", createdTicket)
+		_ = u.eventPub.PublishEvent(ctx, "QUEUE_UPDATED", map[string]any{
+			"action":       "QUEUE_JOINED",
+			"ticket_id":    createdTicket.ID,
+			"queue_number": createdTicket.QueueNumber,
+			"patient_name": createdTicket.PatientName,
+		})
 	}
 
 	return createdTicket, nil

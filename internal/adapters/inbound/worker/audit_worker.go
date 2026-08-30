@@ -30,7 +30,7 @@ func NewAuditWorker(auditUseCase inbound.AuditUseCase, userRepo outbound.UserRep
 
 // EventEnvelope represents the standard event message payload published across the platform.
 type EventEnvelope struct {
-	Event     string          `json:"event"`
+	Type      string          `json:"type"`
 	Data      json.RawMessage `json:"data"`
 	Timestamp string          `json:"timestamp"`
 }
@@ -78,7 +78,7 @@ func (w *AuditWorker) HandleEventMessage(ctx context.Context, data []byte) {
 	}
 
 	// Skip recursive or purely UI stream-refresh events
-	if envelope.Event == "AUDIT_LOG_CREATED" || envelope.Event == "QUEUE_UPDATED" {
+	if envelope.Type == "AUDIT_LOG_CREATED" || envelope.Type == "QUEUE_UPDATED" {
 		return
 	}
 
@@ -93,7 +93,7 @@ func (w *AuditWorker) HandleEventMessage(ctx context.Context, data []byte) {
 		Details:   rawMap,
 	}
 
-	switch envelope.Event {
+	switch envelope.Type {
 	case "QUEUE_JOINED":
 		dto.Action = "QUEUE_JOINED"
 		dto.Role = string(domain.RolePatient)
@@ -192,6 +192,6 @@ func (w *AuditWorker) HandleEventMessage(ctx context.Context, data []byte) {
 	}
 
 	if _, err := w.auditUseCase.RecordLog(ctx, dto); err != nil {
-		log.Printf("Failed to record audit log for %s: %v", envelope.Event, err)
+		log.Printf("Failed to record audit log for %s: %v", envelope.Type, err)
 	}
 }

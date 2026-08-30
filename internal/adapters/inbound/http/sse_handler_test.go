@@ -128,11 +128,11 @@ func TestSSEHandler_HandleEvents_Flow(t *testing.T) {
 	wg.Wait()
 
 	body := rec.Body.String()
-	if !strings.Contains(body, "event: CONNECTED") {
-		t.Errorf("expected response to contain CONNECTED event, got: %s", body)
+	if !strings.Contains(body, `"status":"connected"`) {
+		t.Errorf("expected response to contain connected status, got: %s", body)
 	}
-	if !strings.Contains(body, "event: QUEUE_UPDATED") {
-		t.Errorf("expected response to contain QUEUE_UPDATED event, got: %s", body)
+	if !strings.Contains(body, `{"ticket":"A-01"}`) {
+		t.Errorf("expected response to contain broadcast event, got: %s", body)
 	}
 	if !strings.Contains(body, ":keepalive") {
 		t.Errorf("expected response to contain keepalive ping, got: %s", body)

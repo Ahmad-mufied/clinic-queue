@@ -155,8 +155,7 @@ DROP TABLE IF EXISTS queue_tickets;
 - **Protocol:** Server-Sent Events (`text/event-stream`)
 - **Event Example:**
 ```text
-event: QUEUE_UPDATED
-data: {"action":"TICKET_CALLED","doctor":"Doctor A","ticket_number":"A-01","timestamp":"2026-08-29T10:03:00Z"}
+data: {"type":"QUEUE_UPDATED","data":{"doctor_id":"01919df4-8e3b-7412-a1f9-90b567c9e101","doctor_name":"Dr. Sarah Adams","is_online":true,"status":"AVAILABLE"},"timestamp":"2026-08-30T06:24:09Z"}
 ```
 
 ---
@@ -178,3 +177,6 @@ data: {"action":"TICKET_CALLED","doctor":"Doctor A","ticket_number":"A-01","time
 | :---: | :---: | :---: | :---: | :--- |
 | **v1.0.0** | 2026-08-29 | Backend Lead | **Initial Baseline** | Initial technical specification for the greedy multi-doctor queue algorithm, Goose SQL migration for `queue_tickets`, REST API endpoints, and NATS-backed SSE stream specs. |
 | **v1.1.0** | 2026-08-30 | Backend Lead | **Native UUIDv7 Spec** | Migrated `queue_tickets.id`, `queue_tickets.user_id`, and `DoctorAvailability.ID` to Native UUIDv7 (`DEFAULT uuidv7()`), updating domain entities, DTOs, and test assertions. |
+| **v1.2.0** | 2026-08-30 | Backend Lead | **Standard SSE Data Envelope** | Standardized SSE broadcaster to standard `data:` envelope with dual `Type`/`Event` attributes for 100% browser `EventSource.onmessage` compatibility. |
+| **v1.3.0** | 2026-08-30 | Backend Lead | **Dual Queue Event Emission** | Added dual `QUEUE_JOINED` and `QUEUE_UPDATED` NATS event emission on `JoinQueue` to trigger sub-second real-time patient admissions across idle doctor workspaces. |
+| **v1.4.0** | 2026-08-30 | Backend Lead | **Clean Envelope Standardization** | Standardized event envelope across Go backend and SSE stream to canonical single `type` field, eliminating redundant key duplication. |

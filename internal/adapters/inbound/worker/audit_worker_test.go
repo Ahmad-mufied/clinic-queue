@@ -409,7 +409,7 @@ func TestAuditWorker_HandleEventMessage(t *testing.T) {
 					dataBytes, _ = json.Marshal(tt.data)
 				}
 				envelope := worker.EventEnvelope{
-					Event:     tt.event,
+					Type:      tt.event,
 					Data:      dataBytes,
 					Timestamp: time.Now().UTC().Format(time.RFC3339),
 				}
@@ -445,7 +445,7 @@ func TestAuditWorker_StartSubscribing(t *testing.T) {
 
 		// Publish message to trigger subscription handler callback
 		env := worker.EventEnvelope{
-			Event:     "QUEUE_JOINED",
+			Type:      "QUEUE_JOINED",
 			Data:      []byte(`{"patient_name":"Sub Test"}`),
 			Timestamp: time.Now().UTC().Format(time.RFC3339),
 		}
