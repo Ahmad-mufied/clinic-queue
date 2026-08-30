@@ -18,6 +18,7 @@ type AnalyticsSummary struct {
 type DoctorPerformance struct {
 	DoctorID                     string  `json:"doctor_id"`
 	DoctorName                   string  `json:"doctor_name"`
+	Username                     string  `json:"username,omitempty"`
 	TargetAvgMinutes             int     `json:"target_avg_minutes"`
 	IsOnline                     bool    `json:"is_online"`
 	TotalConsultationsToday      int     `json:"total_consultations_today"`

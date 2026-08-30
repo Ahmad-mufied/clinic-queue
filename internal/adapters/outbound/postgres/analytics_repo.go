@@ -73,6 +73,7 @@ func (r *AnalyticsRepo) GetDoctorProductivityList(ctx context.Context) ([]domain
 		SELECT 
 			d.id AS doctor_id,
 			d.name AS doctor_name,
+			COALESCE(u.username, '') AS username,
 			d.avg_consultation_time_min AS target_avg_minutes,
 			d.is_online,
 			COUNT(cs.id) AS total_consultations_today,
@@ -86,10 +87,11 @@ func (r *AnalyticsRepo) GetDoctorProductivityList(ctx context.Context) ([]domain
 				0
 			) AS utilization_rate_percentage
 		FROM doctors d
+		LEFT JOIN users u ON d.id = u.doctor_id
 		LEFT JOIN consultation_sessions cs ON d.id = cs.doctor_id 
 			AND cs.started_at >= CURRENT_DATE 
 			AND cs.is_active = FALSE
-		GROUP BY d.id, d.name, d.avg_consultation_time_min, d.is_online
+		GROUP BY d.id, d.name, u.username, d.avg_consultation_time_min, d.is_online
 		ORDER BY d.id ASC;
 	`
 
@@ -104,6 +106,7 @@ func (r *AnalyticsRepo) GetDoctorProductivityList(ctx context.Context) ([]domain
 		var (
 			doctorID             string
 			doctorName           string
+			username             string
 			targetAvgMinutes     int
 			isOnline             bool
 			totalConsultations   int
@@ -114,6 +117,7 @@ func (r *AnalyticsRepo) GetDoctorProductivityList(ctx context.Context) ([]domain
 		if err := rows.Scan(
 			&doctorID,
 			&doctorName,
+			&username,
 			&targetAvgMinutes,
 			&isOnline,
 			&totalConsultations,
@@ -126,6 +130,7 @@ func (r *AnalyticsRepo) GetDoctorProductivityList(ctx context.Context) ([]domain
 		list = append(list, domain.DoctorPerformance{
 			DoctorID:                     doctorID,
 			DoctorName:                   doctorName,
+			Username:                     username,
 			TargetAvgMinutes:             targetAvgMinutes,
 			IsOnline:                     isOnline,
 			TotalConsultationsToday:      totalConsultations,

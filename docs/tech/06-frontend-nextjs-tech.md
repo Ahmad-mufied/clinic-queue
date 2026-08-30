@@ -277,6 +277,7 @@ export interface DoctorWorkspace {
 export interface DoctorPerformance {
   doctor_id: string;
   doctor_name: string;
+  username?: string;
   target_avg_minutes: number;
   is_online: boolean;
   total_consultations_today: number;
@@ -332,3 +333,4 @@ export interface SSEEventPayload {
 | **v1.0.0** | 2026-08-29 | Principal Frontend Architect | **Initial Baseline** | Master technical specification for Next.js 15 App Router, TypeScript, Radix UI, shadcn/ui, TanStack Query, and real-time SSE synchronization. |
 | **v1.1.0** | 2026-08-30 | Principal Frontend Architect | **Native UUIDv7 & Adaptive SSE** | Updated all TypeScript DTO models to Native UUIDv7 string IDs. Documented standard SSE payload parsing and adaptive SSE polling architecture (`isConnected ? 30000 : 3000`). |
 | **v1.2.0** | 2026-08-30 | Principal Frontend Architect | **Canonical Event Envelope Standardization** | Standardized SSE and NATS event schema to canonical single `type` field with role-based Notification Center filtering. |
+| **v1.3.0** | 2026-08-30 | Principal Frontend Architect | **Human Tier 1 Handle Integration** | Added `username` to `DoctorPerformance` DTO to support `@username` handle presentation in executive doctor productivity table. |

@@ -34,6 +34,7 @@ WHERE created_at >= CURRENT_DATE;
 SELECT 
     d.id AS doctor_id,
     d.name AS doctor_name,
+    COALESCE(u.username, '') AS username,
     d.avg_consultation_time_min AS target_avg_minutes,
     d.is_online,
     COUNT(cs.id) AS total_consultations_today,
@@ -47,10 +48,11 @@ SELECT
         0
     ) AS utilization_rate_percentage
 FROM doctors d
+LEFT JOIN users u ON d.id = u.doctor_id
 LEFT JOIN consultation_sessions cs ON d.id = cs.doctor_id 
     AND cs.started_at >= CURRENT_DATE 
     AND cs.is_active = FALSE
-GROUP BY d.id, d.name, d.avg_consultation_time_min, d.is_online
+GROUP BY d.id, d.name, u.username, d.avg_consultation_time_min, d.is_online
 ORDER BY d.id ASC;
 ```
 
@@ -75,6 +77,7 @@ ORDER BY d.id ASC;
     {
       "doctor_id": "01919df4-8e3b-7412-a1f9-90b567c9e201",
       "doctor_name": "Doctor A",
+      "username": "doctor_a",
       "target_avg_minutes": 3,
       "is_online": true,
       "total_consultations_today": 24,
@@ -84,6 +87,7 @@ ORDER BY d.id ASC;
     {
       "doctor_id": "01919df4-8e3b-7412-a1f9-90b567c9e202",
       "doctor_name": "Doctor B",
+      "username": "doctor_b",
       "target_avg_minutes": 4,
       "is_online": true,
       "total_consultations_today": 18,
@@ -125,3 +129,4 @@ ORDER BY d.id ASC;
 | :---: | :---: | :---: | :---: | :--- |
 | **v1.0.0** | 2026-08-29 | Backend Lead | **Initial Baseline** | Initial technical specification for PostgreSQL 18 analytics queries, doctor utilization rate calculation, division-by-zero safeguards, and executive REST endpoints. |
 | **v1.1.0** | 2026-08-30 | Backend Lead | **Native UUIDv7 Spec** | Migrated `DoctorPerformance.DoctorID` and `UpdateDoctorConfigRequest.DoctorID` to Native UUIDv7 string identifiers. |
+| **v1.2.0** | 2026-08-30 | Backend Lead | **Human Tier 1 Handle Integration** | Added `username` to `DoctorPerformance` via `LEFT JOIN users` in SQL query to support Tier 1 handle display (`@doctor_a`) on admin analytics dashboard. |
