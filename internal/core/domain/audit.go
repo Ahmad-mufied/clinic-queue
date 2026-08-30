@@ -45,15 +45,19 @@ type AuditLog struct {
 type AuditLogFilter struct {
 	Action string `json:"action"`
 	Role   string `json:"role"`
+	Cursor *int   `json:"cursor,omitempty"`
 	Page   int    `json:"page"`
 	Limit  int    `json:"limit"`
 }
 
 // PaginatedAuditLogs represents the paginated result set of audit logs.
 type PaginatedAuditLogs struct {
-	Page         int        `json:"page"`
+	Page         int        `json:"page,omitempty"`
 	Limit        int        `json:"limit"`
+	NextCursor   *int       `json:"next_cursor,omitempty"`
+	HasMore      bool       `json:"has_more"`
 	TotalRecords int        `json:"total_records"`
+	TotalPages   int        `json:"total_pages"`
 	Logs         []AuditLog `json:"logs"`
 }
 

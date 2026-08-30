@@ -64,9 +64,19 @@ func (h *AuditHandler) GetAuditLogs(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid limit parameter"})
 	}
 
+	var cursor *int
+	if cursorStr := c.QueryParam("cursor"); cursorStr != "" {
+		curVal, err := parsePositiveQueryParam(cursorStr, 0)
+		if err != nil || curVal <= 0 {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid cursor parameter"})
+		}
+		cursor = &curVal
+	}
+
 	filter := domain.AuditLogFilter{
 		Action: c.QueryParam("action"),
 		Role:   c.QueryParam("role"),
+		Cursor: cursor,
 		Page:   page,
 		Limit:  limit,
 	}

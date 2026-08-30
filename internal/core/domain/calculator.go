@@ -28,11 +28,6 @@ func CalculateEstimatedWaitingTime(doctors []*Doctor, positionInQueue int) (int,
 		return 0, ErrInvalidPosition
 	}
 
-	// First patient enters immediately
-	if positionInQueue == 1 {
-		return 0, nil
-	}
-
 	// Initialize simulation slots
 	slots := make([]*DoctorSimulationSlot, len(doctors))
 	for i, doc := range doctors {

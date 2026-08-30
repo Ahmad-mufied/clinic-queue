@@ -42,13 +42,13 @@ It satisfies healthcare compliance standards, enables forensic accountability, a
 
 ### 4.1 Positive Scenarios
 - **[POS-AUDIT-01] Automated Queue Event Logging:**  
-  When John clicks "Join Queue", system creates ticket in DB and atomically inserts an `audit_logs` record (`action = 'QUEUE_JOINED'`, actor John, IP `127.0.0.1`).
+  When John clicks "Join Queue", system creates ticket in DB and asynchronously captures the event via NATS JetStream `AuditWorker`, inserting an `audit_logs` record (`action = 'QUEUE_JOINED'`, actor John, IP `127.0.0.1`).
 - **[POS-AUDIT-02] Doctor Consultation Lifecycle Logging:**  
-  When Doctor A calls John $\rightarrow$ `CONSULTATION_STARTED` logged. When Doctor A completes examination after $3.5\text{m}$ $\rightarrow$ `CONSULTATION_FINISHED` logged with `details = {"duration_min": 3.5, "delta": +0.5}`.
-- **[POS-AUDIT-03] Filter Audit Logs by Actor and Action:**  
-  Admin searches for all events related to `"Doctor A"` or filters by action `"CONSULTATION_FINISHED"`. System returns filtered results paginated (20 per page) in $< 30\text{ms}$.
-- **[POS-AUDIT-04] Live Audit Stream (SSE):**  
-  Admin stays on the Audit Log screen. As new clinic actions occur in other rooms, new log rows append to the top of the table in real time with a subtle highlight animation.
+  When Doctor A calls John $\rightarrow$ `CONSULTATION_STARTED` logged. When Doctor A completes examination after $3.5\text{m}$ $\rightarrow$ `CONSULTATION_FINISHED` logged with `details = {"actual_duration_minutes": 3.5, "delta": +0.5}`.
+- **[POS-AUDIT-03] Filter Audit Logs by Actor, Role, and Action:**  
+  Admin searches for events filtered by action `"CONSULTATION_FINISHED"` or role `"doctor"`. System returns filtered results using high-performance cursor pagination in $< 10\text{ms}$.
+- **[POS-AUDIT-04] Live Audit Stream (SSE) & Auto Infinite Scroll:**  
+  Admin stays on the Audit Log screen. As new clinic actions occur in consultation rooms, new log rows append to the top of the table in real time via SSE. When the admin scrolls inside the table container, older logs auto-load seamlessly without pagination drift or duplicate records.
 
 ### 4.2 Negative Scenarios
 - **[NEG-AUDIT-01] Non-Admin Audit Log Access:**  
@@ -58,7 +58,7 @@ It satisfies healthcare compliance standards, enables forensic accountability, a
 
 ### 4.3 Edge Cases
 - **[EDGE-AUDIT-01] High-Concurrency Batch Events:**  
-  100 patients join during morning rush. System handles asynchronous log batching via PostgreSQL multi-row inserts or buffered channels without blocking HTTP request latency.
+  100 patients join during morning rush. System handles asynchronous log ingestion via decoupled NATS JetStream `AuditWorker` without blocking HTTP request latency.
 - **[EDGE-AUDIT-02] Unauthenticated / Public Events:**  
   A public user accesses the live board or fails a login attempt. System records `user_id = NULL`, `actor_name = 'Anonymous / System'`, and stores client IP.
 
@@ -66,11 +66,13 @@ It satisfies healthcare compliance standards, enables forensic accountability, a
 
 ## 5. Acceptance Criteria
 
-- [ ] Every state-changing API request produces an audit log entry in the same transaction or guaranteed post-commit hook.
-- [ ] Audit logs table includes `created_at`, `user_id`, `actor_name`, `role`, `action`, `details` (JSONB), and `ip_address`.
-- [ ] Log entries are strictly immutable (append-only).
-- [ ] Admin UI includes search/filter controls by Action, Role, Date Range, and Keyword.
-- [ ] Live audit stream broadcasts new events to admin subscribers via SSE.
+- [x] Every state-changing API request produces an audit log entry via decoupled NATS JetStream `AuditWorker`.
+- [x] Audit logs table includes `created_at`, `user_id`, `actor_name`, `role`, `action`, `details` (JSONB), and `ip_address`.
+- [x] Log entries are strictly immutable (append-only) with index on `id DESC` and `(action, created_at DESC)`.
+- [x] Backend API provides high-efficiency Cursor Pagination (`cursor`, `limit`, `next_cursor`, `has_more`) to eliminate pagination drift.
+- [x] Admin UI provides filter controls by Action and Role, JSON payload inspector modal, and contained internal table scrolling with sticky header.
+- [x] Automatic infinite scroll / lazy loading auto-fetches older records on scroll threshold without manual button clicks.
+- [x] Live audit stream broadcasts new events to admin subscribers via SSE with sub-second table synchronization.
 
 ---
 
@@ -78,4 +80,5 @@ It satisfies healthcare compliance standards, enables forensic accountability, a
 
 | Version | Date | Author / Role | Change Type | Change Summary / Rationale |
 | :---: | :---: | :---: | :---: | :--- |
+| **v1.1.0** | 2026-08-30 | Lead Solution Architect | **Architecture Enhancement** | Upgraded to Cursor-Based Infinite Lazy Loading (`id < cursor`), decoupled NATS JetStream async `AuditWorker` ingestion, internal table container scrolling with sticky header, and auto-fetch on scroll threshold. |
 | **v1.0.0** | 2026-08-29 | Solution Architect | **Initial Baseline** | Initial creation of the Comprehensive Activity Logging PRD, detailing event taxonomy, JSONB payload schemas, immutability constraints, and live SSE log streaming. |

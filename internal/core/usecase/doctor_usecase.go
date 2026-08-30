@@ -110,12 +110,15 @@ func (u *DoctorUseCase) CallNextPatient(ctx context.Context, doctorID int) (*dom
 		return nil, domain.ErrQueueEmpty
 	}
 
+	session.DoctorName = doc.Name
+
 	if u.eventPub != nil {
 		_ = u.eventPub.PublishEvent(ctx, "TICKET_CALLED", session)
 		_ = u.eventPub.PublishEvent(ctx, "QUEUE_UPDATED", map[string]any{
-			"action":     "TICKET_CALLED",
-			"session_id": session.ID,
-			"doctor_id":  doctorID,
+			"action":      "TICKET_CALLED",
+			"session_id":  session.ID,
+			"doctor_id":   doctorID,
+			"doctor_name": doc.Name,
 		})
 	}
 
@@ -166,6 +169,8 @@ func (u *DoctorUseCase) FinishConsultation(ctx context.Context, doctorID int) (*
 
 	resp := &domain.ConsultationFinishResponse{
 		SessionID:             finishedSession.ID,
+		DoctorID:              doc.ID,
+		DoctorName:            doc.Name,
 		PatientName:           finishedSession.PatientName,
 		ActualDurationMinutes: actualDuration,
 		FinishedAt:            finishedAt,
@@ -175,9 +180,10 @@ func (u *DoctorUseCase) FinishConsultation(ctx context.Context, doctorID int) (*
 	if u.eventPub != nil {
 		_ = u.eventPub.PublishEvent(ctx, "TICKET_FINISHED", resp)
 		_ = u.eventPub.PublishEvent(ctx, "QUEUE_UPDATED", map[string]any{
-			"action":     "TICKET_FINISHED",
-			"session_id": resp.SessionID,
-			"doctor_id":  doctorID,
+			"action":      "TICKET_FINISHED",
+			"session_id":  resp.SessionID,
+			"doctor_id":   doctorID,
+			"doctor_name": doc.Name,
 		})
 	}
 

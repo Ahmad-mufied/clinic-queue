@@ -13,6 +13,7 @@ import (
 
 	httpAdapter "clinic-queue/internal/adapters/inbound/http"
 	customMW "clinic-queue/internal/adapters/inbound/middleware"
+	workerAdapter "clinic-queue/internal/adapters/inbound/worker"
 	natsAdapter "clinic-queue/internal/adapters/outbound/nats"
 	"clinic-queue/internal/adapters/outbound/postgres"
 	"clinic-queue/config"
@@ -79,7 +80,7 @@ func main() {
 	var eventPublisher outbound.EventPublisherPort = natsAdapter.NewNATSEventPublisher(nc, js)
 
 	jwtExpiration := time.Duration(cfg.JWTExpirationHours) * time.Hour
-	authUseCase := usecase.NewAuthUseCase(userRepo, cfg.JWTSecret, jwtExpiration)
+	authUseCase := usecase.NewAuthUseCase(userRepo, cfg.JWTSecret, jwtExpiration, eventPublisher)
 	queueUseCase := usecase.NewQueueUseCase(queueRepo, doctorRepo, eventPublisher)
 	doctorUseCase := usecase.NewDoctorUseCase(doctorRepo, consultationRepo, eventPublisher)
 	adminUseCase := usecase.NewAdminUseCase(analyticsRepo, doctorRepo, eventPublisher)
@@ -92,11 +93,19 @@ func main() {
 	auditHandler := httpAdapter.NewAuditHandler(auditUseCase)
 	sseHandler := httpAdapter.NewSSEHandler()
 
+	auditWorker := workerAdapter.NewAuditWorker(auditUseCase, userRepo)
+
 	if nc != nil {
 		if _, err := sseHandler.ListenToNATS(context.Background(), nc, "clinic.>"); err != nil {
 			log.Printf("Warning: failed to subscribe SSE handler to NATS: %v", err)
 		} else {
 			log.Println("SSE Broadcaster subscribed to NATS stream clinic.>")
+		}
+
+		if _, err := auditWorker.StartSubscribing(context.Background(), nc, "clinic.events.>"); err != nil {
+			log.Printf("Warning: failed to subscribe Audit Worker to NATS: %v", err)
+		} else {
+			log.Println("Audit Worker subscribed to NATS stream clinic.events.>")
 		}
 	}
 

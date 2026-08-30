@@ -22,7 +22,7 @@ Implement **Feature 05: Comprehensive Activity Logging & Audit Trail Pipeline**:
 ## 2. Technical Deliverables & Completion Checklist
 
 - [x] **Phase 5.1: Domain Entities & Errors**
-  - [x] `internal/core/domain/audit.go` (`AuditLog`, `AuditLogFilter`, `PaginatedAuditLogs`).
+  - [x] `internal/core/domain/audit.go` (`AuditLog`, `AuditLogFilter` with `Cursor`, `PaginatedAuditLogs` with `NextCursor`, `HasMore`, `TotalPages`).
   - [x] `internal/core/domain/errors.go` (Added audit validation errors).
   - [x] `internal/core/domain/audit_test.go` (100% statement coverage unit tests).
 
@@ -35,14 +35,17 @@ Implement **Feature 05: Comprehensive Activity Logging & Audit Trail Pipeline**:
   - [x] `internal/core/usecase/audit_usecase_test.go` (100% Statement Coverage table-driven tests with mock ports).
 
 - [x] **Phase 5.4: Outbound Adapters (PostgreSQL 18)**
-  - [x] `internal/adapters/outbound/postgres/audit_repo.go` (PostgreSQL 18 JSONB inserts and dynamic SQL filtering with `COUNT(*) OVER()`).
+  - [x] `internal/adapters/outbound/postgres/audit_repo.go` (High-performance B-Tree Cursor Pagination `WHERE id < $cursor LIMIT $limit + 1` and total count aggregation).
 
-- [x] **Phase 5.5: Inbound Adapters (Echo HTTP Handlers & RBAC)**
-  - [x] `internal/adapters/inbound/http/audit_handler.go` (`GET /api/admin/audit-logs` using `handleAuditError` switch mapper).
+- [x] **Phase 5.5: Inbound Adapters (Worker, Echo HTTP Handlers & RBAC)**
+  - [x] `internal/adapters/inbound/worker/audit_worker.go` (Decoupled NATS JetStream consumer worker for `clinic.events.>` logging).
+  - [x] `internal/adapters/inbound/worker/audit_worker_test.go` (100% Statement Coverage unit tests).
+  - [x] `internal/adapters/inbound/http/audit_handler.go` (`GET /api/admin/audit-logs` supporting `cursor`, `limit`, `action`, `role` query parameters).
   - [x] `internal/adapters/inbound/http/audit_handler_test.go` (100% Statement Coverage table-driven HTTP tests).
 
-- [x] **Phase 5.6: Server Bootstrap / Composition Root**
-  - [x] `cmd/api/main.go` (Wired AuditRepo, AuditUseCase, AuditHandler, and registered routes).
+- [x] **Phase 5.6: Server Bootstrap / Composition Root & Frontend Integration**
+  - [x] `cmd/api/main.go` (Wired AuditRepo, AuditUseCase, AuditWorker, AuditHandler, and registered routes).
+  - [x] `web/app/admin/audit/page.tsx` (Cursor-based auto-load infinite scroll via TanStack `useInfiniteQuery`, contained container scroll, and sticky headers).
 
 ---
 

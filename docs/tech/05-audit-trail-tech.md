@@ -68,46 +68,40 @@ DROP TABLE IF EXISTS audit_logs;
 
 ## 4. API Specification
 
-### 4.1 Query Audit Logs (Paginated & Filterable)
+### 4.1 Query Audit Logs (Cursor-Paginated & Filterable)
 - **URL:** `GET /api/admin/audit-logs`
-- **Access:** Role `admin`
+- **Access:** Role `admin` (Protected by JWT & Casbin RBAC)
 - **Query Parameters:**
-  - `page` (integer, default: 1)
-  - `limit` (integer, default: 20)
-  - `action` (optional string, e.g., `CONSULTATION_FINISHED`)
-  - `role` (optional string, e.g., `doctor`)
+  - `cursor` (optional integer, ID of last seen record for descending stream)
+  - `page` (optional integer, fallback offset pagination, default: 1)
+  - `limit` (integer, default: 15, max: 100)
+  - `action` (optional string, e.g., `CONSULTATION_FINISHED`, `QUEUE_JOINED`)
+  - `role` (optional string, e.g., `doctor`, `patient`, `admin`)
 - **Response (200 OK):**
 ```json
 {
   "page": 1,
-  "limit": 20,
+  "limit": 15,
+  "next_cursor": 21,
+  "has_more": true,
   "total_records": 154,
+  "total_pages": 11,
   "logs": [
     {
-      "id": 154,
-      "actor_name": "Doctor A",
+      "id": 36,
+      "user_id": 2,
+      "actor_name": "Dr. Michael Chen",
       "role": "doctor",
       "action": "CONSULTATION_FINISHED",
       "details": {
-        "ticket_id": 101,
-        "patient": "Alice",
-        "actual_duration_min": 3.2,
-        "target_min": 3
+        "actual_duration_minutes": 3.2,
+        "doctor_id": 2,
+        "doctor_name": "Dr. Michael Chen",
+        "patient_name": "Lucas Smith",
+        "session_id": 10
       },
       "ip_address": "127.0.0.1",
-      "created_at": "2026-08-29T10:03:12Z"
-    },
-    {
-      "id": 153,
-      "actor_name": "Doctor A",
-      "role": "doctor",
-      "action": "CONSULTATION_STARTED",
-      "details": {
-        "ticket_id": 101,
-        "patient": "Alice"
-      },
-      "ip_address": "127.0.0.1",
-      "created_at": "2026-08-29T10:00:00Z"
+      "created_at": "2026-08-30T06:49:40Z"
     }
   ]
 }
@@ -119,10 +113,12 @@ DROP TABLE IF EXISTS audit_logs;
 
 | Scenario ID | Endpoint | Method | Query / Payload | Status | Response Summary |
 | :--- | :--- | :---: | :--- | :---: | :--- |
-| **API-AUD-01** | `/api/admin/audit-logs` | `GET` | `?page=1&limit=10` | `200 OK` | Returns paginated list of audit records |
-| **API-AUD-02** | `/api/admin/audit-logs` | `GET` | `?action=AUTH_LOGIN`| `200 OK` | Filtered list of login events |
-| **API-AUD-03** | `/api/admin/audit-logs` | `GET` | Non-admin token | `403 Forbidden` | `{"error": "Access denied: admin role required"}` |
-| **API-AUD-04** | `/api/admin/audit-logs` | `POST/PUT/DELETE` | Any mutation attempt | `405 Method Not Allowed` | Read-only & append-only via events |
+| **API-AUD-01** | `/api/admin/audit-logs` | `GET` | `?limit=15` | `200 OK` | Returns initial cursor page with `next_cursor` & `has_more` |
+| **API-AUD-02** | `/api/admin/audit-logs` | `GET` | `?cursor=21&limit=15` | `200 OK` | Returns next slice where `id < 21` without pagination drift |
+| **API-AUD-03** | `/api/admin/audit-logs` | `GET` | `?action=AUTH_LOGIN`| `200 OK` | Filtered list of login events |
+| **API-AUD-04** | `/api/admin/audit-logs` | `GET` | `?role=doctor` | `200 OK` | Filtered list of doctor actions |
+| **API-AUD-05** | `/api/admin/audit-logs` | `GET` | Non-admin token | `403 Forbidden` | `{"error": "Access denied: admin role required"}` |
+| **API-AUD-06** | `/api/admin/audit-logs` | `POST/PUT/DELETE` | Any mutation attempt | `405 Method Not Allowed` | Read-only & append-only via events |
 
 ---
 
@@ -130,4 +126,5 @@ DROP TABLE IF EXISTS audit_logs;
 
 | Version | Date | Author / Role | Change Type | Change Summary / Rationale |
 | :---: | :---: | :---: | :---: | :--- |
+| **v1.1.0** | 2026-08-30 | Lead Backend Architect | **Architecture Enhancement** | Upgraded to Cursor Pagination engine (`WHERE id < $cursor LIMIT $limit + 1`), added `next_cursor` and `has_more` response metadata, and integrated NATS JetStream `AuditWorker` event ingestion. |
 | **v1.0.0** | 2026-08-29 | Backend Lead | **Initial Baseline** | Initial technical specification for asynchronous audit logging pipeline, GIN-indexed JSONB storage in PostgreSQL 18, and filterable paginated REST API. |

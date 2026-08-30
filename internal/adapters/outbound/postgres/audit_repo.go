@@ -59,7 +59,7 @@ func (r *AuditRepo) InsertLog(ctx context.Context, log *domain.AuditLog) (*domai
 	return log, nil
 }
 
-// QueryLogs retrieves paginated audit logs based on the provided filter parameters.
+// QueryLogs retrieves paginated audit logs based on the provided filter parameters (supports Cursor & Offset).
 func (r *AuditRepo) QueryLogs(ctx context.Context, filter domain.AuditLogFilter) (*domain.PaginatedAuditLogs, error) {
 	var conditions []string
 	var args []any
@@ -77,22 +77,57 @@ func (r *AuditRepo) QueryLogs(ctx context.Context, filter domain.AuditLogFilter)
 		argIdx++
 	}
 
+	// Filter conditions for total count
+	baseWhereClause := ""
+	if len(conditions) > 0 {
+		baseWhereClause = "WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	// Get total records matching base filter
+	var totalRecords int
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM audit_logs %s", baseWhereClause)
+	if err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&totalRecords); err != nil {
+		return nil, fmt.Errorf("count audit logs: %w", err)
+	}
+
+	// Cursor pagination clause
+	if filter.Cursor != nil && *filter.Cursor > 0 {
+		conditions = append(conditions, fmt.Sprintf("id < $%d", argIdx))
+		args = append(args, *filter.Cursor)
+		argIdx++
+	}
+
 	whereClause := ""
 	if len(conditions) > 0 {
 		whereClause = "WHERE " + strings.Join(conditions, " AND ")
 	}
 
-	query := fmt.Sprintf(`
-		SELECT 
-			id, user_id, actor_name, role, action, details, ip_address, created_at,
-			COUNT(*) OVER() AS total_records
-		FROM audit_logs
-		%s
-		ORDER BY created_at DESC, id DESC
-		LIMIT $%d OFFSET $%d
-	`, whereClause, argIdx, argIdx+1)
+	// Fetch limit + 1 to detect has_more and next_cursor
+	fetchLimit := filter.Limit + 1
+	var query string
+	var queryArgs []any
 
-	queryArgs := append(args, filter.Limit, filter.Offset())
+	if filter.Cursor != nil && *filter.Cursor > 0 {
+		// Pure cursor query without offset
+		query = fmt.Sprintf(`
+			SELECT id, user_id, actor_name, role, action, details, ip_address, created_at
+			FROM audit_logs
+			%s
+			ORDER BY id DESC
+			LIMIT $%d
+		`, whereClause, argIdx)
+		queryArgs = append(args, fetchLimit)
+	} else {
+		// Offset fallback query
+		query = fmt.Sprintf(`
+			SELECT id, user_id, actor_name, role, action, details, ip_address, created_at
+			FROM audit_logs
+			%s
+			ORDER BY id DESC
+			LIMIT $%d OFFSET $%d
+		`, whereClause, argIdx, argIdx+1)
+		queryArgs = append(args, fetchLimit, filter.Offset())
+	}
 
 	rows, err := r.pool.Query(ctx, query, queryArgs...)
 	if err != nil {
@@ -101,14 +136,11 @@ func (r *AuditRepo) QueryLogs(ctx context.Context, filter domain.AuditLogFilter)
 	defer rows.Close()
 
 	var logs []domain.AuditLog
-	var totalRecords int
-
 	for rows.Next() {
 		var (
 			item         domain.AuditLog
 			detailsBytes []byte
 			ipAddress    *string
-			totRec       int
 		)
 
 		if err := rows.Scan(
@@ -120,12 +152,10 @@ func (r *AuditRepo) QueryLogs(ctx context.Context, filter domain.AuditLogFilter)
 			&detailsBytes,
 			&ipAddress,
 			&item.CreatedAt,
-			&totRec,
 		); err != nil {
 			return nil, fmt.Errorf("scan audit log row: %w", err)
 		}
 
-		totalRecords = totRec
 		if ipAddress != nil {
 			item.IPAddress = *ipAddress
 		}
@@ -143,23 +173,31 @@ func (r *AuditRepo) QueryLogs(ctx context.Context, filter domain.AuditLogFilter)
 		return nil, fmt.Errorf("audit logs rows error: %w", err)
 	}
 
-	// Handle edge case where page > 1 yielded 0 rows but total count is non-zero
-	if len(logs) == 0 && filter.Page > 1 {
-		countQuery := fmt.Sprintf("SELECT COUNT(*) FROM audit_logs %s", whereClause)
-		var cnt int
-		if err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&cnt); err == nil {
-			totalRecords = cnt
-		}
+	hasMore := false
+	var nextCursor *int
+	if len(logs) > filter.Limit {
+		hasMore = true
+		logs = logs[:filter.Limit]
+		lastItem := logs[len(logs)-1]
+		nextCursor = &lastItem.ID
 	}
 
 	if logs == nil {
 		logs = []domain.AuditLog{}
 	}
 
+	totalPages := 1
+	if totalRecords > 0 && filter.Limit > 0 {
+		totalPages = (totalRecords + filter.Limit - 1) / filter.Limit
+	}
+
 	return &domain.PaginatedAuditLogs{
 		Page:         filter.Page,
 		Limit:        filter.Limit,
+		NextCursor:   nextCursor,
+		HasMore:      hasMore,
 		TotalRecords: totalRecords,
+		TotalPages:   totalPages,
 		Logs:         logs,
 	}, nil
 }

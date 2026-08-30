@@ -17,6 +17,7 @@ type ConsultationTicket struct {
 type ConsultationSession struct {
 	ID          int                 `json:"session_id,omitempty"`
 	DoctorID    int                 `json:"doctor_id"`
+	DoctorName  string              `json:"doctor_name,omitempty"`
 	TicketID    int                 `json:"ticket_id,omitempty"`
 	PatientName string              `json:"patient_name,omitempty"`
 	Ticket      *ConsultationTicket `json:"ticket,omitempty"`
@@ -69,6 +70,8 @@ type DoctorShiftResponse struct {
 // ConsultationFinishResponse defines the response payload returned upon completing a consultation.
 type ConsultationFinishResponse struct {
 	SessionID             int          `json:"session_id"`
+	DoctorID              int          `json:"doctor_id,omitempty"`
+	DoctorName            string       `json:"doctor_name,omitempty"`
 	PatientName           string       `json:"patient_name"`
 	ActualDurationMinutes float64      `json:"actual_duration_minutes"`
 	FinishedAt            time.Time    `json:"finished_at"`

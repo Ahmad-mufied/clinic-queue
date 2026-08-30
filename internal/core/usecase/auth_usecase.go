@@ -18,14 +18,20 @@ type AuthUseCase struct {
 	userRepo      outbound.UserRepositoryPort
 	jwtSecret     string
 	jwtExpiration time.Duration
+	eventPub      outbound.EventPublisherPort
 }
 
 // NewAuthUseCase constructs a new AuthUseCase instance.
-func NewAuthUseCase(userRepo outbound.UserRepositoryPort, jwtSecret string, jwtExpiration time.Duration) *AuthUseCase {
+func NewAuthUseCase(userRepo outbound.UserRepositoryPort, jwtSecret string, jwtExpiration time.Duration, eventPub ...outbound.EventPublisherPort) *AuthUseCase {
+	var ep outbound.EventPublisherPort
+	if len(eventPub) > 0 {
+		ep = eventPub[0]
+	}
 	return &AuthUseCase{
 		userRepo:      userRepo,
 		jwtSecret:     jwtSecret,
 		jwtExpiration: jwtExpiration,
+		eventPub:      ep,
 	}
 }
 
@@ -48,6 +54,15 @@ func (u *AuthUseCase) Login(ctx context.Context, req inbound.LoginRequest) (*inb
 	}
 
 	token := u.generateToken(user)
+
+	if u.eventPub != nil {
+		_ = u.eventPub.PublishEvent(ctx, "AUTH_LOGIN", map[string]any{
+			"user_id":  user.ID,
+			"username": user.Username,
+			"name":     user.Name,
+			"role":     user.Role,
+		})
+	}
 
 	return &inbound.AuthResponse{
 		Token: token,
@@ -87,6 +102,15 @@ func (u *AuthUseCase) Register(ctx context.Context, req inbound.RegisterRequest)
 	}
 
 	token := u.generateToken(createdUser)
+
+	if u.eventPub != nil {
+		_ = u.eventPub.PublishEvent(ctx, "AUTH_REGISTER", map[string]any{
+			"user_id":  createdUser.ID,
+			"username": createdUser.Username,
+			"name":     createdUser.Name,
+			"role":     createdUser.Role,
+		})
+	}
 
 	return &inbound.AuthResponse{
 		Token: token,
