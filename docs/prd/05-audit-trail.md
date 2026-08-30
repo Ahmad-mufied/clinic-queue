@@ -70,8 +70,10 @@ It satisfies healthcare compliance standards, enables forensic accountability, a
 - [x] Audit logs table includes `created_at`, `user_id`, `actor_name`, `role`, `action`, `details` (JSONB), and `ip_address`.
 - [x] Log entries are strictly immutable (append-only) with index on `id DESC` and `(action, created_at DESC)`.
 - [x] Backend API provides high-efficiency Cursor Pagination (`cursor`, `limit`, `next_cursor`, `has_more`) to eliminate pagination drift.
-- [x] Admin UI provides filter controls by Action and Role, JSON payload inspector modal, and contained internal table scrolling with sticky header.
-- [x] Automatic infinite scroll / lazy loading auto-fetches older records on scroll threshold without manual button clicks.
+- [x] Advanced Filtering: Supports keyword search across Actor, Action, IP address, and Date Range (`start_date`, `end_date`).
+- [x] Bidirectional Sorting: Supports `sort_order` parameter (`desc` for Newest First, `asc` for Oldest First) with bidirectional cursor pagination.
+- [x] Admin UI provides filter toolbar (Search, Date Range, Sort Order, Action, Role), JSON payload inspector modal, and contained table scrolling with sticky header.
+- [x] Automatic infinite scroll auto-fetches records on scroll threshold without manual button clicks.
 - [x] Live audit stream broadcasts new events to admin subscribers via SSE with sub-second table synchronization.
 
 ---
@@ -80,5 +82,6 @@ It satisfies healthcare compliance standards, enables forensic accountability, a
 
 | Version | Date | Author / Role | Change Type | Change Summary / Rationale |
 | :---: | :---: | :---: | :---: | :--- |
+| **v1.2.0** | 2026-08-30 | Lead Solution Architect | **Feature Enhancement** | Added keyword search (Actor, Action, IP), Date Range filters, and Bidirectional Sorting (ASC/DESC) to the Audit Trail pipeline. |
 | **v1.1.0** | 2026-08-30 | Lead Solution Architect | **Architecture Enhancement** | Upgraded to Cursor-Based Infinite Lazy Loading (`id < cursor`), decoupled NATS JetStream async `AuditWorker` ingestion, internal table container scrolling with sticky header, and auto-fetch on scroll threshold. |
 | **v1.0.0** | 2026-08-29 | Solution Architect | **Initial Baseline** | Initial creation of the Comprehensive Activity Logging PRD, detailing event taxonomy, JSONB payload schemas, immutability constraints, and live SSE log streaming. |

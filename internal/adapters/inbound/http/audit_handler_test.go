@@ -65,10 +65,54 @@ func TestAuditHandler_GetAuditLogs(t *testing.T) {
 			wantBodySubstr: "Invalid limit parameter",
 		},
 		{
-			name:           "Invalid zero limit returns 400",
-			queryString:    "?limit=0",
+			name:           "Invalid cursor returns 400",
+			queryString:    "?cursor=invalid",
 			wantStatus:     http.StatusBadRequest,
-			wantBodySubstr: "Invalid limit parameter",
+			wantBodySubstr: "Invalid cursor parameter",
+		},
+		{
+			name:           "Invalid user_id returns 400",
+			queryString:    "?user_id=abc",
+			wantStatus:     http.StatusBadRequest,
+			wantBodySubstr: "Invalid user_id parameter",
+		},
+		{
+			name:           "Invalid start_date returns 400",
+			queryString:    "?start_date=not-a-date",
+			wantStatus:     http.StatusBadRequest,
+			wantBodySubstr: "Invalid start_date parameter",
+		},
+		{
+			name:           "Invalid end_date returns 400",
+			queryString:    "?end_date=not-a-date",
+			wantStatus:     http.StatusBadRequest,
+			wantBodySubstr: "Invalid end_date parameter",
+		},
+		{
+			name:        "Success with advanced filters and date bounds returns 200 OK",
+			queryString: "?search=Doctor&from=2026-08-01&to=2026-08-30&user_id=1&order=asc&cursor=10&limit=15",
+			mockSetup: func(uc *mockAuditUseCase) {
+				uc.getAuditLogsFunc = func(ctx context.Context, filter domain.AuditLogFilter) (*domain.PaginatedAuditLogs, error) {
+					if filter.Search != "Doctor" || filter.SortOrder != "asc" || filter.UserID == nil || *filter.UserID != 1 || filter.StartDate == nil || filter.EndDate == nil {
+						return nil, errors.New("filter fields mismatch")
+					}
+					return &domain.PaginatedAuditLogs{
+						Limit:        15,
+						TotalRecords: 1,
+						Logs: []domain.AuditLog{
+							{
+								ID:        11,
+								ActorName: "Doctor A",
+								Role:      "doctor",
+								Action:    domain.ActionDoctorShiftStarted,
+								CreatedAt: now,
+							},
+						},
+					}, nil
+				}
+			},
+			wantStatus:     http.StatusOK,
+			wantBodySubstr: `"total_records":1`,
 		},
 		{
 			name:        "UseCase returns ErrInvalidInput returns 400",

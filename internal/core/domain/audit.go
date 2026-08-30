@@ -41,13 +41,18 @@ type AuditLog struct {
 	CreatedAt time.Time      `json:"created_at"`
 }
 
-// AuditLogFilter defines search, filter, and pagination parameters for querying audit records.
+// AuditLogFilter defines search, filter, sorting, and pagination parameters for querying audit records.
 type AuditLogFilter struct {
-	Action string `json:"action"`
-	Role   string `json:"role"`
-	Cursor *int   `json:"cursor,omitempty"`
-	Page   int    `json:"page"`
-	Limit  int    `json:"limit"`
+	Search    string     `json:"search,omitempty"`
+	Action    string     `json:"action,omitempty"`
+	Role      string     `json:"role,omitempty"`
+	UserID    *int       `json:"user_id,omitempty"`
+	StartDate *time.Time `json:"start_date,omitempty"`
+	EndDate   *time.Time `json:"end_date,omitempty"`
+	SortOrder string     `json:"sort_order,omitempty"` // "desc" (default) or "asc"
+	Cursor    *int       `json:"cursor,omitempty"`
+	Page      int        `json:"page"`
+	Limit     int        `json:"limit"`
 }
 
 // PaginatedAuditLogs represents the paginated result set of audit logs.
@@ -110,6 +115,18 @@ func (f *AuditLogFilter) NormalizePagination() {
 	}
 	if f.Limit > MaxLimit {
 		f.Limit = MaxLimit
+	}
+	f.NormalizeSort()
+}
+
+// NormalizeSort ensures sort order is valid, defaulting to "desc".
+func (f *AuditLogFilter) NormalizeSort() {
+	if f == nil {
+		return
+	}
+	f.SortOrder = strings.ToLower(strings.TrimSpace(f.SortOrder))
+	if f.SortOrder != "asc" {
+		f.SortOrder = "desc"
 	}
 }
 

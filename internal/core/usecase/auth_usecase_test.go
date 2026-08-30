@@ -415,3 +415,64 @@ func TestAuthUseCase_GetProfile(t *testing.T) {
 		})
 	}
 }
+
+type mockAuthEventPub struct {
+	published []string
+}
+
+func (m *mockAuthEventPub) PublishEvent(ctx context.Context, eventType string, payload any) error {
+	m.published = append(m.published, eventType)
+	return nil
+}
+
+func (m *mockAuthEventPub) Close() error {
+	return nil
+}
+
+func TestAuthUseCase_WithEventPublisher(t *testing.T) {
+	passHash, _ := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
+	repo := &mockUserRepositoryPort{
+		findByUsernameFunc: func(ctx context.Context, username string) (*domain.User, error) {
+			if username == "new_user" {
+				return nil, nil
+			}
+			return &domain.User{
+				ID:           1,
+				Username:     "existing_user",
+				PasswordHash: string(passHash),
+				Name:         "Existing User",
+				Role:         domain.RoleDoctor,
+			}, nil
+		},
+		createUserFunc: func(ctx context.Context, user *domain.User) (*domain.User, error) {
+			user.ID = 2
+			return user, nil
+		},
+	}
+
+	ep := &mockAuthEventPub{}
+	uc := NewAuthUseCase(repo, "secret", time.Hour, ep)
+
+	// Test Login with EventPub
+	loginResp, err := uc.Login(context.Background(), inbound.LoginRequest{
+		Username: "existing_user",
+		Password: "password123",
+	})
+	if err != nil || loginResp == nil {
+		t.Fatalf("login failed: %v", err)
+	}
+
+	// Test Register with EventPub
+	regResp, err := uc.Register(context.Background(), inbound.RegisterRequest{
+		Username: "new_user",
+		Password: "password123",
+		Name:     "New User",
+	})
+	if err != nil || regResp == nil {
+		t.Fatalf("register failed: %v", err)
+	}
+
+	if len(ep.published) != 2 || ep.published[0] != "AUTH_LOGIN" || ep.published[1] != "AUTH_REGISTER" {
+		t.Errorf("unexpected published events: %v", ep.published)
+	}
+}

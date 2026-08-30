@@ -68,19 +68,23 @@ DROP TABLE IF EXISTS audit_logs;
 
 ## 4. API Specification
 
-### 4.1 Query Audit Logs (Cursor-Paginated & Filterable)
+### 4.1 Query Audit Logs (Cursor-Paginated, Filterable & Sortable)
 - **URL:** `GET /api/admin/audit-logs`
 - **Access:** Role `admin` (Protected by JWT & Casbin RBAC)
 - **Query Parameters:**
-  - `cursor` (optional integer, ID of last seen record for descending stream)
-  - `page` (optional integer, fallback offset pagination, default: 1)
-  - `limit` (integer, default: 15, max: 100)
+  - `search` (optional string, case-insensitive keyword across `actor_name`, `ip_address`, `action`)
   - `action` (optional string, e.g., `CONSULTATION_FINISHED`, `QUEUE_JOINED`)
   - `role` (optional string, e.g., `doctor`, `patient`, `admin`)
+  - `user_id` (optional integer, exact user ID match)
+  - `from` / `start_date` (optional RFC3339 / ISO date string, e.g., `2026-08-30` or `2026-08-30T00:00:00Z`)
+  - `to` / `end_date` (optional RFC3339 / ISO date string, e.g., `2026-08-30` or `2026-08-30T23:59:59Z`)
+  - `order` / `sort_order` (optional string, `"desc"` [default, Newest First] or `"asc"` [Oldest First])
+  - `cursor` (optional integer, ID of last seen record)
+  - `limit` (integer, default: 15, max: 100)
+  - `page` (optional integer, fallback offset pagination, default: 1)
 - **Response (200 OK):**
 ```json
 {
-  "page": 1,
   "limit": 15,
   "next_cursor": 21,
   "has_more": true,
@@ -115,10 +119,11 @@ DROP TABLE IF EXISTS audit_logs;
 | :--- | :--- | :---: | :--- | :---: | :--- |
 | **API-AUD-01** | `/api/admin/audit-logs` | `GET` | `?limit=15` | `200 OK` | Returns initial cursor page with `next_cursor` & `has_more` |
 | **API-AUD-02** | `/api/admin/audit-logs` | `GET` | `?cursor=21&limit=15` | `200 OK` | Returns next slice where `id < 21` without pagination drift |
-| **API-AUD-03** | `/api/admin/audit-logs` | `GET` | `?action=AUTH_LOGIN`| `200 OK` | Filtered list of login events |
-| **API-AUD-04** | `/api/admin/audit-logs` | `GET` | `?role=doctor` | `200 OK` | Filtered list of doctor actions |
-| **API-AUD-05** | `/api/admin/audit-logs` | `GET` | Non-admin token | `403 Forbidden` | `{"error": "Access denied: admin role required"}` |
-| **API-AUD-06** | `/api/admin/audit-logs` | `POST/PUT/DELETE` | Any mutation attempt | `405 Method Not Allowed` | Read-only & append-only via events |
+| **API-AUD-03** | `/api/admin/audit-logs` | `GET` | `?search=Michael` | `200 OK` | Returns activity logs matching keyword across actor/action/IP |
+| **API-AUD-04** | `/api/admin/audit-logs` | `GET` | `?order=asc&limit=15` | `200 OK` | Returns oldest logs first (`WHERE id > $cursor ORDER BY id ASC`) |
+| **API-AUD-05** | `/api/admin/audit-logs` | `GET` | `?from=2026-08-01&to=2026-08-30` | `200 OK` | Filtered list within date range |
+| **API-AUD-06** | `/api/admin/audit-logs` | `GET` | Non-admin token | `403 Forbidden` | `{"error": "Access denied: admin role required"}` |
+| **API-AUD-07** | `/api/admin/audit-logs` | `POST/PUT/DELETE` | Any mutation attempt | `405 Method Not Allowed` | Read-only & append-only via events |
 
 ---
 
@@ -126,5 +131,6 @@ DROP TABLE IF EXISTS audit_logs;
 
 | Version | Date | Author / Role | Change Type | Change Summary / Rationale |
 | :---: | :---: | :---: | :---: | :--- |
+| **v1.2.0** | 2026-08-30 | Lead Backend Architect | **Feature Enhancement** | Added keyword search (`search`), Date Range filtering (`start_date`, `end_date`), and bidirectional cursor sorting (`order=asc/desc`). |
 | **v1.1.0** | 2026-08-30 | Lead Backend Architect | **Architecture Enhancement** | Upgraded to Cursor Pagination engine (`WHERE id < $cursor LIMIT $limit + 1`), added `next_cursor` and `has_more` response metadata, and integrated NATS JetStream `AuditWorker` event ingestion. |
 | **v1.0.0** | 2026-08-29 | Backend Lead | **Initial Baseline** | Initial technical specification for asynchronous audit logging pipeline, GIN-indexed JSONB storage in PostgreSQL 18, and filterable paginated REST API. |

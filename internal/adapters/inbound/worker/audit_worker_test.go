@@ -11,6 +11,8 @@ import (
 	"clinic-queue/internal/core/domain"
 	"clinic-queue/internal/core/ports/inbound"
 	"clinic-queue/internal/core/ports/outbound"
+
+	"github.com/nats-io/nats.go"
 )
 
 type mockAuditUseCase struct {
@@ -167,6 +169,124 @@ func TestAuditWorker_HandleEventMessage(t *testing.T) {
 			expectRecord: false,
 		},
 		{
+			name:  "Handle QUEUE_JOINED without patient_name (Walk-in)",
+			event: "QUEUE_JOINED",
+			data:  map[string]any{},
+			expectedAction: "QUEUE_JOINED",
+			expectedRole:   string(domain.RolePatient),
+			expectedActor:  "Walk-in Patient",
+			expectRecord:   true,
+		},
+		{
+			name:  "Handle TICKET_CALLED with doctor_id only",
+			event: "TICKET_CALLED",
+			data: map[string]any{
+				"doctor_id": float64(3),
+			},
+			expectedAction: "CONSULTATION_STARTED",
+			expectedRole:   string(domain.RoleDoctor),
+			expectedActor:  "Dr. Doctor 3",
+			expectRecord:   true,
+		},
+		{
+			name:  "Handle TICKET_CALLED without doctor info",
+			event: "TICKET_CALLED",
+			data:  map[string]any{},
+			expectedAction: "CONSULTATION_STARTED",
+			expectedRole:   string(domain.RoleDoctor),
+			expectedActor:  "Attending Doctor",
+			expectRecord:   true,
+		},
+		{
+			name:  "Handle TICKET_FINISHED with doctor_id only",
+			event: "TICKET_FINISHED",
+			data: map[string]any{
+				"doctor_id": float64(4),
+			},
+			expectedAction: "CONSULTATION_FINISHED",
+			expectedRole:   string(domain.RoleDoctor),
+			expectedActor:  "Dr. Doctor 4",
+			expectRecord:   true,
+		},
+		{
+			name:  "Handle TICKET_FINISHED without doctor info",
+			event: "TICKET_FINISHED",
+			data:  map[string]any{},
+			expectedAction: "CONSULTATION_FINISHED",
+			expectedRole:   string(domain.RoleDoctor),
+			expectedActor:  "Attending Doctor",
+			expectRecord:   true,
+		},
+		{
+			name:  "Handle DOCTOR_STATUS_CHANGED with doctor_id only",
+			event: "DOCTOR_STATUS_CHANGED",
+			data: map[string]any{
+				"doctor_id": float64(5),
+			},
+			expectedAction: "DOCTOR_STATUS_CHANGED",
+			expectedRole:   string(domain.RoleDoctor),
+			expectedActor:  "Dr. Doctor 5",
+			expectRecord:   true,
+		},
+		{
+			name:  "Handle DOCTOR_STATUS_CHANGED without doctor info",
+			event: "DOCTOR_STATUS_CHANGED",
+			data:  map[string]any{},
+			expectedAction: "DOCTOR_STATUS_CHANGED",
+			expectedRole:   string(domain.RoleDoctor),
+			expectedActor:  "Attending Doctor",
+			expectRecord:   true,
+		},
+		{
+			name:  "Handle AUTH_LOGIN with username only and default role",
+			event: "AUTH_LOGIN",
+			data: map[string]any{
+				"username": "user_only",
+			},
+			expectedAction: "AUTH_LOGIN",
+			expectedRole:   string(domain.RolePatient),
+			expectedActor:  "user_only",
+			expectRecord:   true,
+		},
+		{
+			name:  "Handle AUTH_LOGIN without name or username",
+			event: "AUTH_LOGIN",
+			data:  map[string]any{},
+			expectedAction: "AUTH_LOGIN",
+			expectedRole:   string(domain.RolePatient),
+			expectedActor:  "User",
+			expectRecord:   true,
+		},
+		{
+			name:  "Handle AUTH_REGISTER with username only",
+			event: "AUTH_REGISTER",
+			data: map[string]any{
+				"username": "reg_user",
+			},
+			expectedAction: "AUTH_REGISTER",
+			expectedRole:   string(domain.RolePatient),
+			expectedActor:  "reg_user",
+			expectRecord:   true,
+		},
+		{
+			name:  "Handle AUTH_REGISTER without name or username",
+			event: "AUTH_REGISTER",
+			data:  map[string]any{},
+			expectedAction: "AUTH_REGISTER",
+			expectedRole:   string(domain.RolePatient),
+			expectedActor:  "New Patient",
+			expectRecord:   true,
+		},
+		{
+			name:  "Handle QUEUE_JOINED with nil/empty Data",
+			event: "QUEUE_JOINED",
+			data:  nil,
+			expectedAction: "QUEUE_JOINED",
+			expectedRole:   string(domain.RolePatient),
+			expectedActor:  "Walk-in Patient",
+			expectRecord:   true,
+		},
+		{
 			name:  "Handle Error in RecordLog gracefully",
 			event: "QUEUE_JOINED",
 			data: map[string]any{
@@ -202,7 +322,10 @@ func TestAuditWorker_HandleEventMessage(t *testing.T) {
 			if tt.rawJSON != nil {
 				msgBytes = tt.rawJSON
 			} else {
-				dataBytes, _ := json.Marshal(tt.data)
+				var dataBytes []byte
+				if tt.data != nil {
+					dataBytes, _ = json.Marshal(tt.data)
+				}
 				envelope := worker.EventEnvelope{
 					Event:     tt.event,
 					Data:      dataBytes,
@@ -220,10 +343,44 @@ func TestAuditWorker_HandleEventMessage(t *testing.T) {
 	}
 }
 
-func TestAuditWorker_StartSubscribing_NilNC(t *testing.T) {
-	w := worker.NewAuditWorker(&mockAuditUseCase{}, &mockUserRepo{})
+func TestAuditWorker_StartSubscribing(t *testing.T) {
+	mockUC := &mockAuditUseCase{}
+	w := worker.NewAuditWorker(mockUC, &mockUserRepo{})
+
+	// Test nil connection
 	_, err := w.StartSubscribing(context.Background(), nil, "clinic.events.>")
 	if err == nil {
 		t.Error("expected error for nil nats conn, got nil")
+	}
+
+	// Test with live NATS connection if running
+	nc, err := nats.Connect("nats://localhost:4222", nats.Timeout(500*time.Millisecond))
+	if err == nil {
+		sub, err := w.StartSubscribing(context.Background(), nc, "test.clinic.events.worker")
+		if err != nil {
+			t.Fatalf("unexpected subscription error: %v", err)
+		}
+
+		// Publish message to trigger subscription handler callback
+		env := worker.EventEnvelope{
+			Event:     "QUEUE_JOINED",
+			Data:      []byte(`{"patient_name":"Sub Test"}`),
+			Timestamp: time.Now().UTC().Format(time.RFC3339),
+		}
+		envBytes, _ := json.Marshal(env)
+		_ = nc.Publish("test.clinic.events.worker", envBytes)
+		_ = nc.Flush()
+		time.Sleep(50 * time.Millisecond)
+
+		if sub != nil {
+			_ = sub.Unsubscribe()
+		}
+
+		// Test subscribe on closed connection returns error
+		nc.Close()
+		_, err = w.StartSubscribing(context.Background(), nc, "test.closed.>")
+		if err == nil {
+			t.Error("expected error when subscribing on closed nats conn, got nil")
+		}
 	}
 }

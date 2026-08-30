@@ -254,6 +254,64 @@ func TestAuditLogFilter_Offset(t *testing.T) {
 	}
 }
 
+func TestAuditLogFilter_NormalizeSort(t *testing.T) {
+	tests := []struct {
+		name      string
+		filter    *AuditLogFilter
+		wantOrder string
+		checkNil  bool
+	}{
+		{
+			name:     "nil filter does not panic",
+			filter:   nil,
+			checkNil: true,
+		},
+		{
+			name: "empty sort order defaults to desc",
+			filter: &AuditLogFilter{
+				SortOrder: "",
+			},
+			wantOrder: "desc",
+		},
+		{
+			name: "uppercase ASC normalized to asc",
+			filter: &AuditLogFilter{
+				SortOrder: "ASC",
+			},
+			wantOrder: "asc",
+		},
+		{
+			name: "invalid sort order defaults to desc",
+			filter: &AuditLogFilter{
+				SortOrder: "random_string",
+			},
+			wantOrder: "desc",
+		},
+		{
+			name: "valid desc order preserved",
+			filter: &AuditLogFilter{
+				SortOrder: "desc",
+			},
+			wantOrder: "desc",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.checkNil {
+				var nilFilter *AuditLogFilter
+				nilFilter.NormalizeSort()
+				return
+			}
+
+			tt.filter.NormalizeSort()
+			if tt.filter.SortOrder != tt.wantOrder {
+				t.Errorf("expected sort order %q, got %q", tt.wantOrder, tt.filter.SortOrder)
+			}
+		})
+	}
+}
+
 func TestAuditLog_StructFields(t *testing.T) {
 	userID := 10
 	now := time.Now().UTC()

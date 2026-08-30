@@ -59,11 +59,20 @@ func (r *AuditRepo) InsertLog(ctx context.Context, log *domain.AuditLog) (*domai
 	return log, nil
 }
 
-// QueryLogs retrieves paginated audit logs based on the provided filter parameters (supports Cursor & Offset).
+// QueryLogs retrieves paginated audit logs based on the provided filter parameters (supports Search, Dates, Roles, Actions, UserID, Cursor & Bidirectional Sorting).
 func (r *AuditRepo) QueryLogs(ctx context.Context, filter domain.AuditLogFilter) (*domain.PaginatedAuditLogs, error) {
+	filter.NormalizeSort()
+
 	var conditions []string
 	var args []any
 	argIdx := 1
+
+	if search := strings.TrimSpace(filter.Search); search != "" {
+		searchPattern := "%" + search + "%"
+		conditions = append(conditions, fmt.Sprintf("(actor_name ILIKE $%d OR ip_address ILIKE $%d OR action ILIKE $%d)", argIdx, argIdx+1, argIdx+2))
+		args = append(args, searchPattern, searchPattern, searchPattern)
+		argIdx += 3
+	}
 
 	if strings.TrimSpace(filter.Action) != "" {
 		conditions = append(conditions, fmt.Sprintf("action = $%d", argIdx))
@@ -74,6 +83,24 @@ func (r *AuditRepo) QueryLogs(ctx context.Context, filter domain.AuditLogFilter)
 	if strings.TrimSpace(filter.Role) != "" {
 		conditions = append(conditions, fmt.Sprintf("role = $%d", argIdx))
 		args = append(args, strings.TrimSpace(filter.Role))
+		argIdx++
+	}
+
+	if filter.UserID != nil && *filter.UserID > 0 {
+		conditions = append(conditions, fmt.Sprintf("user_id = $%d", argIdx))
+		args = append(args, *filter.UserID)
+		argIdx++
+	}
+
+	if filter.StartDate != nil && !filter.StartDate.IsZero() {
+		conditions = append(conditions, fmt.Sprintf("created_at >= $%d", argIdx))
+		args = append(args, *filter.StartDate)
+		argIdx++
+	}
+
+	if filter.EndDate != nil && !filter.EndDate.IsZero() {
+		conditions = append(conditions, fmt.Sprintf("created_at <= $%d", argIdx))
+		args = append(args, *filter.EndDate)
 		argIdx++
 	}
 
@@ -90,9 +117,19 @@ func (r *AuditRepo) QueryLogs(ctx context.Context, filter domain.AuditLogFilter)
 		return nil, fmt.Errorf("count audit logs: %w", err)
 	}
 
+	isAsc := filter.SortOrder == "asc"
+	orderDir := "DESC"
+	if isAsc {
+		orderDir = "ASC"
+	}
+
 	// Cursor pagination clause
 	if filter.Cursor != nil && *filter.Cursor > 0 {
-		conditions = append(conditions, fmt.Sprintf("id < $%d", argIdx))
+		if isAsc {
+			conditions = append(conditions, fmt.Sprintf("id > $%d", argIdx))
+		} else {
+			conditions = append(conditions, fmt.Sprintf("id < $%d", argIdx))
+		}
 		args = append(args, *filter.Cursor)
 		argIdx++
 	}
@@ -113,9 +150,9 @@ func (r *AuditRepo) QueryLogs(ctx context.Context, filter domain.AuditLogFilter)
 			SELECT id, user_id, actor_name, role, action, details, ip_address, created_at
 			FROM audit_logs
 			%s
-			ORDER BY id DESC
+			ORDER BY id %s
 			LIMIT $%d
-		`, whereClause, argIdx)
+		`, whereClause, orderDir, argIdx)
 		queryArgs = append(args, fetchLimit)
 	} else {
 		// Offset fallback query
@@ -123,9 +160,9 @@ func (r *AuditRepo) QueryLogs(ctx context.Context, filter domain.AuditLogFilter)
 			SELECT id, user_id, actor_name, role, action, details, ip_address, created_at
 			FROM audit_logs
 			%s
-			ORDER BY id DESC
+			ORDER BY id %s
 			LIMIT $%d OFFSET $%d
-		`, whereClause, argIdx, argIdx+1)
+		`, whereClause, orderDir, argIdx, argIdx+1)
 		queryArgs = append(args, fetchLimit, filter.Offset())
 	}
 
