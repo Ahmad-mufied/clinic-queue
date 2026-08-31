@@ -66,9 +66,12 @@ class APIClient {
       headers["Authorization"] = `Bearer ${token}`;
     }
 
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
+    const url = endpoint.startsWith("http") ? endpoint : `${baseUrl}${endpoint}`;
+
     let response: Response;
     try {
-      response = await fetch(endpoint, {
+      response = await fetch(url, {
         method,
         headers,
         body: body ? JSON.stringify(body) : undefined,
@@ -77,7 +80,7 @@ class APIClient {
       // Retry once after 400ms on transient browser/extension fetch aborts
       await new Promise((r) => setTimeout(r, 400));
       try {
-        response = await fetch(endpoint, {
+        response = await fetch(url, {
           method,
           headers,
           body: body ? JSON.stringify(body) : undefined,

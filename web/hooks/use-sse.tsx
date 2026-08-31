@@ -69,10 +69,12 @@ export function SSEProvider({ children }: { children: React.ReactNode }) {
           eventSourceRef.current.close();
         }
 
-        const sseUrl =
-          typeof window !== "undefined" && window.location.hostname === "localhost"
-            ? "http://localhost:8080/api/events"
-            : "/api/events";
+        const baseApiUrl = process.env.NEXT_PUBLIC_API_URL || "";
+        const sseUrl = baseApiUrl
+          ? `${baseApiUrl}/api/events`
+          : typeof window !== "undefined" && window.location.hostname === "localhost"
+          ? "http://localhost:8080/api/events"
+          : "/api/events";
         const es = new EventSource(sseUrl);
         eventSourceRef.current = es;
 

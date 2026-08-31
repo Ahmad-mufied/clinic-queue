@@ -1,0 +1,14 @@
+.git
+.gitignore
+.env
+.env.example
+.agents
+docs
+scripts
+tmp
+bin
+web/node_modules
+web/.next
+coverage.out
+coverage.html
+*.md
