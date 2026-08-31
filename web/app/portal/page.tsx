@@ -108,7 +108,7 @@ function PortalForm() {
   });
 
   return (
-    <div className="w-full max-w-5xl bg-white dark:bg-slate-900 rounded-[38px] sm:rounded-[48px] shadow-2xl shadow-emerald-950/12 border border-emerald-100/70 dark:border-slate-800 p-4 sm:p-6 lg:p-7 grid lg:grid-cols-12 gap-6 relative transition-all items-stretch overflow-hidden">
+    <div className="w-full max-w-5xl bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-4 sm:p-6 lg:p-7 grid lg:grid-cols-12 gap-6 relative transition-all items-stretch overflow-hidden">
       {/* 1. Main Section: Brand Header & Persona Grid (7 Cols) */}
       <div className="lg:col-span-7 flex flex-col justify-between space-y-4 py-1 px-1">
         {/* Modern Minimalist Header */}
@@ -232,7 +232,7 @@ function PortalForm() {
       </div>
 
       {/* 2. Right Panel: Credentials Form (5 Cols) */}
-      <div className="lg:col-span-5 rounded-[32px] bg-slate-50/80 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 p-6 flex flex-col justify-between space-y-5 relative">
+      <div className="lg:col-span-5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 flex flex-col justify-between space-y-5 relative">
         <div className="space-y-4">
           {/* Header Title */}
           <div>
@@ -341,7 +341,7 @@ function PortalForm() {
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="w-full h-10 rounded-2xl bg-gradient-to-r from-emerald-600 via-emerald-700 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-bold text-xs tracking-tight shadow-md shadow-emerald-900/10 active:scale-[0.99] transition-all mt-2 cursor-pointer"
+              className="w-full h-10 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white dark:text-slate-900 text-white font-bold text-xs tracking-tight shadow-sm active:scale-[0.99] transition-all mt-2 cursor-pointer"
             >
               {isSubmitting ? (
                 <>
@@ -380,10 +380,7 @@ function PortalForm() {
 
 export default function PortalPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center p-3 sm:p-5 lg:p-8 bg-gradient-to-br from-[#dcf0e5] via-[#edf7f2] to-[#e1f2e8] dark:bg-slate-950 relative overflow-hidden">
-      {/* Decorative Illustrated Botanical Accents Matching MedBoard */}
-      <div className="absolute top-0 left-0 w-80 h-80 bg-emerald-300/20 dark:bg-emerald-950/20 rounded-full blur-3xl pointer-events-none -translate-x-1/2 -translate-y-1/2" />
-      <div className="absolute bottom-0 right-0 w-96 h-96 bg-teal-300/20 dark:bg-teal-950/20 rounded-full blur-3xl pointer-events-none translate-x-1/2 translate-y-1/2" />
+    <div className="min-h-screen flex items-center justify-center p-3 sm:p-5 lg:p-8 bg-slate-50 dark:bg-slate-950 relative overflow-hidden">
 
       <Suspense
         fallback={

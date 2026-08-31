@@ -60,6 +60,7 @@ export function SSEProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let reconnectTimeout: NodeJS.Timeout | null = null;
     let isUnmounted = false;
+    let retryCount = 0;
 
     function connect() {
       if (isUnmounted) return;
@@ -81,6 +82,7 @@ export function SSEProvider({ children }: { children: React.ReactNode }) {
         es.onopen = () => {
           if (!isUnmounted) {
             setIsConnected(true);
+            retryCount = 0; // Reset retry count on successful connection
           }
         };
 
@@ -148,9 +150,6 @@ export function SSEProvider({ children }: { children: React.ReactNode }) {
                    currentUser?.id === payload.data?.user_id);
 
                 // Role-aware toast filtering to guarantee zero duplicate notifications:
-                // - Doctors already have immediate tactile mutation toasts in doctor workspace
-                // - The specific called patient gets an urgent priority alert
-                // - Administrators get clinic-wide broadcast visibility
                 if (payload.data?.patient_name) {
                   if (isTargetPatient) {
                     toast.info(`YOUR TICKET IS CALLED: ${payload.data.patient_name}`, {
@@ -292,7 +291,12 @@ export function SSEProvider({ children }: { children: React.ReactNode }) {
           if (es.readyState === EventSource.CLOSED || es.readyState === EventSource.CONNECTING) {
             es.close();
             if (reconnectTimeout) clearTimeout(reconnectTimeout);
-            reconnectTimeout = setTimeout(connect, 3000);
+            
+            // Exponential backoff: 500ms, 1s, 2s, up to max 5s
+            const delay = Math.min(500 * Math.pow(2, retryCount), 5000);
+            retryCount++;
+            
+            reconnectTimeout = setTimeout(connect, delay);
           }
         };
       } catch {

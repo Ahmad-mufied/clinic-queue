@@ -217,7 +217,7 @@ export default function PatientPortalPage() {
 
       <div className="max-w-2xl mx-auto space-y-6">
         {!isMounted ? null : activeTicket ? (
-          <div className="rounded-3xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-6 sm:p-8 shadow-sm space-y-8 relative overflow-hidden">
+          <div className="rounded-2xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-6 sm:p-8 shadow-sm space-y-8 relative overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/60 pb-6">
               <div className="flex items-center gap-2.5">
@@ -245,10 +245,10 @@ export default function PatientPortalPage() {
 
             {/* Big Queue Display */}
             <div className="text-center py-2">
-              <span className="text-[11px] font-medium text-slate-400 uppercase tracking-widest block mb-2">
+              <span className="text-[11px] font-medium text-slate-500 uppercase tracking-widest block mb-2">
                 Queue Number
               </span>
-              <div className="text-7xl sm:text-8xl font-medium tracking-tight text-slate-900 dark:text-white my-2 font-mono">
+              <div className="text-7xl sm:text-8xl font-medium tracking-tight text-slate-900 dark:text-white my-2 font-mono tabular-nums">
                 {activeTicket.queue_number}
               </div>
               <p className="text-sm text-slate-500 mt-3">
@@ -257,9 +257,9 @@ export default function PatientPortalPage() {
             </div>
 
             {/* Position & Estimated Wait Time Stats */}
-            <div className="grid grid-cols-2 gap-px bg-slate-100 dark:bg-slate-800 rounded-2xl overflow-hidden border border-slate-100 dark:border-slate-800">
-              <div className="bg-white dark:bg-slate-950 p-5 text-center">
-                <span className="text-xs text-slate-400 block font-medium mb-1.5">
+            <div className="grid grid-cols-2 gap-4 border-t border-slate-100 dark:border-slate-800/60 pt-6">
+              <div className="text-center border-r border-slate-100 dark:border-slate-800/60 pr-4">
+                <span className="text-xs text-slate-500 block font-medium mb-1.5">
                   {activeTicket.status === "IN_CONSULTATION" ? "Assigned Doctor" : "Queue Position"}
                 </span>
                 <div className="text-xl sm:text-2xl font-semibold text-slate-900 dark:text-white my-1 truncate">
@@ -276,11 +276,11 @@ export default function PatientPortalPage() {
                 </span>
               </div>
 
-              <div className="bg-white dark:bg-slate-950 p-5 text-center">
-                <span className="text-xs text-slate-400 block font-medium mb-1.5">
+              <div className="text-center pl-4">
+                <span className="text-xs text-slate-500 block font-medium mb-1.5">
                   {activeTicket.status === "IN_CONSULTATION" ? "Consultation Time" : "Estimated Wait"}
                 </span>
-                <div className="text-xl sm:text-2xl font-semibold text-slate-900 dark:text-white my-1 font-mono">
+                <div className="text-xl sm:text-2xl font-semibold text-slate-900 dark:text-white my-1 font-mono tabular-nums">
                   {activeTicket.status === "IN_CONSULTATION"
                     ? formatTime(activeSeconds)
                     : onlineDocs === 0 || activeTicket.estimated_wait_time_minutes === null || activeTicket.estimated_wait_time_minutes === undefined

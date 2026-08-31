@@ -127,7 +127,7 @@ export default function WaitingRoomDisplayPage() {
         <div className="lg:col-span-7 flex flex-col space-y-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-md shadow-emerald-600/20">
+              <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-sm">
                 <Volume2 className="h-5 w-5 animate-pulse" />
               </div>
               <div>
@@ -153,7 +153,7 @@ export default function WaitingRoomDisplayPage() {
           </div>
 
           {inConsultationDoctors.length === 0 ? (
-            <div className="flex-1 flex flex-col items-center justify-center rounded-[32px] border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/60 p-12 text-center shadow-xl backdrop-blur-sm">
+            <div className="flex-1 flex flex-col items-center justify-center rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-12 text-center shadow-sm">
               <div className="h-20 w-20 rounded-3xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-5 shadow-inner">
                 <Stethoscope className="h-10 w-10" />
               </div>
@@ -183,32 +183,29 @@ export default function WaitingRoomDisplayPage() {
                 return (
                   <div
                     key={doc.id}
-                    className="rounded-[32px] bg-gradient-to-br from-[#065f46] via-[#047857] to-[#064e3b] text-white p-7 flex flex-col justify-between shadow-2xl shadow-emerald-950/20 relative overflow-hidden group"
+                    className="rounded-2xl bg-emerald-700 dark:bg-emerald-900 border border-emerald-600 dark:border-emerald-800 text-white p-7 flex flex-col justify-between shadow-sm relative overflow-hidden group"
                   >
-                    {/* Background decoration pill */}
-                    <div className="absolute -top-12 -right-12 h-40 w-40 rounded-full bg-white/10 blur-2xl pointer-events-none" />
-
-                    <div className="flex items-center justify-center border-b border-white/20 pb-4 relative z-10">
-                      <span className="bg-white/25 text-white font-black uppercase text-sm sm:text-base rounded-full px-6 py-1.5 tracking-widest backdrop-blur-md shadow-sm border border-white/20">
+                    <div className="flex items-center justify-center border-b border-emerald-600/80 pb-4 relative z-10">
+                      <span className="bg-emerald-800 text-white font-black uppercase text-sm sm:text-base rounded-full px-6 py-1.5 tracking-widest border border-emerald-600">
                         {roomName}
                       </span>
                     </div>
 
                     <div className="text-center py-8 relative z-10 space-y-2">
-                      <span className="text-xs font-bold uppercase tracking-widest text-emerald-200 block">
+                      <span className="text-xs font-bold uppercase tracking-widest text-emerald-100/80 block">
                         Attending Practitioner
                       </span>
-                      <div className="text-2xl sm:text-3xl font-black tracking-tight text-white drop-shadow-md">
+                      <div className="text-2xl sm:text-3xl font-black tracking-tight text-white">
                         {doc.name}
                       </div>
-                      <div className="text-lg font-extrabold text-emerald-100 pt-1">
+                      <div className="text-lg font-extrabold text-emerald-200 pt-1">
                         Patient: {doc.current_patient || "Consultation in progress"}
                       </div>
                     </div>
 
-                    <div className="pt-4 border-t border-white/20 text-center relative z-10">
-                      <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-100 bg-white/15 px-4 py-1.5 rounded-full backdrop-blur-md">
-                        <Clock className="h-3.5 w-3.5 text-emerald-200" />
+                    <div className="pt-4 border-t border-emerald-600/80 text-center relative z-10">
+                      <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-50 bg-emerald-800/80 px-4 py-1.5 rounded-full">
+                        <Clock className="h-3.5 w-3.5 text-emerald-300" />
                         <span>Session Duration: {doc.elapsed_minutes ?? 0}m elapsed</span>
                       </span>
                     </div>
@@ -223,8 +220,8 @@ export default function WaitingRoomDisplayPage() {
         <div className="lg:col-span-5 flex flex-col space-y-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-2xl bg-slate-900 dark:bg-slate-800 text-white shadow-md shadow-slate-900/10">
-                <Users className="h-5 w-5 text-emerald-400" />
+              <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-sm">
+                <Users className="h-5 w-5" />
               </div>
               <div>
                 <h2 className="text-lg sm:text-xl font-black tracking-tight text-slate-900 dark:text-white">
@@ -248,7 +245,7 @@ export default function WaitingRoomDisplayPage() {
             </div>
           </div>
 
-          <div className="flex-1 rounded-[32px] border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 flex flex-col justify-between shadow-xl">
+          <div className="flex-1 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 flex flex-col justify-between shadow-sm">
             {queueList.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-3">
                 <div className="h-16 w-16 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center">

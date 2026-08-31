@@ -201,7 +201,7 @@ export default function DoctorWorkspacePage() {
   return (
     <div className="space-y-6 pb-12">
       {/* Top Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xs">
         <div className="flex items-center gap-3.5">
           <div className="h-11 w-11 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
             <Stethoscope className="h-5 w-5" />
@@ -239,7 +239,7 @@ export default function DoctorWorkspacePage() {
         {/* Left Column: Examination Room (7 Cols) */}
         <div className="lg:col-span-7 space-y-6">
           {!isMounted || (isWorkspaceLoading && !workspace) ? (
-            <div className="rounded-3xl bg-slate-100 dark:bg-slate-800/60 p-8 h-[380px] animate-pulse border border-slate-200/80 dark:border-slate-800 flex flex-col items-center justify-center gap-3">
+            <div className="rounded-2xl bg-slate-100 dark:bg-slate-800/60 p-8 h-[380px] animate-pulse border border-slate-200/80 dark:border-slate-800 flex flex-col items-center justify-center gap-3">
               <div className="h-14 w-14 rounded-2xl bg-slate-200 dark:bg-slate-700 animate-pulse" />
               <div className="h-4 w-48 rounded-full bg-slate-200 dark:bg-slate-700 animate-pulse" />
             </div>
@@ -253,7 +253,7 @@ export default function DoctorWorkspacePage() {
               const progress = Math.min(100, Math.round((elapsedSeconds / targetSec) * 100));
 
               return (
-                <div className="rounded-3xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-6 sm:p-8 shadow-sm space-y-8 relative overflow-hidden">
+                <div className="rounded-2xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-6 sm:p-8 shadow-sm space-y-8 relative overflow-hidden">
                   {/* Active Header */}
                   <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/60 pb-6">
                     <div className="flex items-center gap-2.5">
@@ -289,37 +289,33 @@ export default function DoctorWorkspacePage() {
                     </p>
                   </div>
 
-                  {/* Stopwatch Timer Grid */}
-                  <div className="bg-slate-100 dark:bg-slate-800 rounded-2xl overflow-hidden border border-slate-100 dark:border-slate-800 p-px">
-                    <div className="bg-white dark:bg-slate-950 p-6 sm:p-8 text-center">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs text-slate-400 font-medium">Elapsed Time</span>
-                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${isOvertime ? "bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300" : "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"}`}>
-                          {isOvertime ? `Overtime: +${formatSecondsToTimer(overtimeSec)}` : `${formatSecondsToTimer(remainingSec)} remaining`}
-                        </span>
-                      </div>
-                      
-                      {/* Digits */}
-                      <div className="py-4">
-                        <div className={`text-6xl sm:text-7xl font-medium font-mono tracking-tight ${isOvertime ? "text-amber-500" : "text-slate-900 dark:text-white"}`}>
-                          {formatSecondsToTimer(elapsedSeconds)}
-                        </div>
-                      </div>
+                  {/* Stopwatch Timer */}
+                  <div className="text-center py-6">
+                    <div className="flex items-center justify-center gap-3 mb-4">
+                      <span className="text-xs text-slate-500 font-medium">Elapsed Time</span>
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${isOvertime ? "bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/20 dark:text-amber-400" : "bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300"}`}>
+                        {isOvertime ? `Overtime: +${formatSecondsToTimer(overtimeSec)}` : `${formatSecondsToTimer(remainingSec)} remaining`}
+                      </span>
+                    </div>
+                    
+                    {/* Digits */}
+                    <div className={`text-7xl sm:text-8xl font-medium font-mono tabular-nums tracking-tighter ${isOvertime ? "text-amber-600 dark:text-amber-500" : "text-slate-900 dark:text-white"}`}>
+                      {formatSecondsToTimer(elapsedSeconds)}
+                    </div>
 
-                      {/* Progress Bar */}
-                      <div className="space-y-2 mt-4">
-                        <div className="w-full bg-slate-100 dark:bg-slate-800/80 rounded-full h-1.5 overflow-hidden">
-                          <div
-                            className={`h-full rounded-full transition-all duration-1000 ease-linear ${
-                              isOvertime ? "bg-amber-500" : "bg-emerald-500"
-                            }`}
-                            style={{ width: `${progress}%` }}
-                          />
-                        </div>
-                        <div className="flex justify-between text-[10px] text-slate-400 font-medium px-1">
-                          <span>00:00 Started</span>
-                          <span>Target: {targetAvgPace} min</span>
-                        </div>
+                    {/* Thin Progress Bar */}
+                    <div className="mt-8 max-w-sm mx-auto">
+                      <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1 overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-1000 ease-linear ${
+                            isOvertime ? "bg-amber-500" : "bg-slate-900 dark:bg-slate-100"
+                          }`}
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
+                      <div className="flex justify-between text-[10px] text-slate-400 font-medium mt-2 px-1">
+                        <span>00:00 Started</span>
+                        <span>Target: {targetAvgPace} min</span>
                       </div>
                     </div>
                   </div>
@@ -348,7 +344,7 @@ export default function DoctorWorkspacePage() {
             })()
           ) : (
             /* Idle Examination Room Card */
-            <Card className="p-8 sm:p-10 space-y-6 rounded-3xl border-slate-200/80 dark:border-slate-800 shadow-sm text-center">
+            <Card className="p-8 sm:p-10 space-y-6 rounded-2xl border-slate-200/80 dark:border-slate-800 shadow-sm text-center">
               <div className="h-14 w-14 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 flex items-center justify-center mx-auto text-emerald-700 dark:text-emerald-400">
                 <Stethoscope className="h-7 w-7" />
               </div>
@@ -440,7 +436,7 @@ export default function DoctorWorkspacePage() {
 
         {/* Right Column: Waiting Patients List (5 Cols) */}
         <div className="lg:col-span-5 space-y-6">
-          <Card className="rounded-3xl border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-sm">
+          <Card className="rounded-2xl border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-sm">
             <CardHeader className="py-4 px-5 flex flex-row items-center justify-between border-b border-slate-100 dark:border-slate-800">
               <CardTitle className="text-sm font-bold text-slate-900 dark:text-white">
                 Waiting Patients

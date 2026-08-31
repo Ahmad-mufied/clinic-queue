@@ -83,7 +83,7 @@ export default function AdminDashboardPage() {
   if (!token || user?.role !== "admin") {
     return (
       <div className="mx-auto max-w-md px-4 py-16 text-center">
-        <Card className="p-8 space-y-4 rounded-[26px]">
+        <Card className="p-8 space-y-4 rounded-2xl shadow-sm border-slate-200 dark:border-slate-800">
           <div className="h-12 w-12 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center mx-auto">
             <BarChart3 className="h-6 w-6" />
           </div>
@@ -218,7 +218,7 @@ export default function AdminDashboardPage() {
         {/* Left Column: Examination Rooms (5 cols) */}
         <div className="lg:col-span-5">
           {/* Examination Rooms Card (Live Room Occupancy) */}
-          <Card className="rounded-[26px]">
+          <Card className="rounded-xl shadow-sm border-slate-200 dark:border-slate-800">
             <CardHeader className="flex flex-row items-center justify-between pb-3">
               <div>
                 <CardTitle className="text-base font-bold text-slate-900 dark:text-white">Examination Rooms</CardTitle>
@@ -313,7 +313,7 @@ export default function AdminDashboardPage() {
         {/* Right Column: Patient Flow Chart + Live Queue Table (7 cols) */}
         <div className="lg:col-span-7 flex flex-col gap-6">
           {/* 1. Patient Flow Chart Card */}
-          <Card className="rounded-[26px]">
+          <Card className="rounded-xl shadow-sm border-slate-200 dark:border-slate-800">
             <CardHeader className="flex flex-row items-start justify-between pb-2">
               <div>
                 <CardTitle className="text-base font-bold text-slate-900 dark:text-white">Patient Flow</CardTitle>
@@ -359,12 +359,12 @@ export default function AdminDashboardPage() {
 
                       <div
                         style={{ height: bar.height }}
-                        className={`w-full max-w-[42px] rounded-t-xl transition-all duration-300 ${
+                        className={`w-full max-w-[42px] rounded-t-md transition-all duration-300 ${
                           bar.isPeak && bar.value > 0
-                            ? "bg-gradient-to-t from-[#047857] to-[#10b981] shadow-md shadow-emerald-700/20"
+                            ? "bg-emerald-500 dark:bg-emerald-600"
                             : bar.value > 0
-                            ? "bg-[#86efac] dark:bg-emerald-700 hover:bg-emerald-300 cursor-pointer shadow-xs"
-                            : "bg-[#eef4f0] dark:bg-emerald-950/30 hover:bg-slate-200 cursor-pointer"
+                            ? "bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600 cursor-pointer"
+                            : "bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 cursor-pointer"
                         }`}
                       />
                       <span className="text-[11px] font-medium text-slate-400 font-mono mt-0.5">
@@ -378,7 +378,7 @@ export default function AdminDashboardPage() {
           </Card>
 
           {/* 2. Live Queue Card */}
-          <Card className="rounded-[26px]">
+          <Card className="rounded-xl shadow-sm border-slate-200 dark:border-slate-800">
             <CardHeader className="flex flex-row items-center justify-between pb-3">
               <div>
                 <div className="flex items-center gap-2.5">
