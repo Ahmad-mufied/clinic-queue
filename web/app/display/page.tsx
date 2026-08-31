@@ -75,27 +75,29 @@ export default function WaitingRoomDisplayPage() {
             <BrandLogo size="lg" className="hover:scale-105 transition-transform" />
           </Link>
           <div>
-            <div className="flex items-center gap-2.5">
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
-                SmartClinic Display
-              </h1>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 px-3 py-0.5 text-xs font-extrabold text-emerald-800 dark:text-emerald-300">
-                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                Live TV Monitor
-              </span>
-            </div>
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
+              SmartClinic Display
+            </h1>
             <p className="text-xs text-slate-500 font-medium mt-0.5">
               Real-Time Patient Calling & Deterministic Queue Allocation
             </p>
           </div>
         </div>
 
-        {/* Center: Live Stream Status Indicator */}
-        <div className="hidden lg:flex items-center gap-2 rounded-full bg-white dark:bg-slate-900 px-4 py-2 border border-slate-200/80 dark:border-slate-800 shadow-2xs text-xs font-semibold text-slate-600 dark:text-slate-300">
-          <Radio className="h-3.5 w-3.5 text-emerald-600 animate-pulse" />
-          <span>NATS JetStream Active</span>
-          <span className="text-slate-300">&bull;</span>
-          <span className="text-emerald-600 font-bold">Sub-Second Sync</span>
+        {/* Center: Minimalist Connection Status Indicator */}
+        <div
+          className={`hidden lg:flex items-center gap-2 rounded-full px-3.5 py-1.5 border shadow-2xs text-xs font-semibold transition-colors ${
+            isConnected
+              ? "bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800 text-slate-700 dark:text-slate-300"
+              : "bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900 text-amber-700 dark:text-amber-400"
+          }`}
+        >
+          <span
+            className={`h-2 w-2 rounded-full ${
+              isConnected ? "bg-emerald-500 animate-pulse" : "bg-amber-500 animate-ping"
+            }`}
+          />
+          <span>{isConnected ? "Connected" : "Reconnecting..."}</span>
         </div>
 
         {/* Right: Date & Crisp Digital Clock */}
@@ -123,22 +125,31 @@ export default function WaitingRoomDisplayPage() {
       <main className="grid gap-8 lg:grid-cols-12 my-8 flex-1 items-stretch">
         {/* Left Column: Now Calling / Active Consultation Rooms (7 Cols) */}
         <div className="lg:col-span-7 flex flex-col space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
-                <Volume2 className="h-4 w-4 animate-pulse" />
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-2xl bg-emerald-600 text-white shadow-md shadow-emerald-600/20">
+                <Volume2 className="h-5 w-5 animate-pulse" />
               </div>
               <div>
-                <h2 className="text-base font-extrabold text-slate-900 dark:text-white">
+                <h2 className="text-lg sm:text-xl font-black tracking-tight text-slate-900 dark:text-white">
                   Now Calling & Consultation
                 </h2>
-                <p className="text-[11px] text-slate-400">Patients currently attending doctor rooms</p>
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium">
+                  Patients currently attending doctor rooms
+                </p>
               </div>
             </div>
 
-            <span className="rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 font-mono text-xs font-bold px-3.5 py-1 border border-emerald-200 dark:border-emerald-800">
-              {inConsultationDoctors.length} Room{inConsultationDoctors.length === 1 ? "" : "s"} Active
-            </span>
+            <div className="flex items-center gap-2 rounded-2xl bg-white dark:bg-slate-900 px-4 py-2 border border-slate-200/80 dark:border-slate-800 shadow-xs">
+              <span
+                className={`h-2.5 w-2.5 rounded-full ${
+                  inConsultationDoctors.length > 0 ? "bg-emerald-500 animate-pulse" : "bg-slate-300 dark:bg-slate-600"
+                }`}
+              />
+              <span className="font-mono text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200">
+                {inConsultationDoctors.length} {inConsultationDoctors.length === 1 ? "Room" : "Rooms"} Active
+              </span>
+            </div>
           </div>
 
           {inConsultationDoctors.length === 0 ? (
@@ -159,65 +170,82 @@ export default function WaitingRoomDisplayPage() {
             </div>
           ) : (
             <div className="grid gap-5 sm:grid-cols-2 flex-1">
-              {inConsultationDoctors.map((doc, idx) => (
-                <div
-                  key={doc.id}
-                  className="rounded-[32px] bg-gradient-to-br from-[#065f46] via-[#047857] to-[#064e3b] text-white p-7 flex flex-col justify-between shadow-2xl shadow-emerald-950/20 relative overflow-hidden group"
-                >
-                  {/* Background decoration pill */}
-                  <div className="absolute -top-12 -right-12 h-40 w-40 rounded-full bg-white/10 blur-2xl pointer-events-none" />
+              {inConsultationDoctors.map((doc, idx) => {
+                const roomName =
+                  doc.id === "01919df4-8e3b-7412-a1f9-90b567c9e101"
+                    ? "Room 1"
+                    : doc.id === "01919df4-8e3b-7412-a1f9-90b567c9e102"
+                    ? "Room 2"
+                    : onlineDoctorsList.findIndex((d) => d.id === doc.id) !== -1
+                    ? `Room ${onlineDoctorsList.findIndex((d) => d.id === doc.id) + 1}`
+                    : `Room ${idx + 1}`;
 
-                  <div className="flex items-center justify-between border-b border-white/20 pb-4 relative z-10">
-                    <span className="bg-white/25 text-white font-extrabold uppercase text-xs rounded-full px-3.5 py-1 tracking-wider backdrop-blur-md">
-                      Room {doc.id}
-                    </span>
-                    <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-200">
-                      <span className="h-2 w-2 rounded-full bg-emerald-300 animate-ping" />
-                      In Consultation
-                    </span>
-                  </div>
+                return (
+                  <div
+                    key={doc.id}
+                    className="rounded-[32px] bg-gradient-to-br from-[#065f46] via-[#047857] to-[#064e3b] text-white p-7 flex flex-col justify-between shadow-2xl shadow-emerald-950/20 relative overflow-hidden group"
+                  >
+                    {/* Background decoration pill */}
+                    <div className="absolute -top-12 -right-12 h-40 w-40 rounded-full bg-white/10 blur-2xl pointer-events-none" />
 
-                  <div className="text-center py-8 relative z-10 space-y-2">
-                    <span className="text-xs font-bold uppercase tracking-widest text-emerald-200 block">
-                      Attending Practitioner
-                    </span>
-                    <div className="text-2xl sm:text-3xl font-black tracking-tight text-white drop-shadow-md">
-                      {doc.name}
+                    <div className="flex items-center justify-center border-b border-white/20 pb-4 relative z-10">
+                      <span className="bg-white/25 text-white font-black uppercase text-sm sm:text-base rounded-full px-6 py-1.5 tracking-widest backdrop-blur-md shadow-sm border border-white/20">
+                        {roomName}
+                      </span>
                     </div>
-                    <div className="text-lg font-extrabold text-emerald-100 pt-1">
-                      Patient: {doc.current_patient || "Consultation in progress"}
+
+                    <div className="text-center py-8 relative z-10 space-y-2">
+                      <span className="text-xs font-bold uppercase tracking-widest text-emerald-200 block">
+                        Attending Practitioner
+                      </span>
+                      <div className="text-2xl sm:text-3xl font-black tracking-tight text-white drop-shadow-md">
+                        {doc.name}
+                      </div>
+                      <div className="text-lg font-extrabold text-emerald-100 pt-1">
+                        Patient: {doc.current_patient || "Consultation in progress"}
+                      </div>
+                    </div>
+
+                    <div className="pt-4 border-t border-white/20 text-center relative z-10">
+                      <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-100 bg-white/15 px-4 py-1.5 rounded-full backdrop-blur-md">
+                        <Clock className="h-3.5 w-3.5 text-emerald-200" />
+                        <span>Session Duration: {doc.elapsed_minutes ?? 0}m elapsed</span>
+                      </span>
                     </div>
                   </div>
-
-                  <div className="pt-4 border-t border-white/20 text-center relative z-10">
-                    <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-100 bg-white/15 px-4 py-1.5 rounded-full backdrop-blur-md">
-                      <span>Room {doc.id} &bull; {doc.elapsed_minutes ?? 0}m elapsed</span>
-                    </span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
 
         {/* Right Column: Upcoming Queue in Line (5 Cols) */}
         <div className="lg:col-span-5 flex flex-col space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-900 dark:bg-slate-800 text-white shadow-sm">
-                <Users className="h-4 w-4 text-emerald-400" />
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-2xl bg-slate-900 dark:bg-slate-800 text-white shadow-md shadow-slate-900/10">
+                <Users className="h-5 w-5 text-emerald-400" />
               </div>
               <div>
-                <h2 className="text-base font-extrabold text-slate-900 dark:text-white">
+                <h2 className="text-lg sm:text-xl font-black tracking-tight text-slate-900 dark:text-white">
                   Upcoming in Line
                 </h2>
-                <p className="text-[11px] text-slate-400">Next patients on the waiting board</p>
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium">
+                  Next patients on the waiting board
+                </p>
               </div>
             </div>
 
-            <span className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold font-mono rounded-full px-3.5 py-1 border border-slate-200 dark:border-slate-700 shadow-2xs">
-              {totalWaiting} Waiting
-            </span>
+            <div className="flex items-center gap-2 rounded-2xl bg-white dark:bg-slate-900 px-4 py-2 border border-slate-200/80 dark:border-slate-800 shadow-xs">
+              <span
+                className={`h-2.5 w-2.5 rounded-full ${
+                  totalWaiting > 0 ? "bg-amber-500 animate-pulse" : "bg-slate-300 dark:bg-slate-600"
+                }`}
+              />
+              <span className="font-mono text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200">
+                {totalWaiting} Waiting
+              </span>
+            </div>
           </div>
 
           <div className="flex-1 rounded-[32px] border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 flex flex-col justify-between shadow-xl">
@@ -269,16 +297,6 @@ export default function WaitingRoomDisplayPage() {
               </div>
             )}
 
-            {/* Bottom Status Inside Queue Card */}
-            <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500">
-              <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="font-bold text-slate-700 dark:text-slate-300">
-                  {onlineDoctors} Doctor{onlineDoctors === 1 ? "" : "s"} Online
-                </span>
-              </div>
-              <span className="text-[11px] font-mono text-slate-400">Deterministic Greedy Algorithm</span>
-            </div>
           </div>
         </div>
       </main>
