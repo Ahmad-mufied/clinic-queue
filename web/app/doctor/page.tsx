@@ -279,7 +279,7 @@ export default function DoctorWorkspacePage() {
                     <span className="text-[11px] font-medium text-slate-400 uppercase tracking-widest block mb-2">
                       Current Patient
                     </span>
-                    <div className="text-5xl sm:text-6xl font-medium tracking-tight text-slate-900 dark:text-white my-2">
+                    <div className="text-4xl sm:text-5xl md:text-6xl font-medium tracking-tight text-slate-900 dark:text-white my-2 truncate px-2">
                       {activeSession.patient_name}
                     </div>
                     <p className="text-sm text-slate-500 mt-3 flex items-center justify-center gap-2">
@@ -299,7 +299,7 @@ export default function DoctorWorkspacePage() {
                     </div>
                     
                     {/* Digits */}
-                    <div className={`text-7xl sm:text-8xl font-medium font-mono tabular-nums tracking-tighter ${isOvertime ? "text-amber-600 dark:text-amber-500" : "text-slate-900 dark:text-white"}`}>
+                    <div className={`text-6xl sm:text-7xl md:text-8xl font-medium font-mono tabular-nums tracking-tighter ${isOvertime ? "text-amber-600 dark:text-amber-500" : "text-slate-900 dark:text-white"}`}>
                       {formatSecondsToTimer(elapsedSeconds)}
                     </div>
 

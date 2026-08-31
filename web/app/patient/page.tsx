@@ -248,17 +248,17 @@ export default function PatientPortalPage() {
               <span className="text-[11px] font-medium text-slate-500 uppercase tracking-widest block mb-2">
                 Queue Number
               </span>
-              <div className="text-7xl sm:text-8xl font-medium tracking-tight text-slate-900 dark:text-white my-2 font-mono tabular-nums">
+              <div className="text-6xl sm:text-7xl md:text-8xl font-medium tracking-tight text-slate-900 dark:text-white my-2 font-mono tabular-nums">
                 {activeTicket.queue_number}
               </div>
-              <p className="text-sm text-slate-500 mt-3">
+              <p className="text-sm text-slate-500 mt-3 truncate px-2">
                 Patient: <span className="font-medium text-slate-900 dark:text-slate-100">{activeTicket.patient_name}</span>
               </p>
             </div>
 
             {/* Position & Estimated Wait Time Stats */}
-            <div className="grid grid-cols-2 gap-4 border-t border-slate-100 dark:border-slate-800/60 pt-6">
-              <div className="text-center border-r border-slate-100 dark:border-slate-800/60 pr-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-100 dark:border-slate-800/60 pt-6">
+              <div className="text-center sm:border-r border-b sm:border-b-0 border-slate-100 dark:border-slate-800/60 pb-5 sm:pb-0 mb-2 sm:mb-0 sm:pr-4">
                 <span className="text-xs text-slate-500 block font-medium mb-1.5">
                   {activeTicket.status === "IN_CONSULTATION" ? "Assigned Doctor" : "Queue Position"}
                 </span>
@@ -276,7 +276,7 @@ export default function PatientPortalPage() {
                 </span>
               </div>
 
-              <div className="text-center pl-4">
+              <div className="text-center sm:pl-4">
                 <span className="text-xs text-slate-500 block font-medium mb-1.5">
                   {activeTicket.status === "IN_CONSULTATION" ? "Consultation Time" : "Estimated Wait"}
                 </span>
