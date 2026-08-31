@@ -84,7 +84,7 @@ export function Sidebar() {
       label: "Doctor Management",
       href: "/admin",
       icon: BarChart3,
-      badge: "20",
+      badge: onlineDocs > 0 ? `${onlineDocs} active` : null,
       roles: ["admin"], // Super Admin / CEO ONLY
     },
     {
