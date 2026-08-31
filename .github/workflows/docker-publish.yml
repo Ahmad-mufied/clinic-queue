@@ -58,6 +58,9 @@ jobs:
           context: ./web
           file: ./web/Dockerfile
           push: true
+          build-args: |
+            NEXT_PUBLIC_UMAMI_WEBSITE_ID=${{ secrets.NEXT_PUBLIC_UMAMI_WEBSITE_ID || vars.NEXT_PUBLIC_UMAMI_WEBSITE_ID }}
+            NEXT_PUBLIC_UMAMI_SCRIPT_URL=${{ vars.NEXT_PUBLIC_UMAMI_SCRIPT_URL || secrets.NEXT_PUBLIC_UMAMI_SCRIPT_URL }}
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/clinic-frontend:${{ steps.vars.outputs.SHORT_SHA }}
             ${{ secrets.DOCKERHUB_USERNAME }}/clinic-frontend:latest
