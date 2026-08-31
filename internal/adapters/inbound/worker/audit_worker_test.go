@@ -566,3 +566,96 @@ func TestAuditWorker_StartSubscribing(t *testing.T) {
 		}
 	}
 }
+
+func TestAuditWorker_Wait(t *testing.T) {
+	mockUC := &mockAuditUseCase{}
+	w := worker.NewAuditWorker(mockUC, &mockUserRepo{})
+
+	// 1. Immediate Wait with 0 active workers returns nil
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	if err := w.Wait(ctx); err != nil {
+		t.Errorf("expected nil error on empty wait, got %v", err)
+	}
+
+	// 2. Test with live NATS subscription and clean drain sequence
+	nc, err := nats.Connect("nats://localhost:4222", nats.Timeout(500*time.Millisecond))
+	if err == nil {
+		sub, err := w.StartSubscribing(context.Background(), nc, "test.wait.subject")
+		if err == nil {
+			env := worker.EventEnvelope{
+				Type:      "QUEUE_JOINED",
+				Data:      []byte(`{"patient_name":"Wait Test"}`),
+				Timestamp: time.Now().UTC().Format(time.RFC3339),
+			}
+			envBytes, _ := json.Marshal(env)
+			_ = nc.Publish("test.wait.subject", envBytes)
+			_ = nc.Flush()
+
+			// Drain NATS connection first before Wait (production shutdown order)
+			_ = sub.Drain()
+			_ = nc.Drain()
+
+			waitCtx, waitCancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer waitCancel()
+			if err := w.Wait(waitCtx); err != nil {
+				t.Errorf("expected clean wait on live drain, got %v", err)
+			}
+		}
+	}
+
+	// 3. Test Wait timeout when worker is actively in-flight
+	slowBlockCh := make(chan struct{})
+	slowDoneCh := make(chan struct{})
+	slowUC := &mockAuditUseCase{
+		recordLogFn: func(ctx context.Context, dto inbound.RecordAuditLogDTO) (*domain.AuditLog, error) {
+			close(slowDoneCh)
+			<-slowBlockCh
+			return &domain.AuditLog{}, nil
+		},
+	}
+	slowWorker := worker.NewAuditWorker(slowUC, &mockUserRepo{})
+
+	ncSlow, err := nats.Connect("nats://localhost:4222", nats.Timeout(500*time.Millisecond))
+	if err == nil {
+		defer ncSlow.Close()
+		subSlow, err := slowWorker.StartSubscribing(context.Background(), ncSlow, "test.slow.wait")
+		if err == nil {
+			defer subSlow.Unsubscribe()
+
+			env := worker.EventEnvelope{
+				Type:      "QUEUE_JOINED",
+				Data:      []byte(`{"patient_name":"Slow Test"}`),
+				Timestamp: time.Now().UTC().Format(time.RFC3339),
+			}
+			envBytes, _ := json.Marshal(env)
+			_ = ncSlow.Publish("test.slow.wait", envBytes)
+			_ = ncSlow.Flush()
+
+			// Wait for worker to enter in-flight handler
+			<-slowDoneCh
+
+			// Call Wait with immediate timeout
+			timeoutCtx, timeoutCancel := context.WithTimeout(context.Background(), 5*time.Millisecond)
+			defer timeoutCancel()
+
+			if err := slowWorker.Wait(timeoutCtx); !errors.Is(err, context.DeadlineExceeded) {
+				t.Errorf("expected context.DeadlineExceeded on slow worker wait, got %v", err)
+			}
+
+			// Unblock worker and wait cleanly
+			close(slowBlockCh)
+
+			cleanCtx, cleanCancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cleanCancel()
+			if err := slowWorker.Wait(cleanCtx); err != nil {
+				t.Errorf("expected nil error on clean worker drain, got %v", err)
+			}
+		} else {
+			close(slowBlockCh)
+		}
+	} else {
+		close(slowBlockCh)
+	}
+}

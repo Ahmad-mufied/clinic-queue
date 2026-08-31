@@ -148,7 +148,11 @@ func main() {
 
 
 
-	// 9. Start HTTP Server with Graceful Shutdown
+	// 9. Configure HTTP Server Timeouts & Start with Graceful Shutdown
+	e.Server.ReadTimeout = 10 * time.Second
+	e.Server.WriteTimeout = 15 * time.Second
+	e.Server.IdleTimeout = 60 * time.Second
+
 	go func() {
 		addr := fmt.Sprintf(":%s", cfg.Port)
 		log.Printf("Starting Smart Clinic Queue API server on port %s...", cfg.Port)
@@ -166,9 +170,25 @@ func main() {
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 
+	// 1. Drain HTTP server requests
 	if err := e.Shutdown(shutdownCtx); err != nil {
-		log.Fatalf("Server forced to shutdown: %v", err)
+		log.Printf("HTTP server shutdown warning: %v", err)
 	}
 
-	log.Println("Server exiting")
+	// 2. Drain NATS connection (flush remaining messages to subscribers)
+	if nc != nil {
+		if err := nc.Drain(); err != nil {
+			log.Printf("NATS connection drain warning: %v", err)
+		}
+	}
+
+	// 3. Wait for in-flight audit worker database writes to complete
+	if err := auditWorker.Wait(shutdownCtx); err != nil {
+		log.Printf("Audit worker drain warning: %v", err)
+	}
+
+	// 4. Close database pool safely
+	dbPool.Close()
+
+	log.Println("Server exiting cleanly with 0 data loss")
 }

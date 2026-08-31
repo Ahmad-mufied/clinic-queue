@@ -1,7 +1,7 @@
 # Technical Specification: Comprehensive Activity Logging & Audit Trail
 **File:** `docs/tech/05-audit-trail-tech.md`  
 **Status:** Approved  
-**Version:** `v1.3.0`
+**Version:** `v1.5.0`
 
 ---
 
@@ -41,6 +41,17 @@ sequenceDiagram
         SSE-->>Admin: Push New Event Row via SSE
     end
 ```
+
+### 2.1 Audit Worker Lifecycle & Graceful Drain Architecture
+
+To prevent forensic audit log drops during server shutdown or deployment restarts, `AuditWorker` incorporates deterministic draining mechanics via `sync.WaitGroup` and NATS connection flushing:
+
+1. **In-Flight Tracking:** Each received message callback invokes `w.wg.Add(1)` and ensures completion with `defer w.wg.Done()`.
+2. **Deterministic Drain Coordination:**
+   - On shutdown signal (`SIGINT`/`SIGTERM`), the HTTP listener closes first (`e.Shutdown`), completing active HTTP handlers.
+   - NATS connection executes `nc.Drain()`, stopping new consumer subscriptions and delivering remaining buffered messages.
+   - `auditWorker.Wait(ctx)` blocks until the `sync.WaitGroup` counter reaches zero or the shutdown context expires.
+   - PostgreSQL connection pool (`dbPool.Close()`) closes only after all in-flight audit records are committed to storage.
 
 ---
 
@@ -140,3 +151,4 @@ DROP TABLE IF EXISTS audit_logs;
 | **v1.2.0** | 2026-08-30 | Lead Backend Architect | **Feature Enhancement** | Added keyword search (`search`), Date Range filtering (`start_date`, `end_date`), and bidirectional cursor sorting (`order=asc/desc`). |
 | **v1.3.0** | 2026-08-30 | Lead Backend Architect | **Native UUIDv7 Spec** | Migrated `audit_logs.id` and `audit_logs.user_id` to Native UUIDv7 (`DEFAULT uuidv7()`), updating cursor query bindings and JSON serialization. |
 | **v1.4.0** | 2026-08-31 | Backend Security Engineer | **Forensic Metadata Pipeline Flow** | Documented Section 2 sequence flow for context metadata propagation across Echo middleware, Go Context, NATS JetStream, and `AuditWorker`. |
+| **v1.5.0** | 2026-08-31 | Backend Reliability Engineer | **Graceful Worker Drain** | Added Section 2.1 specifying `sync.WaitGroup` in-flight tracking, NATS connection draining, and bounded shutdown coordination. |

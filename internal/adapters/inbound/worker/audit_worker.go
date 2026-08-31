@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 
 	"clinic-queue/internal/core/domain"
 	"clinic-queue/internal/core/ports/inbound"
@@ -18,6 +19,9 @@ import (
 type AuditWorker struct {
 	auditUseCase inbound.AuditUseCase
 	userRepo     outbound.UserRepositoryPort
+	mu           sync.Mutex
+	inFlight     int64
+	drainCh      chan struct{}
 }
 
 // NewAuditWorker constructs a new AuditWorker instance.
@@ -43,6 +47,20 @@ func (w *AuditWorker) StartSubscribing(ctx context.Context, nc *nats.Conn, subje
 	}
 
 	sub, err := nc.Subscribe(subject, func(msg *nats.Msg) {
+		w.mu.Lock()
+		w.inFlight++
+		w.mu.Unlock()
+
+		defer func() {
+			w.mu.Lock()
+			w.inFlight--
+			if w.inFlight == 0 && w.drainCh != nil {
+				close(w.drainCh)
+				w.drainCh = nil
+			}
+			w.mu.Unlock()
+		}()
+
 		w.HandleEventMessage(ctx, msg.Data)
 	})
 	if err != nil {
@@ -50,6 +68,27 @@ func (w *AuditWorker) StartSubscribing(ctx context.Context, nc *nats.Conn, subje
 	}
 
 	return sub, nil
+}
+
+// Wait blocks until all in-flight event processing goroutines have completed, or until ctx expires.
+func (w *AuditWorker) Wait(ctx context.Context) error {
+	w.mu.Lock()
+	if w.inFlight == 0 {
+		w.mu.Unlock()
+		return nil
+	}
+	if w.drainCh == nil {
+		w.drainCh = make(chan struct{})
+	}
+	ch := w.drainCh
+	w.mu.Unlock()
+
+	select {
+	case <-ch:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 func extractID(m map[string]any, key string) *string {

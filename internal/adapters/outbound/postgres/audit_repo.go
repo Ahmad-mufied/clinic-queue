@@ -3,12 +3,14 @@ package postgres
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
 	"clinic-queue/internal/core/domain"
 	"clinic-queue/internal/core/ports/outbound"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -53,6 +55,25 @@ func (r *AuditRepo) InsertLog(ctx context.Context, log *domain.AuditLog) (*domai
 	).Scan(&log.ID, &log.CreatedAt)
 
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23503" && log.UserID != nil {
+			log.Details["unlinked_user_id"] = *log.UserID
+			log.UserID = nil
+			retryJSON, _ := json.Marshal(log.Details)
+			retryErr := r.pool.QueryRow(
+				ctx,
+				query,
+				nil,
+				log.ActorName,
+				log.Role,
+				log.Action,
+				retryJSON,
+				log.IPAddress,
+			).Scan(&log.ID, &log.CreatedAt)
+			if retryErr == nil {
+				return log, nil
+			}
+		}
 		return nil, fmt.Errorf("insert audit log record: %w", err)
 	}
 

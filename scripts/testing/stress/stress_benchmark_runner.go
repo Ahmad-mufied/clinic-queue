@@ -457,9 +457,13 @@ func main() {
 	fmt.Printf("%s%s  Testing SELECT ... FOR UPDATE SKIP LOCKED isolation & zero deadlock guarantee %s\n", ColorBold, ColorCyan, ColorReset)
 	fmt.Printf("%s%s================================================================================%s\n", ColorBold, ColorPurple, ColorReset)
 
+	// Allow async background event worker to finish processing burst events
+	time.Sleep(300 * time.Millisecond)
+
 	// Clean slate and seed 10 waiting tickets
 	_, err = pool.Exec(ctx, `
-		TRUNCATE TABLE audit_logs, consultation_sessions, queue_tickets RESTART IDENTITY CASCADE;
+		DELETE FROM consultation_sessions;
+		DELETE FROM queue_tickets;
 	`)
 	if err != nil {
 		fmt.Printf("%s[ERROR] Failed to clean tables: %v%s\n", ColorRed, err, ColorReset)
@@ -978,11 +982,15 @@ func main() {
 		fmt.Printf("%s[INFO]%s Exported structured stress benchmark data to scripts/testing/stress/stress_test_results.json\n", ColorCyan, ColorReset)
 	}
 
+	// Allow background workers to finish processing any remaining queued events
+	time.Sleep(500 * time.Millisecond)
+
 	// Clean up temporary stress test data
 	_, _ = pool.Exec(ctx, `
 		DELETE FROM doctors WHERE id NOT IN ('01919df4-8e3b-7412-a1f9-90b567c9e101', '01919df4-8e3b-7412-a1f9-90b567c9e102');
 		DELETE FROM users WHERE username LIKE 'patient_burst_%' OR username LIKE 'doc_contention_%' OR username = 'patient_sse_test';
-		TRUNCATE TABLE audit_logs, consultation_sessions, queue_tickets RESTART IDENTITY CASCADE;
+		DELETE FROM consultation_sessions;
+		DELETE FROM queue_tickets;
 		UPDATE doctors SET avg_consultation_time_min = 3, is_online = true WHERE id = '01919df4-8e3b-7412-a1f9-90b567c9e101';
 		UPDATE doctors SET avg_consultation_time_min = 4, is_online = true WHERE id = '01919df4-8e3b-7412-a1f9-90b567c9e102';
 	`)

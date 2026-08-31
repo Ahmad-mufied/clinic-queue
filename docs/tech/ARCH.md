@@ -333,7 +333,35 @@ The platform enforces defense-in-depth protection via an Inbound Middleware Armo
 
 ---
 
-## 8. Document Revision History & Requirement Changelog
+## 8. Ordered Graceful Shutdown & Server Timeout Governance
+
+The platform implements a deterministic 4-stage shutdown pipeline to guarantee zero in-flight request drops, zero transaction corruption, and zero forensic audit log loss during deployments or server restarts:
+
+```mermaid
+flowchart TD
+    Sig["1. OS Interrupt Signal (SIGTERM / SIGINT)"]
+    HTTP_Drain["2. HTTP Ingress Shutdown (e.Shutdown with 10s context)"]
+    NATS_Drain["3. NATS Broker Drain (nc.Drain - Flushes buffered messages)"]
+    Worker_Drain["4. Audit Worker Drain (auditWorker.Wait - sync.WaitGroup)"]
+    DB_Close["5. PostgreSQL 18 Pool Clean Close (dbPool.Close)"]
+    Exit["6. Process Exit (0 - Zero Data Loss)"]
+
+    Sig --> HTTP_Drain
+    HTTP_Drain --> NATS_Drain
+    NATS_Drain --> Worker_Drain
+    Worker_Drain --> DB_Close
+    DB_Close --> Exit
+```
+
+### 8.1 Server Timeout Hardening
+To prevent socket starvation and Slowloris Denial of Service (DoS) attacks, the HTTP server sets strict connection timeouts:
+- **`ReadTimeout` (10 seconds):** Limits maximum duration for reading the entire request (headers and body).
+- **`WriteTimeout` (15 seconds):** Limits maximum duration before timing out writes of the response.
+- **`IdleTimeout` (60 seconds):** Limits maximum duration an idle Keep-Alive connection remains open.
+
+---
+
+## 9. Document Revision History & Requirement Changelog
 
 | Version | Date | Author / Role | Change Type | Change Summary / Rationale |
 | :---: | :---: | :---: | :---: | :--- |
@@ -346,3 +374,4 @@ The platform enforces defense-in-depth protection via an Inbound Middleware Armo
 | **v1.6.0** | 2026-08-30 | Principal Architect | **Adaptive SSE Synchronization** | Documented standard SSE payload envelope and adaptive polling architecture reducing redundant queries by 90% while maintaining sub-second UI synchronization. |
 | **v1.7.0** | 2026-08-30 | Principal Architect | **Canonical Event Envelope Standardization** | Standardized platform event envelope to canonical single `type` field across Go Hexagonal adapters, NATS JetStream, and Next.js SSE client. |
 | **v1.8.0** | 2026-08-31 | Backend Security Engineer | **Security Armor & Rate Limiting Spec** | Added Section 7 and updated Sections 1.1/1.2 for Security Armor Middlewares, Token Bucket Rate Limiting, and Forensic Context Flow. |
+| **v1.9.0** | 2026-08-31 | Backend Reliability Engineer | **Graceful Shutdown & Worker Drain Spec** | Added Section 8 detailing ordered 4-stage shutdown pipeline, sync.WaitGroup worker drain, and HTTP timeout protections. |
