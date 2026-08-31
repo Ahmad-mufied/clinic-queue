@@ -1,0 +1,89 @@
+name: CI/CD Pipeline - Build, Push & Auto Deploy
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  # ============================================================================
+  # Job 1: Build & Push Images to Docker Hub
+  # ============================================================================
+  build-and-push:
+    name: Build & Push to Docker Hub
+    runs-on: ubuntu-latest
+    outputs:
+      short_sha: ${{ steps.vars.outputs.SHORT_SHA }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract short commit hash
+        id: vars
+        run: echo "SHORT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # ------------------------------------------------------------------------
+      # Build & Push Go Backend
+      # ------------------------------------------------------------------------
+      - name: Build and push Backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/clinic-backend:${{ steps.vars.outputs.SHORT_SHA }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/clinic-backend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # ------------------------------------------------------------------------
+      # Build & Push Next.js Frontend
+      # ------------------------------------------------------------------------
+      - name: Build and push Frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./web
+          file: ./web/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/clinic-frontend:${{ steps.vars.outputs.SHORT_SHA }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/clinic-frontend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ============================================================================
+  # Job 2: Auto-Deploy to VPS via SSH
+  # ============================================================================
+  deploy-to-vps:
+    name: Auto Deploy to VPS
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger Deployment on VPS via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script: |
+            cd /opt/clinic-queue
+            git pull origin main || git pull origin master
+            chmod +x scripts/deploy.sh
+            export DOCKER_USER="${{ secrets.DOCKERHUB_USERNAME }}"
+            ./scripts/deploy.sh ${{ needs.build-and-push.outputs.short_sha }}
