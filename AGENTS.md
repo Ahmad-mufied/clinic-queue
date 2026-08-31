@@ -29,6 +29,8 @@ Backend development strictly follows the phased roadmap detailed in the document
 5. **Feature 04 & 05: Admin Analytics & Audit Trail:**  
    👉 PRD: [`docs/prd/04-admin-analytics.md`](docs/prd/04-admin-analytics.md) & [`docs/prd/05-audit-trail.md`](docs/prd/05-audit-trail.md)  
    👉 Tech: [`docs/tech/04-admin-analytics-tech.md`](docs/tech/04-admin-analytics-tech.md) & [`docs/tech/05-audit-trail-tech.md`](docs/tech/05-audit-trail-tech.md)
+6. **Security Armor & Token Bucket Rate Limiting:**  
+   👉 Tech Spec: [`docs/tech/RATE-LIMITING-AND-ARMOR-TECH.md`](docs/tech/RATE-LIMITING-AND-ARMOR-TECH.md)
 
 ## 3. Local Skills Catalog (`.agents/skills/`)
 

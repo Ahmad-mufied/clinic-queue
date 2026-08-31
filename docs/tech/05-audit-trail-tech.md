@@ -11,26 +11,31 @@ The Audit Trail subsystem implements an asynchronous, append-only event logging 
 
 ---
 
-## 2. Architecture & Pipeline Flow
+## 2. Architecture & Forensic Metadata Pipeline Flow
+
+The audit pipeline guarantees end-to-end forensic traceability from HTTP request arrival to append-only PostgreSQL storage:
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor User as User / Doctor
-    participant Echo as Echo Handler
-    participant NATS as NATS JetStream
+    actor User as User / Doctor / Patient
+    participant MW as ClientMetadata MW
+    participant Handler as Echo Handler / UseCase
+    participant NATS as NATS JetStream (clinic.events.*)
     participant Worker as Audit Worker
-    participant DB as PostgreSQL 18
+    participant DB as PostgreSQL 18 (audit_logs)
     participant SSE as SSE Stream Hub
     actor Admin as Admin Dashboard
 
-    User->>Echo: Performs Action (e.g., Call Next Patient)
-    Echo->>Echo: Mutate State & Commit Transaction
-    Echo->>NATS: Publish Event to "clinic.audit.*"
+    User->>MW: HTTP Request (IP, User-Agent, X-Request-ID)
+    MW->>Handler: Inject domain.ClientMetadata into context.Context
+    Handler->>Handler: Mutate State & Commit Business Transaction
+    Handler->>NATS: Publish EventMessage with Event & Metadata Envelope
     
-    par Async DB Persistence
-        NATS->>Worker: Consume Audit Message
-        Worker->>DB: INSERT INTO audit_logs (actor, action, details)
+    par Async Forensic DB Persistence
+        NATS->>Worker: Consume EventEnvelope (Type, Data, Metadata)
+        Worker->>Worker: Extract IP (fallback 127.0.0.1) & attach UA/ReqID to Details
+        Worker->>DB: INSERT INTO audit_logs (actor, action, ip_address, details)
     and Real-Time Admin Broadcast
         NATS->>SSE: Broadcast Message
         SSE-->>Admin: Push New Event Row via SSE
@@ -134,3 +139,4 @@ DROP TABLE IF EXISTS audit_logs;
 | **v1.1.0** | 2026-08-30 | Lead Backend Architect | **Architecture Enhancement** | Upgraded to Cursor Pagination engine, added `next_cursor` and `has_more` response metadata, and integrated NATS JetStream `AuditWorker` event ingestion. |
 | **v1.2.0** | 2026-08-30 | Lead Backend Architect | **Feature Enhancement** | Added keyword search (`search`), Date Range filtering (`start_date`, `end_date`), and bidirectional cursor sorting (`order=asc/desc`). |
 | **v1.3.0** | 2026-08-30 | Lead Backend Architect | **Native UUIDv7 Spec** | Migrated `audit_logs.id` and `audit_logs.user_id` to Native UUIDv7 (`DEFAULT uuidv7()`), updating cursor query bindings and JSON serialization. |
+| **v1.4.0** | 2026-08-31 | Backend Security Engineer | **Forensic Metadata Pipeline Flow** | Documented Section 2 sequence flow for context metadata propagation across Echo middleware, Go Context, NATS JetStream, and `AuditWorker`. |

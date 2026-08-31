@@ -69,6 +69,7 @@ It satisfies healthcare compliance standards, enables forensic accountability, a
 ### 5.1 Acceptance Criteria
 - [x] Every state-changing API request produces an audit log entry via decoupled NATS JetStream `AuditWorker`.
 - [x] Audit logs table includes `created_at`, `user_id`, `actor_name`, `role`, `action`, `details` (JSONB), and `ip_address`.
+- [x] Client forensic metadata (`ip_address`, `user_agent`, `request_id`) is captured via HTTP middleware context propagation and stored in `audit_logs` (with `user_agent` and `request_id` preserved in JSONB `details`).
 - [x] Log entries are strictly immutable (append-only) with index on `id DESC` and `(action, created_at DESC)`.
 - [x] Backend API provides high-efficiency Cursor Pagination (`cursor`, `limit`, `next_cursor`, `has_more`) to eliminate pagination drift.
 - [x] Advanced Filtering: Supports keyword search across Actor, Action, IP address, and Date Range (`start_date`, `end_date`).
@@ -91,3 +92,4 @@ It satisfies healthcare compliance standards, enables forensic accountability, a
 | **v1.1.0** | 2026-08-30 | Lead Solution Architect | **Architecture Enhancement** | Upgraded to Cursor-Based Infinite Lazy Loading (`id < cursor`), decoupled NATS JetStream async `AuditWorker` ingestion, internal table container scrolling with sticky header, and auto-fetch on scroll threshold. |
 | **v1.2.0** | 2026-08-30 | Lead Solution Architect | **Feature Enhancement** | Added keyword search (Actor, Action, IP), Date Range filters, and Bidirectional Sorting (ASC/DESC) to the Audit Trail pipeline. |
 | **v1.3.0** | 2026-08-30 | Lead Solution Architect | **Identity Design Standard** | Added Section 5.2 defining separation of internal UUIDv7 audit IDs and user IDs from human-friendly actor badges and usernames in UI activity feeds. |
+| **v1.4.0** | 2026-08-31 | Backend Security Engineer | **Forensic Metadata Spec** | Added Section 5.1 acceptance criteria for client forensic metadata propagation (`ip_address`, `user_agent`, `request_id`) across Context, NATS, and Audit Worker. |

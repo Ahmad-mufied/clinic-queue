@@ -43,6 +43,8 @@ The waiting time is computed dynamically by the **Greedy Multi-Doctor Queue Engi
   A patient who already has a ticket with status `WAITING` or `IN_CONSULTATION` attempts to join again. System returns HTTP `409 Conflict` (`"You already have an active ticket in the queue"`).
 - **[NEG-QUEUE-03] Joining Queue When Clinic Is Closed / Zero Doctors Exist:**  
   Patient attempts to join when no doctors are registered in the system. System returns HTTP `503 Service Unavailable` (`"No doctors currently configured for this clinic"`).
+- **[NEG-QUEUE-04] Queue Join Rate Limit Exceeded (Spam & Bot Prevention):**  
+  An IP client submits queue entries exceeding 30 requests/minute (burst 10) on `POST /api/queue/join`. System enforces Token Bucket rate limiting and returns HTTP `429 Too Many Requests` (`{"error": "Too many requests. Please try again later."}`).
 
 ### 3.3 Edge Cases
 - **[EDGE-QUEUE-01] All Doctors Offline / On Break:**  
@@ -64,6 +66,7 @@ The waiting time is computed dynamically by the **Greedy Multi-Doctor Queue Engi
 - [ ] SSE updates are received by all connected clients in $< 100\text{ms}$ after any queue event.
 - [ ] When called by a doctor, patient's screen highlights with room assignment (e.g., *"Please enter Doctor A's Room"*).
 - [ ] Ticket lifecycle transitions (`QUEUE_JOINED`, `QUEUE_CANCELLED`) are persisted to `audit_logs`.
+- [ ] Queue registration endpoint (`/api/queue/join`) is protected by Token Bucket Rate Limiting (30 req/min, burst 10 per client IP) returning HTTP `429 Too Many Requests`.
 
 ### 4.2 Identity & Identifier Separation (Database UUIDv7 vs Display Queue Number)
 - **Database Identity (`id`):** 128-bit Native UUIDv7 string (e.g. `01919df4-8e3b-7412-a1f9-90b567c9e301`) for database relationships and transaction atomicity.
@@ -77,3 +80,4 @@ The waiting time is computed dynamically by the **Greedy Multi-Doctor Queue Engi
 | :---: | :---: | :---: | :---: | :--- |
 | **v1.0.0** | 2026-08-29 | Solution Architect | **Initial Baseline** | Initial creation of the Patient Queue PRD. |
 | **v1.1.0** | 2026-08-30 | Solution Architect | **Identity Design Standard** | Added Section 4.2 defining separation of internal UUIDv7 ticket IDs from human-facing queue numbers (`queue_number: A-01`) for waiting room displays and audio callouts. |
+| **v1.2.0** | 2026-08-31 | Backend Security Engineer | **Rate Limiting Spec** | Added [NEG-QUEUE-04] and Section 4.1 acceptance criteria for Token Bucket Rate Limiting (30 req/min, burst 10 per IP) on queue entry endpoints. |

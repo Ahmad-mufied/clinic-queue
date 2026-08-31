@@ -16,7 +16,7 @@ flowchart TD
     subgraph InboundAdapters["Inbound Adapters (Driving)"]
         HTTP[Echo v4 HTTP Handlers]
         SSE_ADAPTER[SSE Streaming Adapter]
-        MW[JWT & Casbin Middleware]
+        MW["Security & Armor Middleware\n(RequestID, Secure, BodyLimit, ClientMetadata, CORS, RateLimit, JWT, Casbin)"]
     end
 
     subgraph HexagonalCore["HEXAGONAL CORE (Pure Go - Zero External Deps)"]
@@ -28,7 +28,7 @@ flowchart TD
         end
         
         subgraph Domain["Core Domain & Logic"]
-            Entities[User, Doctor, QueueTicket, Session]
+            Entities[User, Doctor, QueueTicket, Session, ClientMetadata]
             Engine[Core Greedy Queue Engine]
         end
 
@@ -70,6 +70,26 @@ flowchart TD
     NATS_PUB -.->|Pub/Sub Event Stream| SSE_ADAPTER
 ```
 
+### 1.2 Inbound Middleware Pipeline & Forensic Context Flow
+
+Every inbound HTTP request traverses a hardened middleware armor chain before reaching domain handlers:
+
+```mermaid
+flowchart LR
+    Req[Incoming HTTP Request] --> M1[1. RequestID\nX-Request-ID]
+    M1 --> M2[2. Logger & Recover]
+    M2 --> M3[3. Secure Armor\nX-Frame, X-XSS, CSP]
+    M3 --> M4[4. BodyLimit\nMax 1MB]
+    M4 --> M5[5. ClientMetadata\nIP, UA, ReqID -> Context]
+    M5 --> M6[6. CORS Config\nOrigin Whitelisting]
+    M6 --> M7[7. RateLimiter\nToken Bucket 10-30 req/min]
+    M7 --> M8[8. JWT Auth\nBearer Token]
+    M8 --> M9[9. Casbin RBAC\nRole Matrix Enforce]
+    M9 --> Handler[Domain HTTP Handler]
+```
+
+Forensic client metadata (`ClientIP`, `UserAgent`, `RequestID`) is extracted early in the pipeline, attached to the standard Go `context.Context`, and seamlessly propagated across Hexagonal Core boundaries to NATS Event Envelopes and the asynchronous `AuditWorker`.
+
 ---
 
 ## 2. Directory Structure & Hexagonal Layering
@@ -88,6 +108,7 @@ code/web-app/
 │   │   │   ├── queue.go
 │   │   │   ├── session.go
 │   │   │   ├── audit.go
+│   │   │   ├── metadata.go              # Client Forensic Metadata & Context Helpers
 │   │   │   └── calculator.go            # Pure Deterministic Greedy Queue Engine
 │   │   │
 │   │   ├── ports/                       # Interfaces (Decoupled Inbound & Outbound)
@@ -120,9 +141,13 @@ code/web-app/
 │       │   │   ├── doctor_handler.go
 │       │   │   ├── admin_handler.go
 │       │   │   └── sse_handler.go
-│       │   └── middleware/
-│       │       ├── jwt_auth.go
-│       │       └── casbin_rbac.go
+│       │   ├── middleware/
+│       │   │   ├── jwt_auth.go
+│       │   │   ├── casbin_rbac.go
+│       │   │   ├── metadata.go          # Forensic Metadata Context Injector
+│       │   │   └── rate_limiter.go      # Token Bucket Rate Limiters (Auth & Queue)
+│       │   └── worker/
+│       │       └── audit_worker.go      # NATS JetStream Consumer -> audit_logs
 │       │
 │       └── outbound/                    # Driven Adapters (Implements Outbound Ports)
 │           ├── postgres/                # PostgreSQL 18 repository implementation (pgx/v5)
@@ -134,7 +159,7 @@ code/web-app/
 │           │   └── audit_repo.go
 │           └── nats/                    # NATS JetStream event publisher & consumer
 │               ├── nats_client.go
-│               └── nats_event_publisher.go
+│               └── nats_publisher.go
 │
 ├── config/                              # Casbin Model, Policy & Env Config
 ├── migrations/                          # Goose SQL Migrations
@@ -295,7 +320,20 @@ All entity primary keys, relational foreign keys, and security boundaries across
 
 ---
 
-## 7. Document Revision History & Requirement Changelog
+## 7. Security Armor & Token Bucket Rate Limiting Architecture
+
+The platform enforces defense-in-depth protection via an Inbound Middleware Armor chain (RequestID, Secure Headers, BodyLimit, Whitelisted CORS, and Token Bucket Rate Limiting):
+1. **Token Bucket Rate Limiting:** Enforces strict burst-tolerant limits ($10\text{ req/min}$, burst $5$ on Auth; $30\text{ req/min}$, burst $10$ on Queue Join) via `golang.org/x/time/rate`.
+2. **Forensic Context Propagation:** Automatically captures `ClientIP`, `UserAgent`, and `RequestID` in request context and forwards them asynchronously through NATS JetStream into PostgreSQL `audit_logs`.
+3. **Payload & Frame Armor:** Constrains request body payloads to $1\text{MB}$ and enforces strict CSP, Frame, and MIME security headers.
+
+> [!NOTE]
+> For the comprehensive technical specification, mathematical formulations, algorithm comparisons, and sequence diagrams, refer to:  
+> **[`docs/tech/RATE-LIMITING-AND-ARMOR-TECH.md`](file:///mnt/Cons/Code/Project/Jobs/Noak/code/web-app/docs/tech/RATE-LIMITING-AND-ARMOR-TECH.md)**
+
+---
+
+## 8. Document Revision History & Requirement Changelog
 
 | Version | Date | Author / Role | Change Type | Change Summary / Rationale |
 | :---: | :---: | :---: | :---: | :--- |
@@ -307,3 +345,4 @@ All entity primary keys, relational foreign keys, and security boundaries across
 | **v1.5.0** | 2026-08-30 | Principal Architect | **Native UUIDv7 & Identity Spec** | Migrated entity identification to Native UUIDv7 (PostgreSQL 18 `uuidv7()` + Go 1.27 `uuid` pkg) and added Section 6.2 Dual-Layer Identity Architecture separating DB keys from human display codes. |
 | **v1.6.0** | 2026-08-30 | Principal Architect | **Adaptive SSE Synchronization** | Documented standard SSE payload envelope and adaptive polling architecture reducing redundant queries by 90% while maintaining sub-second UI synchronization. |
 | **v1.7.0** | 2026-08-30 | Principal Architect | **Canonical Event Envelope Standardization** | Standardized platform event envelope to canonical single `type` field across Go Hexagonal adapters, NATS JetStream, and Next.js SSE client. |
+| **v1.8.0** | 2026-08-31 | Backend Security Engineer | **Security Armor & Rate Limiting Spec** | Added Section 7 and updated Sections 1.1/1.2 for Security Armor Middlewares, Token Bucket Rate Limiting, and Forensic Context Flow. |

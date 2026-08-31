@@ -13,33 +13,54 @@ The Authentication & RBAC subsystem provides stateless JWT token issuance, verif
 
 ## 2. Architecture & Mechanism
 
-### 2.1 Echo Middleware Pipeline
+### 2.1 Echo Middleware Pipeline & Security Armor
+
+The Echo HTTP routing layer is fortified with an ordered security armor chain:
+
+1. **`echoMW.RequestID()`**: Generates or propagates `X-Request-ID` UUIDv7 header for distributed tracing.
+2. **`echoMW.Logger()` & `echoMW.Recover()`**: Structured request logging and panic recovery.
+3. **`echoMW.Secure()`**: Sets defensive HTTP headers (`X-XSS-Protection`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`, and strict CSP).
+4. **`echoMW.BodyLimit("1M")`**: Rejects request payloads exceeding 1MB with `413 Payload Too Large` to prevent buffer exhaustion.
+5. **`customMW.ClientMetadataMiddleware()`**: Injects forensic client metadata (`ClientIP`, `UserAgent`, `RequestID`) into the Go request `context.Context`.
+6. **`echoMW.CORSWithConfig(...)`**: Strict origin whitelisting configured via `CORS_ALLOWED_ORIGINS` environment variable.
+7. **`customMW.RateLimiter`**: Token Bucket rate limiters (`golang.org/x/time/rate` via Echo memory store) on sensitive endpoints:
+   - **Auth Endpoints (`/api/auth/login`, `/api/auth/register`)**: Rate = 10 req/min, Burst = 5 per IP.
+   - **Queue Endpoints (`/api/queue/join`)**: Rate = 30 req/min, Burst = 10 per IP.
+8. **`customMW.JWTAuth` & `customMW.CasbinRBAC`**: Token validation and policy enforcement.
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor Client as Next.js Client
     participant Echo as Echo Router
+    participant Armor as Security Armor (ID, Secure, Limit, Meta, CORS, RateLimit)
     participant JWT as JWT Middleware
     participant Casbin as Casbin Enforcer
     participant Handler as Domain Handler
     participant DB as PostgreSQL 18
 
     Client->>Echo: HTTP Request + Bearer <token>
-    Echo->>JWT: Intercept Request
-    alt Token Missing / Invalid / Expired
-        JWT-->>Client: HTTP 401 Unauthorized
-    else Token Valid
-        JWT->>JWT: Extract Claims (user_id, role, doctor_id)
-        JWT->>Echo: Store Claims in echo.Context
-        Echo->>Casbin: Enforce(role, path, method)
-        alt Policy Denied
-            Casbin-->>Client: HTTP 403 Forbidden
-        else Policy Allowed
-            Casbin->>Handler: Proceed with Request
-            Handler->>DB: Execute Query
-            DB-->>Handler: Return Data
-            Handler-->>Client: HTTP 200/201 JSON Response
+    Echo->>Armor: Intercept & Armor Request
+    alt Rate Limit Exceeded
+        Armor-->>Client: HTTP 429 Too Many Requests
+    else Payload > 1MB
+        Armor-->>Client: HTTP 413 Payload Too Large
+    else Armor Passed
+        Armor->>JWT: Pass Request with Context Metadata
+        alt Token Missing / Invalid / Expired
+            JWT-->>Client: HTTP 401 Unauthorized
+        else Token Valid
+            JWT->>JWT: Extract Claims (user_id, role, doctor_id)
+            JWT->>Echo: Store Claims in echo.Context
+            Echo->>Casbin: Enforce(role, path, method)
+            alt Policy Denied
+                Casbin-->>Client: HTTP 403 Forbidden
+            else Policy Allowed
+                Casbin->>Handler: Proceed with Request
+                Handler->>DB: Execute Query
+                DB-->>Handler: Return Data
+                Handler-->>Client: HTTP 200/201 JSON Response
+            end
         end
     end
 ```
@@ -233,3 +254,4 @@ type mockUserRepoPort struct {
 | **v1.2.0** | 2026-08-29 | Backend Lead | **Hexagonal Refactor** | Refactored testing paths and mock ports to strictly align with Hexagonal Architecture (`core/usecase` and `adapters/inbound/http`). |
 | **v1.3.0** | 2026-08-29 | Backend Lead | **Policy & E2E Alignment** | Added Casbin role inheritance (`g, role, public`) allowing authenticated personas to access public/profile routes; verified with live E2E integration tests. |
 | **v1.4.0** | 2026-08-30 | Backend Lead | **Native UUIDv7 Spec** | Migrated `users.id` and `users.doctor_id` to Native UUIDv7 (`DEFAULT uuidv7()`), updating JWT claims, Ports, UseCases, and Table-Driven test assertions. |
+| **v1.5.0** | 2026-08-31 | Backend Security Engineer | **Security Armor & Rate Limiting** | Updated Section 2.1 with Echo Security Armor Pipeline (`RequestID`, `Secure`, `BodyLimit`, `ClientMetadata`, `CORS`, Token Bucket `RateLimiter`). |

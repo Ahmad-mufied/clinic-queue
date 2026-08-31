@@ -43,6 +43,8 @@ It also provides a **One-Click Demo Switcher** allowing technical evaluators and
   Client sends request with an expired, forged, or missing `Authorization: Bearer <token>` header to protected routes. System returns HTTP `401 Unauthorized`.
 - **[NEG-AUTH-04] Duplicate Registration:**  
   Patient attempts to register with an existing username. System returns HTTP `409 Conflict` (`"Username already exists"`).
+- **[NEG-AUTH-05] Rate Limit Exceeded (Brute-Force & Credential Stuffing Defense):**  
+  An IP client exceeds the authentication rate limit (10 requests/minute, burst 5) on `POST /api/auth/login` or `POST /api/auth/register`. System enforces Token Bucket rate limiting and returns HTTP `429 Too Many Requests` (`{"error": "Too many requests. Please try again later."}`).
 
 ### 3.3 Edge Cases
 - **[EDGE-AUTH-01] Doctor Account without Linked Doctor ID:**  
@@ -62,6 +64,7 @@ It also provides a **One-Click Demo Switcher** allowing technical evaluators and
 - [ ] Casbin policies restrict routes according to the 3-role matrix (`patient`, `doctor`, `admin`).
 - [ ] Failed login attempts and successful logins emit `AUTH_LOGIN` audit log entries.
 - [ ] Pre-seeded demo credentials exist for Doctor A, Doctor B, Patient John, and Admin.
+- [ ] Authentication endpoints (`/api/auth/login`, `/api/auth/register`) are protected by Token Bucket Rate Limiting (10 req/min, burst 5 per client IP) returning HTTP `429 Too Many Requests`.
 
 ### 4.2 Identity & Identifier Separation (Database UUIDv7 vs Display Username)
 - **Database Identity (`id`):** 128-bit Native UUIDv7 string (e.g. `01919df4-8e3b-7412-a1f9-90b567c9e101`) for unguessable primary keys and JWT `user_id` subject claim.
@@ -75,3 +78,4 @@ It also provides a **One-Click Demo Switcher** allowing technical evaluators and
 | :---: | :---: | :---: | :---: | :--- |
 | **v1.0.0** | 2026-08-29 | Solution Architect | **Initial Baseline** | Initial creation of the Authentication & RBAC feature PRD. |
 | **v1.1.0** | 2026-08-30 | Solution Architect | **Identity Design Standard** | Added Section 4.2 defining separation of internal UUIDv7 user IDs from human-facing login usernames and display names. |
+| **v1.2.0** | 2026-08-31 | Backend Security Engineer | **Rate Limiting & Armor Spec** | Added [NEG-AUTH-05] and Section 4.1 acceptance criteria for Token Bucket Rate Limiting (10 req/min, burst 5 per IP) to mitigate brute-force and credential stuffing attacks. |
