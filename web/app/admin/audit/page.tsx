@@ -630,6 +630,33 @@ export default function AdminAuditTrailPage() {
                 })()}
               </div>
 
+              {/* Forensic Context Badges (Request ID & User Agent) */}
+              {(inspectLog.details?.request_id || inspectLog.details?.user_agent) && (
+                <div className="p-3.5 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 space-y-2 text-xs">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                    Forensic Context & Provenance
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {inspectLog.details?.request_id && (
+                      <div className="flex items-center justify-between p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 font-mono text-[11px]">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="text-slate-400 font-semibold">Req ID:</span>
+                          <span className="text-slate-700 dark:text-slate-200 truncate select-all">{inspectLog.details.request_id}</span>
+                        </div>
+                      </div>
+                    )}
+                    {inspectLog.details?.user_agent && (
+                      <div className="flex items-center p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 text-[11px]">
+                        <span className="text-slate-400 font-semibold mr-1.5 shrink-0">Client Agent:</span>
+                        <span className="text-slate-600 dark:text-slate-300 truncate font-mono" title={inspectLog.details.user_agent}>
+                          {inspectLog.details.user_agent}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* JSON Metadata Viewer Card (Clean Light Aesthetic) */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">

@@ -98,6 +98,24 @@ class APIClient {
         }
       }
 
+      if (response.status === 429) {
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("clinic:rate-limited"));
+        }
+        let rateLimitMsg = "Too many requests (Rate limit exceeded). Please wait a few moments before trying again.";
+        try {
+          const errorData = await response.json();
+          if (errorData.error) {
+            rateLimitMsg = errorData.error;
+          } else if (errorData.message) {
+            rateLimitMsg = errorData.message;
+          }
+        } catch {
+          // Fallback to default rateLimitMsg
+        }
+        throw new Error(rateLimitMsg);
+      }
+
       let errorMsg = `HTTP ${response.status} ${response.statusText}`;
       try {
         const errorData = await response.json();
