@@ -50,8 +50,10 @@ func TestAuthHandler_RegisterRoutes(t *testing.T) {
 
 	dummyAuthMW := func(next echo.HandlerFunc) echo.HandlerFunc { return next }
 	dummyRbacMW := func(next echo.HandlerFunc) echo.HandlerFunc { return next }
+	dummyRateMW := func(next echo.HandlerFunc) echo.HandlerFunc { return next }
 
-	handler.RegisterRoutes(e, dummyAuthMW, dummyRbacMW)
+	// Test with rate limiter
+	handler.RegisterRoutes(e, dummyAuthMW, dummyRbacMW, dummyRateMW)
 
 	routes := e.Routes()
 	expectedRoutes := map[string]string{
@@ -70,7 +72,15 @@ func TestAuthHandler_RegisterRoutes(t *testing.T) {
 	if len(expectedRoutes) > 0 {
 		t.Errorf("missing expected routes: %+v", expectedRoutes)
 	}
+
+	// Test without rate limiter
+	e2 := echo.New()
+	handler.RegisterRoutes(e2, dummyAuthMW, dummyRbacMW)
+	if len(e2.Routes()) == 0 {
+		t.Error("expected routes registered on e2")
+	}
 }
+
 
 func TestAuthHandler_Login(t *testing.T) {
 	tests := []struct {

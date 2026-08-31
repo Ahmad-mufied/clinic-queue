@@ -23,12 +23,18 @@ func NewAuthHandler(authUseCase inbound.AuthUseCase) *AuthHandler {
 }
 
 // RegisterRoutes registers the authentication routes on the provided Echo instance.
-func (h *AuthHandler) RegisterRoutes(e *echo.Echo, authMW echo.MiddlewareFunc, rbacMW echo.MiddlewareFunc) {
+func (h *AuthHandler) RegisterRoutes(e *echo.Echo, authMW echo.MiddlewareFunc, rbacMW echo.MiddlewareFunc, rateLimitMW ...echo.MiddlewareFunc) {
 	authGroup := e.Group("/api/auth")
-	authGroup.POST("/login", h.Login)
-	authGroup.POST("/register", h.Register)
+	if len(rateLimitMW) > 0 && rateLimitMW[0] != nil {
+		authGroup.POST("/login", h.Login, rateLimitMW[0])
+		authGroup.POST("/register", h.Register, rateLimitMW[0])
+	} else {
+		authGroup.POST("/login", h.Login)
+		authGroup.POST("/register", h.Register)
+	}
 	authGroup.GET("/me", h.GetMe, authMW, rbacMW)
 }
+
 
 // handleAuthError maps domain authentication errors to appropriate HTTP responses.
 func handleAuthError(c echo.Context, err error) error {

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"clinic-queue/internal/core/domain"
 	"clinic-queue/internal/core/ports/outbound"
 
 	"github.com/nats-io/nats.go"
@@ -31,9 +32,10 @@ var _ outbound.EventPublisherPort = (*NATSEventPublisher)(nil)
 
 // EventMessage represents the standard envelope for published clinic events.
 type EventMessage struct {
-	Type      string    `json:"type"`
-	Data      any       `json:"data"`
-	Timestamp time.Time `json:"timestamp"`
+	Type      string                `json:"type"`
+	Data      any                   `json:"data"`
+	Timestamp time.Time             `json:"timestamp"`
+	Metadata  domain.ClientMetadata `json:"metadata,omitempty"`
 }
 
 // PublishEvent serializes the event payload to JSON and publishes it to NATS JetStream.
@@ -45,6 +47,13 @@ func (p *NATSEventPublisher) PublishEvent(ctx context.Context, eventType string,
 		Data:      payload,
 		Timestamp: time.Now().UTC(),
 	}
+
+	if ctx != nil {
+		if meta, ok := domain.GetClientMetadata(ctx); ok {
+			msg.Metadata = meta
+		}
+	}
+
 
 	data, err := json.Marshal(msg)
 	if err != nil {

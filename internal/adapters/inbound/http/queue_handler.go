@@ -23,12 +23,17 @@ func NewQueueHandler(queueUseCase inbound.QueueUseCase) *QueueHandler {
 }
 
 // RegisterRoutes registers the queue routes on the Echo instance.
-func (h *QueueHandler) RegisterRoutes(e *echo.Echo, authMW echo.MiddlewareFunc, rbacMW echo.MiddlewareFunc) {
+func (h *QueueHandler) RegisterRoutes(e *echo.Echo, authMW echo.MiddlewareFunc, rbacMW echo.MiddlewareFunc, rateLimitMW ...echo.MiddlewareFunc) {
 	queueGroup := e.Group("/api/queue")
-	queueGroup.POST("/join", h.JoinQueue, authMW, rbacMW)
+	if len(rateLimitMW) > 0 && rateLimitMW[0] != nil {
+		queueGroup.POST("/join", h.JoinQueue, authMW, rbacMW, rateLimitMW[0])
+	} else {
+		queueGroup.POST("/join", h.JoinQueue, authMW, rbacMW)
+	}
 	queueGroup.GET("/my-ticket", h.GetMyTicket, authMW, rbacMW)
 	queueGroup.GET("/status", h.GetQueueStatus, rbacMW)
 }
+
 
 // handleQueueError maps domain errors to appropriate HTTP responses.
 func handleQueueError(c echo.Context, err error) error {

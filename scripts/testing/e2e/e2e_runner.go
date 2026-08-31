@@ -229,7 +229,15 @@ type APIResponse struct {
 	Duration   time.Duration
 }
 
+var e2eIPCounter uint64
+
 func (c *TestClient) Request(method, path string, token string, body interface{}) (*APIResponse, error) {
+	curr := atomic.AddUint64(&e2eIPCounter, 1)
+	clientIP := fmt.Sprintf("10.0.%d.%d", (curr/256)%256, curr%256)
+	return c.RequestWithIP(method, path, token, body, clientIP)
+}
+
+func (c *TestClient) RequestWithIP(method, path string, token string, body interface{}, clientIP string) (*APIResponse, error) {
 	var bodyReader io.Reader
 	if body != nil {
 		switch v := body.(type) {
@@ -253,6 +261,10 @@ func (c *TestClient) Request(method, path string, token string, body interface{}
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	if clientIP != "" {
+		req.Header.Set("X-Forwarded-For", clientIP)
+		req.Header.Set("X-Real-IP", clientIP)
+	}
 	if token != "" {
 		if strings.HasPrefix(token, "Bearer ") || strings.HasPrefix(token, "Raw:") {
 			req.Header.Set("Authorization", strings.TrimPrefix(token, "Raw:"))
@@ -530,6 +542,22 @@ func main() {
 		tracker.Record("AUTH-13", "Authentication", "/api/auth/me", "Attacker", "Forged JWT Signature Guard", "HTTP 401 Unauthorized", "HTTP 401 Unauthorized", "PASS", "", resp.Duration)
 	} else {
 		tracker.Record("AUTH-13", "Authentication", "/api/auth/me", "Attacker", "Forged JWT Signature Guard", "HTTP 401", fmt.Sprintf("HTTP %d", resp.StatusCode), "FAIL", string(resp.Body), resp.Duration)
+	}
+
+	// AUTH-14: Negative - Token Bucket Rate Limiting Guard (Attacker 6th Request on Same IP)
+	attackerIP := "198.51.100.99"
+	for i := 1; i <= 5; i++ {
+		_, _ = client.RequestWithIP("POST", "/api/auth/login", "", map[string]string{"username": "admin", "password": "wrongpassword"}, attackerIP)
+	}
+	resp, err = client.RequestWithIP("POST", "/api/auth/login", "", map[string]string{"username": "admin", "password": "wrongpassword"}, attackerIP)
+	if resp != nil && resp.StatusCode == http.StatusTooManyRequests {
+		tracker.Record("AUTH-14", "Authentication", "/api/auth/login", "Attacker", "Token Bucket Rate Limit Guard (6th Req)", "HTTP 429 Too Many Requests", "HTTP 429 Too Many Requests", "PASS", "", resp.Duration)
+	} else {
+		actual := "nil"
+		if resp != nil {
+			actual = fmt.Sprintf("HTTP %d", resp.StatusCode)
+		}
+		tracker.Record("AUTH-14", "Authentication", "/api/auth/login", "Attacker", "Token Bucket Rate Limit Guard (6th Req)", "HTTP 429 Too Many Requests", actual, "FAIL", "Expected 429 after 5 burst attempts on same IP", 0)
 	}
 
 	// RBAC Matrix Enforcement Tests

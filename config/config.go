@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -16,6 +17,8 @@ type Config struct {
 	NATSURL            string
 	CasbinModelPath    string
 	CasbinPolicyPath   string
+	CORSAllowedOrigins []string
+	RateLimitEnabled   bool
 }
 
 // LoadConfig loads configuration from environment variables and an optional .env file.
@@ -30,10 +33,27 @@ func LoadConfig() (*Config, error) {
 	natsURL := getEnv("NATS_URL", "nats://localhost:4222")
 	casbinModel := getEnv("CASBIN_MODEL_PATH", "config/rbac_model.conf")
 	casbinPolicy := getEnv("CASBIN_POLICY_PATH", "config/rbac_policy.csv")
+	corsOriginsStr := getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8080")
+	rateLimitEnabledStr := getEnv("RATE_LIMIT_ENABLED", "true")
 
 	jwtExpHours, err := strconv.Atoi(jwtExpHoursStr)
 	if err != nil || jwtExpHours <= 0 {
 		jwtExpHours = 24
+	}
+
+	rateLimitEnabled := true
+	if parsed, err := strconv.ParseBool(rateLimitEnabledStr); err == nil {
+		rateLimitEnabled = parsed
+	}
+
+	var corsOrigins []string
+	for _, origin := range strings.Split(corsOriginsStr, ",") {
+		if trimmed := strings.TrimSpace(origin); trimmed != "" {
+			corsOrigins = append(corsOrigins, trimmed)
+		}
+	}
+	if len(corsOrigins) == 0 {
+		corsOrigins = []string{"http://localhost:3000", "http://localhost:8080"}
 	}
 
 	return &Config{
@@ -44,6 +64,8 @@ func LoadConfig() (*Config, error) {
 		NATSURL:            natsURL,
 		CasbinModelPath:    casbinModel,
 		CasbinPolicyPath:   casbinPolicy,
+		CORSAllowedOrigins: corsOrigins,
+		RateLimitEnabled:   rateLimitEnabled,
 	}, nil
 }
 
@@ -53,3 +75,4 @@ func getEnv(key, fallback string) string {
 	}
 	return fallback
 }
+

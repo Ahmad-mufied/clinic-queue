@@ -40,15 +40,19 @@ type mockUserRepo struct {
 
 func TestAuditWorker_HandleEventMessage(t *testing.T) {
 	tests := []struct {
-		name          string
-		event         string
-		data          map[string]any
-		rawJSON       []byte
-		recordLogErr  error
+		name           string
+		event          string
+		data           map[string]any
+		metadata       *domain.ClientMetadata
+		rawJSON        []byte
+		recordLogErr   error
 		expectedAction string
-		expectedRole  string
-		expectedActor string
-		expectRecord  bool
+		expectedRole   string
+		expectedActor  string
+		expectedIP     string
+		expectedUA     string
+		expectedReqID  string
+		expectRecord   bool
 	}{
 		{
 			name:  "Handle QUEUE_JOINED",
@@ -61,8 +65,31 @@ func TestAuditWorker_HandleEventMessage(t *testing.T) {
 			expectedAction: "QUEUE_JOINED",
 			expectedRole:   string(domain.RolePatient),
 			expectedActor:  "Alice Smith",
+			expectedIP:     "127.0.0.1",
 			expectRecord:   true,
 		},
+		{
+			name:  "Handle QUEUE_JOINED with full ClientMetadata",
+			event: "QUEUE_JOINED",
+			data: map[string]any{
+				"patient_name": "Alice Smith",
+				"user_id":      float64(10),
+				"queue_number": "A-01",
+			},
+			metadata: &domain.ClientMetadata{
+				ClientIP:  "203.0.113.50",
+				UserAgent: "Mozilla/5.0 ClinicClient",
+				RequestID: "req-trace-uuid-999",
+			},
+			expectedAction: "QUEUE_JOINED",
+			expectedRole:   string(domain.RolePatient),
+			expectedActor:  "Alice Smith",
+			expectedIP:     "203.0.113.50",
+			expectedUA:     "Mozilla/5.0 ClinicClient",
+			expectedReqID:  "req-trace-uuid-999",
+			expectRecord:   true,
+		},
+
 		{
 			name:  "Handle TICKET_CALLED",
 			event: "TICKET_CALLED",
@@ -369,6 +396,62 @@ func TestAuditWorker_HandleEventMessage(t *testing.T) {
 			expectRecord:   true,
 		},
 		{
+			name:  "Handle TICKET_CALLED with doctor_id as float64",
+			event: "TICKET_CALLED",
+			data: map[string]any{
+				"doctor_id": float64(42),
+			},
+			expectedAction: "CONSULTATION_STARTED",
+			expectedRole:   string(domain.RoleDoctor),
+			expectedActor:  "Dr. Doctor 42",
+			expectRecord:   true,
+		},
+		{
+			name:  "Handle TICKET_FINISHED with doctor_id as float64",
+			event: "TICKET_FINISHED",
+			data: map[string]any{
+				"doctor_id": float64(42),
+			},
+			expectedAction: "CONSULTATION_FINISHED",
+			expectedRole:   string(domain.RoleDoctor),
+			expectedActor:  "Dr. Doctor 42",
+			expectRecord:   true,
+		},
+		{
+			name:  "Handle DOCTOR_STATUS_CHANGED with doctor_id as float64",
+			event: "DOCTOR_STATUS_CHANGED",
+			data: map[string]any{
+				"doctor_id": float64(42),
+			},
+			expectedAction: "DOCTOR_STATUS_CHANGED",
+			expectedRole:   string(domain.RoleDoctor),
+			expectedActor:  "Dr. Doctor 42",
+			expectRecord:   true,
+		},
+		{
+			name:  "Handle DOCTOR_CONFIG_UPDATED with user_id",
+			event: "DOCTOR_CONFIG_UPDATED",
+			data: map[string]any{
+				"user_id":   "01919df4-8e3b-7412-a1f9-90b567c9e205",
+				"doctor_id": "01919df4-8e3b-7412-a1f9-90b567c9e101",
+			},
+			expectedAction: "DOCTOR_CONFIG_UPDATED",
+			expectedRole:   string(domain.RoleAdmin),
+			expectedActor:  "Clinic Administrator",
+			expectRecord:   true,
+		},
+		{
+			name:  "Handle DOCTOR_CONFIG_UPDATED with default admin ID fallback",
+			event: "DOCTOR_CONFIG_UPDATED",
+			data: map[string]any{
+				"doctor_id": "01919df4-8e3b-7412-a1f9-90b567c9e101",
+			},
+			expectedAction: "DOCTOR_CONFIG_UPDATED",
+			expectedRole:   string(domain.RoleAdmin),
+			expectedActor:  "Clinic Administrator",
+			expectRecord:   true,
+		},
+		{
 			name:  "Handle Error in RecordLog gracefully",
 			event: "QUEUE_JOINED",
 			data: map[string]any{
@@ -394,6 +477,19 @@ func TestAuditWorker_HandleEventMessage(t *testing.T) {
 					if tt.expectedActor != "" && dto.ActorName != tt.expectedActor {
 						t.Errorf("expected actor %q, got %q", tt.expectedActor, dto.ActorName)
 					}
+					if tt.expectedIP != "" && dto.IPAddress != tt.expectedIP {
+						t.Errorf("expected IP %q, got %q", tt.expectedIP, dto.IPAddress)
+					}
+					if tt.expectedUA != "" {
+						if ua, ok := dto.Details["user_agent"].(string); !ok || ua != tt.expectedUA {
+							t.Errorf("expected user_agent %q, got %v", tt.expectedUA, dto.Details["user_agent"])
+						}
+					}
+					if tt.expectedReqID != "" {
+						if reqID, ok := dto.Details["request_id"].(string); !ok || reqID != tt.expectedReqID {
+							t.Errorf("expected request_id %q, got %v", tt.expectedReqID, dto.Details["request_id"])
+						}
+					}
 					return &domain.AuditLog{ID: "01919df4-8e3b-7412-a1f9-90b567c9e501"}, tt.recordLogErr
 				},
 			}
@@ -413,6 +509,9 @@ func TestAuditWorker_HandleEventMessage(t *testing.T) {
 					Data:      dataBytes,
 					Timestamp: time.Now().UTC().Format(time.RFC3339),
 				}
+				if tt.metadata != nil {
+					envelope.Metadata = *tt.metadata
+				}
 				msgBytes, _ = json.Marshal(envelope)
 			}
 
@@ -424,6 +523,7 @@ func TestAuditWorker_HandleEventMessage(t *testing.T) {
 		})
 	}
 }
+
 
 func TestAuditWorker_StartSubscribing(t *testing.T) {
 	mockUC := &mockAuditUseCase{}

@@ -113,16 +113,22 @@ func main() {
 	e := echo.New()
 	e.HideBanner = true
 
+	e.Use(echoMW.RequestID())
 	e.Use(echoMW.Logger())
 	e.Use(echoMW.Recover())
+	e.Use(echoMW.Secure())
+	e.Use(echoMW.BodyLimit("1M"))
+	e.Use(customMW.ClientMetadataMiddleware())
 	e.Use(echoMW.CORSWithConfig(echoMW.CORSConfig{
-		AllowOrigins: []string{"*"},
+		AllowOrigins: cfg.CORSAllowedOrigins,
 		AllowMethods: []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodOptions},
-		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
+		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization, echo.HeaderXRequestID},
 	}))
 
 	jwtAuthMW := customMW.JWTAuth(cfg.JWTSecret)
 	casbinRBACMW := customMW.CasbinRBAC(enforcer)
+	authRateLimiter := customMW.NewAuthRateLimiter(cfg.RateLimitEnabled)
+	queueRateLimiter := customMW.NewQueueRateLimiter(cfg.RateLimitEnabled)
 
 	// 8. Register Route Handlers
 	e.GET("/health", func(c echo.Context) error {
@@ -133,12 +139,13 @@ func main() {
 		})
 	})
 
-	authHandler.RegisterRoutes(e, jwtAuthMW, casbinRBACMW)
-	queueHandler.RegisterRoutes(e, jwtAuthMW, casbinRBACMW)
+	authHandler.RegisterRoutes(e, jwtAuthMW, casbinRBACMW, authRateLimiter)
+	queueHandler.RegisterRoutes(e, jwtAuthMW, casbinRBACMW, queueRateLimiter)
 	doctorHandler.RegisterRoutes(e, jwtAuthMW, casbinRBACMW)
 	adminHandler.RegisterRoutes(e, jwtAuthMW, casbinRBACMW)
 	auditHandler.RegisterRoutes(e, jwtAuthMW, casbinRBACMW)
 	sseHandler.RegisterRoutes(e, casbinRBACMW)
+
 
 
 	// 9. Start HTTP Server with Graceful Shutdown

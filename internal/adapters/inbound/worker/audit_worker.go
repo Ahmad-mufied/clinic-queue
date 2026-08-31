@@ -30,9 +30,10 @@ func NewAuditWorker(auditUseCase inbound.AuditUseCase, userRepo outbound.UserRep
 
 // EventEnvelope represents the standard event message payload published across the platform.
 type EventEnvelope struct {
-	Type      string          `json:"type"`
-	Data      json.RawMessage `json:"data"`
-	Timestamp string          `json:"timestamp"`
+	Type      string                `json:"type"`
+	Data      json.RawMessage       `json:"data"`
+	Timestamp string                `json:"timestamp"`
+	Metadata  domain.ClientMetadata `json:"metadata,omitempty"`
 }
 
 // StartSubscribing registers an asynchronous NATS subscriber on the given subject (e.g. "clinic.events.>").
@@ -88,8 +89,23 @@ func (w *AuditWorker) HandleEventMessage(ctx context.Context, data []byte) {
 		rawMap = make(map[string]any)
 	}
 
+	ipAddr := strings.TrimSpace(envelope.Metadata.ClientIP)
+	if ipAddr == "" {
+		ipAddr = "127.0.0.1"
+	}
+
+	if ua := strings.TrimSpace(envelope.Metadata.UserAgent); ua != "" {
+		rawMap["user_agent"] = ua
+	}
+	if reqID := strings.TrimSpace(envelope.Metadata.RequestID); reqID != "" {
+		rawMap["request_id"] = reqID
+	}
+	if envelope.Metadata.ClientIP != "" {
+		rawMap["client_ip"] = envelope.Metadata.ClientIP
+	}
+
 	dto := inbound.RecordAuditLogDTO{
-		IPAddress: "127.0.0.1",
+		IPAddress: ipAddr,
 		Details:   rawMap,
 	}
 

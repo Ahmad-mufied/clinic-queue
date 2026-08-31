@@ -170,6 +170,8 @@ type APIResult struct {
 	Err        error
 }
 
+var stressClientIPCounter uint64
+
 func (c *HighConcurrencyClient) Request(method, path, token string, body any) APIResult {
 	start := time.Now()
 	var bodyReader io.Reader
@@ -194,6 +196,11 @@ func (c *HighConcurrencyClient) Request(method, path, token string, body any) AP
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	curr := atomic.AddUint64(&stressClientIPCounter, 1)
+	clientIP := fmt.Sprintf("10.1.%d.%d", (curr/256)%256, curr%256)
+	req.Header.Set("X-Forwarded-For", clientIP)
+	req.Header.Set("X-Real-IP", clientIP)
+
 	if token != "" {
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 	}

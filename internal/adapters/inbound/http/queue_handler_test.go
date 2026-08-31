@@ -374,8 +374,13 @@ func TestQueueHandler_RegisterRoutes(t *testing.T) {
 			return next(c)
 		}
 	}
+	dummyRateMW := func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			return next(c)
+		}
+	}
 
-	handler.RegisterRoutes(e, dummyMW, dummyMW)
+	handler.RegisterRoutes(e, dummyMW, dummyMW, dummyRateMW)
 
 	routes := e.Routes()
 	expectedRoutes := map[string]string{
@@ -396,4 +401,12 @@ func TestQueueHandler_RegisterRoutes(t *testing.T) {
 			t.Errorf("expected route %s %s to be registered", method, path)
 		}
 	}
+
+	// Test without rate limiter
+	e2 := echo.New()
+	handler.RegisterRoutes(e2, dummyMW, dummyMW)
+	if len(e2.Routes()) == 0 {
+		t.Error("expected routes registered on e2")
+	}
 }
+
