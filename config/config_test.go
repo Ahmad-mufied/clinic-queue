@@ -15,6 +15,7 @@ func TestLoadConfig(t *testing.T) {
 	os.Unsetenv("CASBIN_MODEL_PATH")
 	os.Unsetenv("CASBIN_POLICY_PATH")
 	os.Unsetenv("CORS_ALLOWED_ORIGINS")
+	os.Unsetenv("CLINIC_LOCATION")
 
 	cfg, err := LoadConfig()
 	if err != nil {
@@ -23,6 +24,9 @@ func TestLoadConfig(t *testing.T) {
 
 	if cfg.Port != "8080" {
 		t.Errorf("expected default Port 8080, got %s", cfg.Port)
+	}
+	if cfg.ClinicLocation != "Yogyakarta, Indonesia" {
+		t.Errorf("expected default ClinicLocation 'Yogyakarta, Indonesia', got %s", cfg.ClinicLocation)
 	}
 	if cfg.JWTExpirationHours != 24 {
 		t.Errorf("expected default JWTExpirationHours 24, got %d", cfg.JWTExpirationHours)
@@ -40,13 +44,14 @@ func TestLoadConfig(t *testing.T) {
 	os.Setenv("CASBIN_MODEL_PATH", "custom_model.conf")
 	os.Setenv("CASBIN_POLICY_PATH", "custom_policy.csv")
 	os.Setenv("CORS_ALLOWED_ORIGINS", "https://clinic.example.com, https://admin.example.com")
+	os.Setenv("CLINIC_LOCATION", "Surakarta, Indonesia")
 
 	cfg, err = LoadConfig()
 	if err != nil {
 		t.Fatalf("LoadConfig() with custom env error = %v", err)
 	}
 
-	if cfg.Port != "9090" || cfg.JWTExpirationHours != 48 || cfg.JWTSecret != "custom-secret" {
+	if cfg.Port != "9090" || cfg.JWTExpirationHours != 48 || cfg.JWTSecret != "custom-secret" || cfg.ClinicLocation != "Surakarta, Indonesia" {
 		t.Errorf("unexpected config with custom env: %+v", cfg)
 	}
 	if len(cfg.CORSAllowedOrigins) != 2 || cfg.CORSAllowedOrigins[0] != "https://clinic.example.com" || cfg.CORSAllowedOrigins[1] != "https://admin.example.com" {

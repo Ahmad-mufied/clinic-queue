@@ -38,6 +38,7 @@ type AuditLog struct {
 	Action    string         `json:"action"`
 	Details   map[string]any `json:"details"`
 	IPAddress string         `json:"ip_address,omitempty"`
+	Location  string         `json:"location,omitempty"`
 	CreatedAt time.Time      `json:"created_at"`
 }
 
@@ -99,6 +100,14 @@ func (a *AuditLog) Normalize() {
 	}
 	if a.Details == nil {
 		a.Details = make(map[string]any)
+	}
+	if loc, ok := a.Details["location"].(string); ok && strings.TrimSpace(loc) != "" {
+		a.Location = strings.TrimSpace(loc)
+	} else if strings.TrimSpace(a.Location) != "" {
+		a.Details["location"] = strings.TrimSpace(a.Location)
+	} else {
+		a.Location = ResolveLocation(a.IPAddress)
+		a.Details["location"] = a.Location
 	}
 }
 

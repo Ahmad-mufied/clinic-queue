@@ -77,10 +77,12 @@ It satisfies healthcare compliance standards, enables forensic accountability, a
 - [x] Admin UI provides filter toolbar (Search, Date Range, Sort Order, Action, Role), JSON payload inspector modal, and contained table scrolling with sticky header.
 - [x] Automatic infinite scroll auto-fetches records on scroll threshold without manual button clicks.
 - [x] Live audit stream broadcasts new events to admin subscribers via SSE with sub-second table synchronization.
+- [x] Dynamic IP-Based Location Resolution: Admin UI table and overview modal display human-readable geographical location (default: Yogyakarta, Indonesia for clinic intranet/private IPs, dynamic country/city for public IPs) while preserving raw client IP in database storage and forensic tracing cards.
 
 ### 5.2 Identity & Identifier Separation (Database UUIDv7 vs Human Actor Badges)
 - **Database Identity (`id`, `user_id`):** 128-bit Native UUIDv7 string (e.g. `01919df4-8e3b-7412-a1f9-90b567c9e536`) for immutable primary keys, cursor comparison (`WHERE id < $cursor`), and relational integrity.
 - **Human Display Identity (`actor_name` & `role`):** Clear user badges (`Dr. Michael Chen (@doctor_b)`, `Patient Lucas`, `Clinic Admin (@admin)`) displayed directly in the UI table feed and inspector modal overview cards, while preserving full UUIDv7 keys in the forensic JSON payload viewer.
+- **Network Forensic Identity vs Display Location:** Raw client IP address (`ip_address`) is preserved in PostgreSQL and forensic inspection panels for compliance, while the primary UI feed displays a dynamic location badge (e.g. `Yogyakarta, Indonesia`) for clean, human-centric operational monitoring.
 
 ---
 
@@ -93,3 +95,4 @@ It satisfies healthcare compliance standards, enables forensic accountability, a
 | **v1.2.0** | 2026-08-30 | Lead Solution Architect | **Feature Enhancement** | Added keyword search (Actor, Action, IP), Date Range filters, and Bidirectional Sorting (ASC/DESC) to the Audit Trail pipeline. |
 | **v1.3.0** | 2026-08-30 | Lead Solution Architect | **Identity Design Standard** | Added Section 5.2 defining separation of internal UUIDv7 audit IDs and user IDs from human-friendly actor badges and usernames in UI activity feeds. |
 | **v1.4.0** | 2026-08-31 | Backend Security Engineer | **Forensic Metadata Spec** | Added Section 5.1 acceptance criteria for client forensic metadata propagation (`ip_address`, `user_agent`, `request_id`) across Context, NATS, and Audit Worker. |
+| **v1.5.0** | 2026-09-12 | Lead Fullstack Architect | **Dynamic Location Resolution** | Replaced raw IP address column in audit table with dynamic Location badge (default: Yogyakarta, Indonesia), supported location-based keyword search, and retained raw IP in forensic inspector. |

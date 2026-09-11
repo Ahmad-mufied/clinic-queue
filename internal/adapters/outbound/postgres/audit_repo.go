@@ -90,9 +90,9 @@ func (r *AuditRepo) QueryLogs(ctx context.Context, filter domain.AuditLogFilter)
 
 	if search := strings.TrimSpace(filter.Search); search != "" {
 		searchPattern := "%" + search + "%"
-		conditions = append(conditions, fmt.Sprintf("(actor_name ILIKE $%d OR ip_address ILIKE $%d OR action ILIKE $%d)", argIdx, argIdx+1, argIdx+2))
-		args = append(args, searchPattern, searchPattern, searchPattern)
-		argIdx += 3
+		conditions = append(conditions, fmt.Sprintf("(actor_name ILIKE $%d OR ip_address ILIKE $%d OR action ILIKE $%d OR details->>'location' ILIKE $%d)", argIdx, argIdx+1, argIdx+2, argIdx+3))
+		args = append(args, searchPattern, searchPattern, searchPattern, searchPattern)
+		argIdx += 4
 	}
 
 	if strings.TrimSpace(filter.Action) != "" {
@@ -223,6 +223,11 @@ func (r *AuditRepo) QueryLogs(ctx context.Context, filter domain.AuditLogFilter)
 		}
 		if item.Details == nil {
 			item.Details = make(map[string]any)
+		}
+		if loc, ok := item.Details["location"].(string); ok && loc != "" {
+			item.Location = loc
+		} else {
+			item.Location = domain.ResolveLocation(item.IPAddress)
 		}
 
 		logs = append(logs, item)

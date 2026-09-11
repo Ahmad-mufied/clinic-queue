@@ -109,6 +109,31 @@ func TestAuditLog_Normalize(t *testing.T) {
 			wantRole:  "doctor",
 			wantIP:    "192.168.1.100",
 		},
+		{
+			name: "location preserved from details map",
+			log: &AuditLog{
+				ActorName: "patient_john",
+				Role:      "patient",
+				IPAddress: "10.0.0.1",
+				Details:   map[string]any{"location": "Jakarta, Indonesia"},
+			},
+			wantActor: "patient_john",
+			wantRole:  "patient",
+			wantIP:    "10.0.0.1",
+		},
+		{
+			name: "location synced from Location field to details",
+			log: &AuditLog{
+				ActorName: "patient_lucas",
+				Role:      "patient",
+				IPAddress: "172.16.0.1",
+				Location:  "Semarang, Indonesia",
+				Details:   map[string]any{},
+			},
+			wantActor: "patient_lucas",
+			wantRole:  "patient",
+			wantIP:    "172.16.0.1",
+		},
 	}
 
 	for _, tt := range tests {

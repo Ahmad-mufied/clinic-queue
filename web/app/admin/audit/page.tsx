@@ -32,8 +32,10 @@ import {
   Laptop,
   Terminal,
   Fingerprint,
+  MapPin,
 } from "lucide-react";
 import { formatDateTime, formatDate, formatTime } from "@/lib/utils";
+import { formatAuditLocation } from "@/lib/geo";
 import type { AuditLog } from "@/lib/types";
 
 function getHumanIdentityHandle(log: AuditLog): { label: string; handle: string } {
@@ -106,6 +108,7 @@ export default function AdminAuditTrailPage() {
   const [copied, setCopied] = useState(false);
   const [reqIdCopied, setReqIdCopied] = useState(false);
   const [logIdCopied, setLogIdCopied] = useState(false);
+  const [ipCopied, setIpCopied] = useState(false);
   const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
 
   const handleCopyJSON = () => {
@@ -126,6 +129,12 @@ export default function AdminAuditTrailPage() {
     navigator.clipboard.writeText(id);
     setLogIdCopied(true);
     setTimeout(() => setLogIdCopied(false), 2000);
+  };
+
+  const handleCopyIP = (ip: string) => {
+    navigator.clipboard.writeText(ip);
+    setIpCopied(true);
+    setTimeout(() => setIpCopied(false), 2000);
   };
 
   // Query: Lazy Loading Infinite Audit Logs via Cursor Pagination
@@ -297,7 +306,7 @@ export default function AdminAuditTrailPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
               <input
                 type="text"
-                placeholder="Actor, action, or IP..."
+                placeholder="Actor, action, or location..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full h-9 pl-9 pr-8 text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600 font-medium transition-all"
@@ -431,7 +440,7 @@ export default function AdminAuditTrailPage() {
                   <th className="py-3.5 px-6">Action</th>
                   <th className="py-3.5 px-6">Actor</th>
                   <th className="py-3.5 px-6">Role</th>
-                  <th className="py-3.5 px-6">IP Address</th>
+                  <th className="py-3.5 px-6">Location</th>
                   <th className="py-3.5 px-6 text-right">Details</th>
                 </tr>
               </thead>
@@ -505,8 +514,11 @@ export default function AdminAuditTrailPage() {
                           {log.role}
                         </span>
                       </td>
-                      <td className="py-4 px-6 font-mono text-slate-400">
-                        {log.ip_address}
+                      <td className="py-4 px-6">
+                        <div className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300 font-medium">
+                          <MapPin className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                          <span>{formatAuditLocation(log)}</span>
+                        </div>
                       </td>
                       <td className="py-4 px-6 text-right">
                         <Button
@@ -646,12 +658,12 @@ export default function AdminAuditTrailPage() {
 
                 <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/70 dark:border-slate-800 space-y-1.5">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                    Client IP
+                    Location
                   </span>
-                  <div className="flex items-center gap-1.5 text-xs font-mono font-semibold text-slate-700 dark:text-slate-300">
-                    <Globe className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                    <span className="break-all" title={inspectLog.ip_address}>
-                      {inspectLog.ip_address || "127.0.0.1"}
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    <MapPin className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <span className="break-all" title={formatAuditLocation(inspectLog)}>
+                      {formatAuditLocation(inspectLog)}
                     </span>
                   </div>
                 </div>
@@ -671,17 +683,46 @@ export default function AdminAuditTrailPage() {
                 })()}
               </div>
 
-              {/* Forensic Context Badges (Request ID & User Agent) */}
-              {(inspectLog.details?.request_id || inspectLog.details?.user_agent) && (
-                <div className="p-4 rounded-2xl bg-slate-50/90 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="h-4 w-4 text-emerald-600" />
-                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
-                      Forensic Context & Tracing Provenance
-                    </span>
-                  </div>
+              {/* Forensic Context Badges (IP, Request ID & User Agent) */}
+              <div className="p-4 rounded-2xl bg-slate-50/90 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800 space-y-3">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+                    Forensic Context & Tracing Provenance
+                  </span>
+                </div>
 
-                  <div className="space-y-2.5">
+                <div className="space-y-2.5">
+                  {/* Origin Client IP Address */}
+                  <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                        <Globe className="h-3 w-3 text-slate-400" />
+                        Origin Client IP Address
+                      </span>
+                      <Button
+                        onClick={() => handleCopyIP(inspectLog.ip_address || "127.0.0.1")}
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-[11px] font-semibold gap-1 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer"
+                      >
+                        {ipCopied ? (
+                          <>
+                            <Check className="h-3 w-3 text-emerald-600" />
+                            <span className="text-emerald-600 font-bold">Copied</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-3 w-3" />
+                            <span>Copy IP</span>
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    <p className="font-mono text-xs font-semibold text-slate-800 dark:text-slate-200 break-all select-all bg-slate-50 dark:bg-slate-950 p-2.5 rounded-lg border border-slate-100 dark:border-slate-800">
+                      {inspectLog.ip_address || "127.0.0.1"}
+                    </p>
+                  </div>
                     {inspectLog.details?.request_id && (
                       <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 space-y-1.5">
                         <div className="flex items-center justify-between">
@@ -727,7 +768,6 @@ export default function AdminAuditTrailPage() {
                     )}
                   </div>
                 </div>
-              )}
 
               {/* JSON Metadata Viewer Card */}
               <div className="space-y-2">

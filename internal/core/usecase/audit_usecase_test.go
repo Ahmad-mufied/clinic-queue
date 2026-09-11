@@ -238,13 +238,29 @@ func TestAuditUseCase_GetAuditLogs(t *testing.T) {
 					return &domain.PaginatedAuditLogs{
 						Page:         filter.Page,
 						Limit:        filter.Limit,
-						TotalRecords: 1,
+						TotalRecords: 3,
 						Logs: []domain.AuditLog{
 							{
 								ID:        "01919df4-8e3b-7412-a1f9-90b567c9e501",
 								ActorName: "dr_smith",
 								Role:      "doctor",
 								Action:    domain.ActionAuthLogin,
+								CreatedAt: now,
+							},
+							{
+								ID:        "01919df4-8e3b-7412-a1f9-90b567c9e502",
+								ActorName: "patient_john",
+								Role:      "patient",
+								Action:    domain.ActionQueueJoined,
+								Details:   map[string]any{"location": "Yogyakarta, Indonesia"},
+								CreatedAt: now,
+							},
+							{
+								ID:        "01919df4-8e3b-7412-a1f9-90b567c9e503",
+								ActorName: "patient_lucas",
+								Role:      "patient",
+								Action:    domain.ActionQueueJoined,
+								Location:  "Jakarta, Indonesia",
 								CreatedAt: now,
 							},
 						},
@@ -254,8 +270,8 @@ func TestAuditUseCase_GetAuditLogs(t *testing.T) {
 			wantErr:       nil,
 			wantPage:      1,
 			wantLimit:     10,
-			wantTotal:     1,
-			wantLogsCount: 1,
+			wantTotal:     3,
+			wantLogsCount: 3,
 		},
 		{
 			name: "successful query when repo returns nil result (zero state)",

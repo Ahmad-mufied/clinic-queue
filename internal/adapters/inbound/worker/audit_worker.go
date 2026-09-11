@@ -17,18 +17,24 @@ import (
 
 // AuditWorker subscribes to NATS JetStream domain events and writes immutable records to audit_logs.
 type AuditWorker struct {
-	auditUseCase inbound.AuditUseCase
-	userRepo     outbound.UserRepositoryPort
-	mu           sync.Mutex
-	inFlight     int64
-	drainCh      chan struct{}
+	auditUseCase   inbound.AuditUseCase
+	userRepo       outbound.UserRepositoryPort
+	clinicLocation string
+	mu             sync.Mutex
+	inFlight       int64
+	drainCh        chan struct{}
 }
 
 // NewAuditWorker constructs a new AuditWorker instance.
-func NewAuditWorker(auditUseCase inbound.AuditUseCase, userRepo outbound.UserRepositoryPort) *AuditWorker {
+func NewAuditWorker(auditUseCase inbound.AuditUseCase, userRepo outbound.UserRepositoryPort, clinicLocation ...string) *AuditWorker {
+	loc := domain.DefaultClinicLocation
+	if len(clinicLocation) > 0 && strings.TrimSpace(clinicLocation[0]) != "" {
+		loc = strings.TrimSpace(clinicLocation[0])
+	}
 	return &AuditWorker{
-		auditUseCase: auditUseCase,
-		userRepo:     userRepo,
+		auditUseCase:   auditUseCase,
+		userRepo:       userRepo,
+		clinicLocation: loc,
 	}
 }
 
@@ -142,6 +148,7 @@ func (w *AuditWorker) HandleEventMessage(ctx context.Context, data []byte) {
 	if envelope.Metadata.ClientIP != "" {
 		rawMap["client_ip"] = envelope.Metadata.ClientIP
 	}
+	rawMap["location"] = domain.ResolveLocation(ipAddr, w.clinicLocation)
 
 	dto := inbound.RecordAuditLogDTO{
 		IPAddress: ipAddr,

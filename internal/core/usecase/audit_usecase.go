@@ -79,5 +79,15 @@ func (u *AuditUseCase) GetAuditLogs(ctx context.Context, filter domain.AuditLogF
 		result.Logs = []domain.AuditLog{}
 	}
 
+	for i := range result.Logs {
+		if result.Logs[i].Location == "" {
+			if loc, ok := result.Logs[i].Details["location"].(string); ok && loc != "" {
+				result.Logs[i].Location = loc
+			} else {
+				result.Logs[i].Location = domain.ResolveLocation(result.Logs[i].IPAddress)
+			}
+		}
+	}
+
 	return result, nil
 }

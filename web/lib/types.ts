@@ -113,6 +113,7 @@ export interface AuditLog {
   actor_name: string;
   role: string;
   ip_address: string;
+  location?: string;
   details?: Record<string, any>;
   metadata?: Record<string, any>;
   created_at: string;

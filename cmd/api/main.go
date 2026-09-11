@@ -93,7 +93,7 @@ func main() {
 	auditHandler := httpAdapter.NewAuditHandler(auditUseCase)
 	sseHandler := httpAdapter.NewSSEHandler()
 
-	auditWorker := workerAdapter.NewAuditWorker(auditUseCase, userRepo)
+	auditWorker := workerAdapter.NewAuditWorker(auditUseCase, userRepo, cfg.ClinicLocation)
 
 	if nc != nil {
 		if _, err := sseHandler.ListenToNATS(context.Background(), nc, "clinic.>"); err != nil {

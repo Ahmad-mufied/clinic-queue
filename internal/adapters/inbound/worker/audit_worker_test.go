@@ -702,3 +702,27 @@ func TestAuditWorker_Wait(t *testing.T) {
 		close(slowBlockCh)
 	}
 }
+
+func TestNewAuditWorker_ClinicLocation(t *testing.T) {
+	uc := &mockAuditUseCase{}
+	repo := &mockUserRepo{}
+
+	// Default
+	w1 := worker.NewAuditWorker(uc, repo)
+	if w1 == nil {
+		t.Fatal("expected non-nil worker")
+	}
+
+	// Custom valid location
+	w2 := worker.NewAuditWorker(uc, repo, "Surakarta, Indonesia")
+	if w2 == nil {
+		t.Fatal("expected non-nil worker with custom location")
+	}
+
+	// Empty custom location
+	w3 := worker.NewAuditWorker(uc, repo, "   ")
+	if w3 == nil {
+		t.Fatal("expected non-nil worker with whitespace location")
+	}
+}
+

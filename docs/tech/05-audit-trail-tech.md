@@ -53,6 +53,19 @@ To prevent forensic audit log drops during server shutdown or deployment restart
    - `auditWorker.Wait(ctx)` blocks until the `sync.WaitGroup` counter reaches zero or the shutdown context expires.
    - PostgreSQL connection pool (`dbPool.Close()`) closes only after all in-flight audit records are committed to storage.
 
+### 2.2 Dynamic IP-Based Location Resolution Engine
+
+To reconcile forensic accountability with clean human-centered UI monitoring, the system integrates a dual-tier location resolver:
+
+1. **Intranet / Localhost / Private Subnets (`127.0.0.1`, `::1`, `10.*`, `192.168.*`, `172.16-31.*`):**
+   - Verified in pure Go using standard library `net/netip` (`addr.IsLoopback()`, `addr.IsPrivate()`, `addr.IsLinkLocalUnicast()`, `addr.IsUnspecified()`).
+   - Mapped dynamically to the clinic's physical premise location: `Yogyakarta, Indonesia` (configurable via `CLINIC_LOCATION` environment variable).
+2. **Public IP Addresses:**
+   - Evaluated dynamically and categorized by country/region (`Indonesia`).
+3. **JSONB Storage & Indexed Search:**
+   - Resolved location is persisted in PostgreSQL under `details['location']`.
+   - Included in repository search predicates: `(actor_name ILIKE $1 OR ip_address ILIKE $2 OR action ILIKE $3 OR details->>'location' ILIKE $4)`.
+
 ---
 
 ## 3. Database Migration (Goose SQL)
@@ -88,7 +101,7 @@ DROP TABLE IF EXISTS audit_logs;
 - **URL:** `GET /api/admin/audit-logs`
 - **Access:** Role `admin` (Protected by JWT & Casbin RBAC)
 - **Query Parameters:**
-  - `search` (optional string, case-insensitive keyword across `actor_name`, `ip_address`, `action`)
+  - `search` (optional string, case-insensitive keyword across `actor_name`, `ip_address`, `action`, and `details->>'location'`)
   - `action` (optional string, e.g., `CONSULTATION_FINISHED`, `QUEUE_JOINED`)
   - `role` (optional string, e.g., `doctor`, `patient`, `admin`)
   - `user_id` (optional string, exact UUIDv7 match)
@@ -112,7 +125,9 @@ DROP TABLE IF EXISTS audit_logs;
       "actor_name": "Dr. Michael Chen",
       "role": "doctor",
       "action": "CONSULTATION_FINISHED",
+      "location": "Yogyakarta, Indonesia",
       "details": {
+        "location": "Yogyakarta, Indonesia",
         "actual_duration_minutes": 3.2,
         "doctor_id": "01919df4-8e3b-7412-a1f9-90b567c9e202",
         "doctor_name": "Dr. Michael Chen",
@@ -152,3 +167,4 @@ DROP TABLE IF EXISTS audit_logs;
 | **v1.3.0** | 2026-08-30 | Lead Backend Architect | **Native UUIDv7 Spec** | Migrated `audit_logs.id` and `audit_logs.user_id` to Native UUIDv7 (`DEFAULT uuidv7()`), updating cursor query bindings and JSON serialization. |
 | **v1.4.0** | 2026-08-31 | Backend Security Engineer | **Forensic Metadata Pipeline Flow** | Documented Section 2 sequence flow for context metadata propagation across Echo middleware, Go Context, NATS JetStream, and `AuditWorker`. |
 | **v1.5.0** | 2026-08-31 | Backend Reliability Engineer | **Graceful Worker Drain** | Added Section 2.1 specifying `sync.WaitGroup` in-flight tracking, NATS connection draining, and bounded shutdown coordination. |
+| **v1.6.0** | 2026-09-12 | Lead Fullstack Architect | **Dynamic Location Engine** | Added Section 2.2 specifying dual-tier IP location engine (private IP -> clinic premise, public IP -> geo), `CLINIC_LOCATION` config, JSONB details location, and location search. |

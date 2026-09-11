@@ -19,6 +19,7 @@ type Config struct {
 	CasbinPolicyPath   string
 	CORSAllowedOrigins []string
 	RateLimitEnabled   bool
+	ClinicLocation     string
 }
 
 // LoadConfig loads configuration from environment variables and an optional .env file.
@@ -35,6 +36,7 @@ func LoadConfig() (*Config, error) {
 	casbinPolicy := getEnv("CASBIN_POLICY_PATH", "config/rbac_policy.csv")
 	corsOriginsStr := getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8080")
 	rateLimitEnabledStr := getEnv("RATE_LIMIT_ENABLED", "true")
+	clinicLocation := getEnv("CLINIC_LOCATION", "Yogyakarta, Indonesia")
 
 	jwtExpHours, err := strconv.Atoi(jwtExpHoursStr)
 	if err != nil || jwtExpHours <= 0 {
@@ -66,6 +68,7 @@ func LoadConfig() (*Config, error) {
 		CasbinPolicyPath:   casbinPolicy,
 		CORSAllowedOrigins: corsOrigins,
 		RateLimitEnabled:   rateLimitEnabled,
+		ClinicLocation:     clinicLocation,
 	}, nil
 }
 
