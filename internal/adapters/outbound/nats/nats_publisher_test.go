@@ -96,11 +96,15 @@ func TestNATSEventPublisher_WithConnection(t *testing.T) {
 		}
 	}
 
+	// Delete test stream so it does not overlap with CLINIC_EVENTS in NewNATSClient
+	_ = js.DeleteStream(ctx, "CLINIC_TEST_PUB_STREAM")
+
 	// Test NewNATSClient
 	clientNC, clientJS, err := NewNATSClient(nats.DefaultURL)
 	if err != nil {
 		t.Errorf("NewNATSClient error = %v", err)
 	}
+
 	if clientNC != nil {
 		clientNC.Close()
 	}

@@ -142,9 +142,19 @@ export interface PaginatedAuditLogs {
 }
 
 export interface SSEEventPayload {
-  type: "QUEUE_UPDATED" | "TICKET_CALLED" | "TICKET_FINISHED" | "DOCTOR_STATUS_CHANGED" | "DOCTOR_CONFIG_UPDATED" | "AUDIT_LOG_CREATED";
+  type: "QUEUE_UPDATED" | "QUEUE_JOINED" | "QUEUE_CANCELLED" | "TICKET_CALLED" | "TICKET_FINISHED" | "DOCTOR_STATUS_CHANGED" | "DOCTOR_CONFIG_UPDATED" | "AUDIT_LOG_CREATED";
   timestamp: string;
   data: Record<string, any>;
+}
+
+export interface CancelTicketRequest {
+  ticket_id?: string;
+  reason?: string;
+}
+
+export interface CancelTicketResponse {
+  message: string;
+  ticket: QueueTicket;
 }
 
 export interface DemoPersona {

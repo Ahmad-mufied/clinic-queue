@@ -327,6 +327,7 @@ export default function AdminAuditTrailPage() {
               <SelectContent className="rounded-2xl min-w-[200px]">
                 <SelectItem value="ALL">All Actions</SelectItem>
                 <SelectItem value="QUEUE_JOINED">QUEUE_JOINED</SelectItem>
+                <SelectItem value="QUEUE_CANCELLED">QUEUE_CANCELLED</SelectItem>
                 <SelectItem value="CONSULTATION_STARTED">CONSULTATION_STARTED</SelectItem>
                 <SelectItem value="CONSULTATION_FINISHED">CONSULTATION_FINISHED</SelectItem>
                 <SelectItem value="DOCTOR_STATUS_CHANGED">DOCTOR_STATUS_CHANGED</SelectItem>
@@ -478,7 +479,13 @@ export default function AdminAuditTrailPage() {
                         </div>
                       </td>
                       <td className="py-4 px-6">
-                        <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-full text-[10px]">
+                        <span
+                          className={`font-mono font-bold px-2.5 py-1 rounded-full text-[10px] ${
+                            log.action === "QUEUE_CANCELLED"
+                              ? "text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40"
+                              : "text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40"
+                          }`}
+                        >
                           {log.action}
                         </span>
                       </td>

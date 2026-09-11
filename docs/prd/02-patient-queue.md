@@ -19,6 +19,7 @@ The waiting time is computed dynamically by the **Greedy Multi-Doctor Queue Engi
 2. **As a Waiting Patient**, I want to see a live estimated wait time in minutes so that I can manage my schedule accurately.
 3. **As a Waiting Patient**, I want my ticket status to update automatically when a doctor calls my number without needing to refresh my browser.
 4. **As a Patient**, I want to know if all doctors are currently offline so that I understand why the countdown is paused.
+5. **As a Waiting Patient**, I want to cancel my queue ticket if my circumstances change so that I free up my spot for other waiting patients and avoid keeping doctors waiting.
 
 ---
 
@@ -35,6 +36,8 @@ The waiting time is computed dynamically by the **Greedy Multi-Doctor Queue Engi
   A patient arrives when all doctors are idle and no one is in queue. Patient joins $\rightarrow$ Estimated Wait Time: **0 minutes** (ready for immediate call).
 - **[POS-QUEUE-04] Real-time SSE Broadcast on State Change:**  
   When Doctor A finishes a patient and calls the next, an SSE event `QUEUE_UPDATED` is pushed to all connected patients. John's app updates his ahead count from 5 to 4, and his wait time recalculates automatically.
+- **[POS-QUEUE-05] Patient Cancels Waiting Ticket:**  
+  Patient with ticket in `WAITING` status clicks "Cancel Ticket" and confirms. System updates ticket to `CANCELLED`, records `finished_at = NOW()`, publishes `QUEUE_CANCELLED` and `QUEUE_UPDATED` events over NATS JetStream, decrements waiting count, and broadcasts recalculations to all clients via SSE.
 
 ### 3.2 Negative Scenarios
 - **[NEG-QUEUE-01] Empty or Invalid Patient Name:**  
@@ -45,6 +48,10 @@ The waiting time is computed dynamically by the **Greedy Multi-Doctor Queue Engi
   Patient attempts to join when no doctors are registered in the system. System returns HTTP `503 Service Unavailable` (`"No doctors currently configured for this clinic"`).
 - **[NEG-QUEUE-04] Queue Join Rate Limit Exceeded (Spam & Bot Prevention):**  
   An IP client submits queue entries exceeding 30 requests/minute (burst 10) on `POST /api/queue/join`. System enforces Token Bucket rate limiting and returns HTTP `429 Too Many Requests` (`{"error": "Too many requests. Please try again later."}`).
+- **[NEG-QUEUE-05] Cancelling Ticket Already in Consultation or Finished:**  
+  Patient attempts to cancel a ticket that has already transitioned to `IN_CONSULTATION`, `COMPLETED`, or `CANCELLED`. System rejects with HTTP `400 Bad Request` (`"Ticket cannot be cancelled in its current state"`).
+- **[NEG-QUEUE-06] Unauthorized Ticket Cancellation:**  
+  Patient A attempts to cancel Patient B's ticket ID. System rejects with HTTP `403 Forbidden` (`"You are not authorized to cancel this ticket"`).
 
 ### 3.3 Edge Cases
 - **[EDGE-QUEUE-01] All Doctors Offline / On Break:**  
@@ -61,12 +68,13 @@ The waiting time is computed dynamically by the **Greedy Multi-Doctor Queue Engi
 ## 4. Acceptance Criteria & Identity Specification
 
 ### 4.1 Acceptance Criteria
-- [ ] Queue numbers follow an incremental formatted sequence (e.g., `A-01`, `A-02`).
-- [ ] Estimated wait time algorithm matches verified mathematical models (Case Study 1 & 2 verified outputs).
-- [ ] SSE updates are received by all connected clients in $< 100\text{ms}$ after any queue event.
-- [ ] When called by a doctor, patient's screen highlights with room assignment (e.g., *"Please enter Doctor A's Room"*).
-- [ ] Ticket lifecycle transitions (`QUEUE_JOINED`, `QUEUE_CANCELLED`) are persisted to `audit_logs`.
-- [ ] Queue registration endpoint (`/api/queue/join`) is protected by Token Bucket Rate Limiting (30 req/min, burst 10 per client IP) returning HTTP `429 Too Many Requests`.
+- [x] Queue numbers follow an incremental formatted sequence (e.g., `A-01`, `A-02`).
+- [x] Estimated wait time algorithm matches verified mathematical models (Case Study 1 & 2 verified outputs).
+- [x] SSE updates are received by all connected clients in $< 100\text{ms}$ after any queue event.
+- [x] When called by a doctor, patient's screen highlights with room assignment (e.g., *"Please enter Doctor A's Room"*).
+- [x] Ticket lifecycle transitions (`QUEUE_JOINED`, `QUEUE_CANCELLED`) are persisted to `audit_logs`.
+- [x] Queue registration endpoint (`/api/queue/join`) is protected by Token Bucket Rate Limiting (30 req/min, burst 10 per client IP) returning HTTP `429 Too Many Requests`.
+- [x] Active waiting tickets can be cancelled by patient or administrator with atomic PostgreSQL row-level lock concurrency protection (`/api/queue/cancel`), rejecting non-waiting statuses and emitting real-time SSE updates.
 
 ### 4.2 Identity & Identifier Separation (Database UUIDv7 vs Display Queue Number)
 - **Database Identity (`id`):** 128-bit Native UUIDv7 string (e.g. `01919df4-8e3b-7412-a1f9-90b567c9e301`) for database relationships and transaction atomicity.
@@ -81,3 +89,6 @@ The waiting time is computed dynamically by the **Greedy Multi-Doctor Queue Engi
 | **v1.0.0** | 2026-08-29 | Solution Architect | **Initial Baseline** | Initial creation of the Patient Queue PRD. |
 | **v1.1.0** | 2026-08-30 | Solution Architect | **Identity Design Standard** | Added Section 4.2 defining separation of internal UUIDv7 ticket IDs from human-facing queue numbers (`queue_number: A-01`) for waiting room displays and audio callouts. |
 | **v1.2.0** | 2026-08-31 | Backend Security Engineer | **Rate Limiting Spec** | Added [NEG-QUEUE-04] and Section 4.1 acceptance criteria for Token Bucket Rate Limiting (30 req/min, burst 10 per IP) on queue entry endpoints. |
+| **v1.3.0** | 2026-09-12 | Solution Architect | **Patient Queue Cancellation** | Added User Story 5, [POS-QUEUE-05], [NEG-QUEUE-05], and [NEG-QUEUE-06] covering atomic queue ticket cancellation by patients and administrators. |
+| **v1.4.0** | 2026-09-12 | QA & Solution Architect | **Acceptance Verification Sign-Off** | Validated and signed off all acceptance criteria checkboxes (Queue sequence, Greedy algorithm, SSE sub-100ms latency, consultation screen, audit logging, rate limiting, and atomic ticket cancellation). |
+

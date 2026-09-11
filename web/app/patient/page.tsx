@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useSSE } from "@/hooks/use-sse";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -20,6 +21,7 @@ import {
   MoreHorizontal,
   Stethoscope,
   ShieldCheck,
+  XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDateTime } from "@/lib/utils";
@@ -30,6 +32,8 @@ export default function PatientPortalPage() {
   const queryClient = useQueryClient();
   const [useAccountName, setUseAccountName] = useState<boolean>(true);
   const [customNameInput, setCustomNameInput] = useState<string>("");
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState<boolean>(false);
+  const [cancelReason, setCancelReason] = useState<string>("");
 
   // Query: General Public Queue Status (SSE-aware adaptive polling)
   const { data: queueStatus } = useQuery({
@@ -124,6 +128,31 @@ export default function PatientPortalPage() {
       toast.error("Failed to Join Queue", {
         description: err.message || "Please check patient name and try again.",
       });
+    },
+  });
+
+  // Mutation: Cancel Ticket
+  const cancelMutation = useMutation({
+    mutationFn: () => api.cancelQueue(activeTicket?.id, cancelReason.trim() || undefined),
+    onSuccess: (data) => {
+      toast.success("Queue Ticket Cancelled", {
+        description: `Ticket ${data?.ticket?.queue_number || activeTicket?.queue_number || ""} has been cancelled.`,
+      });
+      localStorage.removeItem("clinic_queue_ticket");
+      queryClient.setQueryData(["my-ticket", user?.id], { ticket: null });
+      queryClient.invalidateQueries({ queryKey: ["my-ticket"] });
+      queryClient.invalidateQueries({ queryKey: ["queue-status"] });
+      setIsCancelDialogOpen(false);
+      setCancelReason("");
+    },
+    onError: (err: any) => {
+      toast.error("Failed to Cancel Ticket", {
+        description: err.message || "Unable to cancel ticket at this time.",
+      });
+      // Invalidate queries so that if the doctor already called the patient, UI immediately reflects latest state
+      queryClient.invalidateQueries({ queryKey: ["my-ticket"] });
+      queryClient.invalidateQueries({ queryKey: ["queue-status"] });
+      setIsCancelDialogOpen(false);
     },
   });
 
@@ -314,10 +343,79 @@ export default function PatientPortalPage() {
                 </div>
               </div>
             ) : (
-              <div className="text-xs text-slate-400 text-center pt-2">
-                Countdown updates automatically in real-time.
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="text-xs text-slate-400 text-center sm:text-left">
+                  Countdown updates automatically in real-time.
+                </div>
+                {activeTicket.status === "WAITING" && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsCancelDialogOpen(true)}
+                    className="text-xs text-rose-600 dark:text-rose-400 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/20 border-rose-200 dark:border-rose-900/40 rounded-full h-8 px-3.5 font-medium transition-colors cursor-pointer shrink-0"
+                  >
+                    <XCircle className="mr-1.5 h-3.5 w-3.5" />
+                    Cancel Ticket
+                  </Button>
+                )}
               </div>
             )}
+
+            {/* Cancel Confirmation Dialog */}
+            <Dialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="text-base font-bold text-slate-900 dark:text-white">
+                    Cancel Queue Ticket
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-slate-500 mt-1">
+                    Are you sure you want to cancel ticket <strong className="font-semibold text-slate-900 dark:text-white font-mono">{activeTicket?.queue_number}</strong>? Your queue position will be forfeited.
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-2 py-2">
+                  <label className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">
+                    Cancellation Reason (optional)
+                  </label>
+                  <Input
+                    placeholder="e.g., Cannot wait, change of plans..."
+                    value={cancelReason}
+                    onChange={(e) => setCancelReason(e.target.value)}
+                    className="text-xs h-9"
+                    maxLength={200}
+                  />
+                </div>
+
+                <DialogFooter className="gap-2 sm:gap-0">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsCancelDialogOpen(false)}
+                    disabled={cancelMutation.isPending}
+                    className="text-xs"
+                  >
+                    Keep My Ticket
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => cancelMutation.mutate()}
+                    disabled={cancelMutation.isPending}
+                    className="text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white gap-1.5"
+                  >
+                    {cancelMutation.isPending ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        <span>Cancelling...</span>
+                      </>
+                    ) : (
+                      <span>Confirm Cancellation</span>
+                    )}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         ) : isMounted && user?.role === "doctor" ? (
           /* Doctor View: Quick link to Examination Room */

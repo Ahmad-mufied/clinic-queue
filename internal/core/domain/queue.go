@@ -109,6 +109,12 @@ type QueueTicket struct {
 	FinishedAt               *time.Time   `json:"finished_at,omitempty"`
 }
 
+// CanBeCancelled checks whether a ticket is eligible for cancellation (must be in WAITING status).
+func (t *QueueTicket) CanBeCancelled() bool {
+	return t != nil && t.Status == TicketStatusWaiting
+}
+
+
 // QueueTicketSummary represents a summarized queue item for the public queue status list.
 type QueueTicketSummary struct {
 	QueueNumber          string `json:"queue_number"`

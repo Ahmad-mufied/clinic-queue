@@ -19,6 +19,7 @@ type mockQueueUseCase struct {
 	joinQueueFunc      func(ctx context.Context, userID *string, patientName string) (*domain.QueueTicket, error)
 	getMyTicketFunc    func(ctx context.Context, userID string) (*domain.QueueTicket, error)
 	getQueueStatusFunc func(ctx context.Context) (*domain.QueueStatus, error)
+	cancelTicketFunc   func(ctx context.Context, userID *string, userRole string, ticketID string, reason string) (*domain.QueueTicket, error)
 }
 
 func (m *mockQueueUseCase) JoinQueue(ctx context.Context, userID *string, patientName string) (*domain.QueueTicket, error) {
@@ -38,6 +39,13 @@ func (m *mockQueueUseCase) GetMyTicket(ctx context.Context, userID string) (*dom
 func (m *mockQueueUseCase) GetQueueStatus(ctx context.Context) (*domain.QueueStatus, error) {
 	if m.getQueueStatusFunc != nil {
 		return m.getQueueStatusFunc(ctx)
+	}
+	return nil, nil
+}
+
+func (m *mockQueueUseCase) CancelTicket(ctx context.Context, userID *string, userRole string, ticketID string, reason string) (*domain.QueueTicket, error) {
+	if m.cancelTicketFunc != nil {
+		return m.cancelTicketFunc(ctx, userID, userRole, ticketID, reason)
 	}
 	return nil, nil
 }
@@ -385,6 +393,7 @@ func TestQueueHandler_RegisterRoutes(t *testing.T) {
 	routes := e.Routes()
 	expectedRoutes := map[string]string{
 		"/api/queue/join":      http.MethodPost,
+		"/api/queue/cancel":    http.MethodPost,
 		"/api/queue/my-ticket": http.MethodGet,
 		"/api/queue/status":    http.MethodGet,
 	}
@@ -409,4 +418,192 @@ func TestQueueHandler_RegisterRoutes(t *testing.T) {
 		t.Error("expected routes registered on e2")
 	}
 }
+
+func TestQueueHandler_CancelQueue(t *testing.T) {
+	tests := []struct {
+		name           string
+		body           string
+		setContextUser *string
+		setContextRole *string
+		mockSetup      func(uc *mockQueueUseCase)
+		wantStatus     int
+		wantBodySubstr string
+	}{
+		{
+			name:           "Invalid JSON payload returns 400",
+			body:           `{invalid json`,
+			wantStatus:     http.StatusBadRequest,
+			wantBodySubstr: "Invalid request payload",
+		},
+		{
+			name:           "Ticket not found returns 404",
+			body:           `{"ticket_id": "01919df4-8e3b-7412-a1f9-90b567c9e999"}`,
+			setContextUser: strPtr("01919df4-8e3b-7412-a1f9-90b567c9e201"),
+			mockSetup: func(uc *mockQueueUseCase) {
+				uc.cancelTicketFunc = func(ctx context.Context, userID *string, userRole string, ticketID string, reason string) (*domain.QueueTicket, error) {
+					return nil, domain.ErrTicketNotFound
+				}
+			},
+			wantStatus:     http.StatusNotFound,
+			wantBodySubstr: "No active ticket found",
+		},
+		{
+			name:           "Ticket already in consultation returns 400",
+			body:           `{"ticket_id": "01919df4-8e3b-7412-a1f9-90b567c9e401"}`,
+			setContextUser: strPtr("01919df4-8e3b-7412-a1f9-90b567c9e201"),
+			mockSetup: func(uc *mockQueueUseCase) {
+				uc.cancelTicketFunc = func(ctx context.Context, userID *string, userRole string, ticketID string, reason string) (*domain.QueueTicket, error) {
+					return nil, domain.ErrTicketCannotBeCancelled
+				}
+			},
+			wantStatus:     http.StatusBadRequest,
+			wantBodySubstr: "Ticket cannot be cancelled in its current state",
+		},
+		{
+			name:           "Unauthorized patient trying to cancel another ticket returns 403",
+			body:           `{"ticket_id": "01919df4-8e3b-7412-a1f9-90b567c9e401"}`,
+			setContextUser: strPtr("01919df4-8e3b-7412-a1f9-90b567c9e202"),
+			setContextRole: strPtr("patient"),
+			mockSetup: func(uc *mockQueueUseCase) {
+				uc.cancelTicketFunc = func(ctx context.Context, userID *string, userRole string, ticketID string, reason string) (*domain.QueueTicket, error) {
+					return nil, domain.ErrUnauthorizedTicketAccess
+				}
+			},
+			wantStatus:     http.StatusForbidden,
+			wantBodySubstr: "You are not authorized to cancel this ticket",
+		},
+		{
+			name:           "Invalid input returns 400",
+			body:           `{"ticket_id": ""}`,
+			setContextUser: strPtr(""),
+			mockSetup: func(uc *mockQueueUseCase) {
+				uc.cancelTicketFunc = func(ctx context.Context, userID *string, userRole string, ticketID string, reason string) (*domain.QueueTicket, error) {
+					return nil, domain.ErrInvalidInput
+				}
+			},
+			wantStatus:     http.StatusBadRequest,
+			wantBodySubstr: "Ticket ID or authenticated user is required",
+		},
+		{
+			name:           "Internal server error returns 500",
+			body:           `{"ticket_id": "01919df4-8e3b-7412-a1f9-90b567c9e401"}`,
+			setContextUser: strPtr("01919df4-8e3b-7412-a1f9-90b567c9e201"),
+			mockSetup: func(uc *mockQueueUseCase) {
+				uc.cancelTicketFunc = func(ctx context.Context, userID *string, userRole string, ticketID string, reason string) (*domain.QueueTicket, error) {
+					return nil, errors.New("database failure")
+				}
+			},
+			wantStatus:     http.StatusInternalServerError,
+			wantBodySubstr: "Internal server error",
+		},
+		{
+			name:           "Success: Authenticated patient cancels ticket with body -> 200 OK",
+			body:           `{"ticket_id": "01919df4-8e3b-7412-a1f9-90b567c9e401", "reason": "Patient cannot wait"}`,
+			setContextUser: strPtr("01919df4-8e3b-7412-a1f9-90b567c9e201"),
+			setContextRole: strPtr("patient"),
+			mockSetup: func(uc *mockQueueUseCase) {
+				uc.cancelTicketFunc = func(ctx context.Context, userID *string, userRole string, ticketID string, reason string) (*domain.QueueTicket, error) {
+					now := time.Now()
+					return &domain.QueueTicket{
+						ID:          ticketID,
+						UserID:      userID,
+						PatientName: "John Doe",
+						QueueNumber: "A-05",
+						Status:      domain.TicketStatusCancelled,
+						FinishedAt:  &now,
+						CreatedAt:   now.Add(-10 * time.Minute),
+					}, nil
+				}
+			},
+			wantStatus:     http.StatusOK,
+			wantBodySubstr: "Queue ticket successfully cancelled",
+		},
+		{
+			name:           "Success: Empty body cancels active ticket from context -> 200 OK",
+			body:           "",
+			setContextUser: strPtr("01919df4-8e3b-7412-a1f9-90b567c9e201"),
+			setContextRole: strPtr("patient"),
+			mockSetup: func(uc *mockQueueUseCase) {
+				uc.cancelTicketFunc = func(ctx context.Context, userID *string, userRole string, ticketID string, reason string) (*domain.QueueTicket, error) {
+					now := time.Now()
+					return &domain.QueueTicket{
+						ID:          "01919df4-8e3b-7412-a1f9-90b567c9e401",
+						UserID:      userID,
+						PatientName: "John Doe",
+						QueueNumber: "A-05",
+						Status:      domain.TicketStatusCancelled,
+						FinishedAt:  &now,
+						CreatedAt:   now.Add(-10 * time.Minute),
+					}, nil
+				}
+			},
+			wantStatus:     http.StatusOK,
+			wantBodySubstr: "Queue ticket successfully cancelled",
+		},
+		{
+			name:           "Success: Admin cancels ticket on behalf -> 200 OK",
+			body:           `{"ticket_id": "01919df4-8e3b-7412-a1f9-90b567c9e401"}`,
+			setContextUser: strPtr("01919df4-8e3b-7412-a1f9-90b567c9e203"),
+			setContextRole: strPtr("admin"),
+			mockSetup: func(uc *mockQueueUseCase) {
+				uc.cancelTicketFunc = func(ctx context.Context, userID *string, userRole string, ticketID string, reason string) (*domain.QueueTicket, error) {
+					now := time.Now()
+					return &domain.QueueTicket{
+						ID:          ticketID,
+						PatientName: "Walk-in Guest",
+						QueueNumber: "A-01",
+						Status:      domain.TicketStatusCancelled,
+						FinishedAt:  &now,
+						CreatedAt:   now.Add(-10 * time.Minute),
+					}, nil
+				}
+			},
+			wantStatus:     http.StatusOK,
+			wantBodySubstr: "Queue ticket successfully cancelled",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := echo.New()
+			var req *http.Request
+			if tt.body != "" {
+				req = httptest.NewRequest(http.MethodPost, "/api/queue/cancel", strings.NewReader(tt.body))
+				req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+			} else {
+				req = httptest.NewRequest(http.MethodPost, "/api/queue/cancel", nil)
+			}
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+			c.SetPath("/api/queue/cancel")
+
+			if tt.setContextUser != nil {
+				c.Set(middleware.ContextKeyUserID, *tt.setContextUser)
+			}
+			if tt.setContextRole != nil {
+				c.Set(middleware.ContextKeyRole, *tt.setContextRole)
+			}
+
+			mockUC := &mockQueueUseCase{}
+			if tt.mockSetup != nil {
+				tt.mockSetup(mockUC)
+			}
+
+			handler := NewQueueHandler(mockUC)
+			err := handler.CancelQueue(c)
+			if err != nil {
+				t.Fatalf("handler returned unexpected error: %v", err)
+			}
+
+			if rec.Code != tt.wantStatus {
+				t.Errorf("expected status %d, got %d, body: %s", tt.wantStatus, rec.Code, rec.Body.String())
+			}
+
+			if !strings.Contains(rec.Body.String(), tt.wantBodySubstr) {
+				t.Errorf("expected body to contain %q, got %s", tt.wantBodySubstr, rec.Body.String())
+			}
+		})
+	}
+}
+
 

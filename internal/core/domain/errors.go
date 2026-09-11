@@ -65,4 +65,11 @@ var (
 
 	// ErrInvalidLimit indicates that limit number is invalid.
 	ErrInvalidLimit = errors.New("limit must be a positive integer (>= 1)")
+
+	// ErrTicketCannotBeCancelled indicates that the ticket cannot be cancelled in its current state.
+	ErrTicketCannotBeCancelled = errors.New("ticket cannot be cancelled in its current state")
+
+	// ErrUnauthorizedTicketAccess indicates that a patient attempted to access or modify a ticket belonging to another user.
+	ErrUnauthorizedTicketAccess = errors.New("unauthorized ticket access")
 )
+

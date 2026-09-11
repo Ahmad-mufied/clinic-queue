@@ -129,6 +129,60 @@ export function SSEProvider({ children }: { children: React.ReactNode }) {
                 };
                 break;
 
+              case "QUEUE_CANCELLED":
+                queryClient.invalidateQueries({ queryKey: ["queue-status"] });
+                queryClient.invalidateQueries({ queryKey: ["my-ticket"] });
+                queryClient.invalidateQueries({ queryKey: ["doctor-workspace"] });
+                queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
+                queryClient.invalidateQueries({ queryKey: ["admin-audit-logs-infinite"] });
+                queryClient.invalidateQueries({ queryKey: ["admin-audit-logs"] });
+
+                const isCancelledPatient =
+                  currentUser?.role === "patient" &&
+                  (currentUser?.name?.trim().toLowerCase() === payload.data?.patient_name?.trim().toLowerCase() ||
+                   currentUser?.id === payload.data?.user_id);
+
+                if (isCancelledPatient) {
+                  // Multi-tab reliability: clean up cached ticket in localStorage if matches cancelled ticket
+                  if (typeof window !== "undefined") {
+                    try {
+                      const saved = localStorage.getItem("clinic_queue_ticket");
+                      if (saved) {
+                        const parsed = JSON.parse(saved);
+                        if (parsed?.id === payload.data?.ticket_id || parsed?.queue_number === payload.data?.queue_number) {
+                          localStorage.removeItem("clinic_queue_ticket");
+                        }
+                      }
+                    } catch {
+                      // ignore parse error
+                    }
+                  }
+
+                  const wasCancelledByAdmin = payload.data?.role === "admin" || (payload.data?.cancelled_by && payload.data?.cancelled_by !== currentUser?.id);
+                  toast.info("Queue Ticket Cancelled", {
+                    id: `queue-cancel-${payload.data?.ticket_id || payload.data?.queue_number || "patient"}`,
+                    description: wasCancelledByAdmin
+                      ? `Your ticket ${payload.data?.queue_number || ""} was cancelled by clinic administration.`
+                      : `Your ticket ${payload.data?.queue_number || ""} has been cancelled.`,
+                  });
+                } else if (isAdmin) {
+                  toast.info(`Ticket Cancelled: ${payload.data?.queue_number || ""}`, {
+                    id: `queue-cancel-${payload.data?.ticket_id || payload.data?.queue_number || "admin"}`,
+                    description: `Patient ${payload.data?.patient_name || "Patient"} cancelled their queue ticket.`,
+                  });
+                }
+
+                newNotif = {
+                  id: notifId,
+                  type: "QUEUE_CANCELLED",
+                  title: `Ticket Cancelled: ${payload.data?.queue_number || ""}`,
+                  description: `Patient ${payload.data?.patient_name || "Patient"} cancelled ticket.`,
+                  timeFormatted,
+                  category: "queue",
+                  read: false,
+                };
+                break;
+
               case "TICKET_CALLED":
                 queryClient.invalidateQueries({ queryKey: ["queue-status"] });
                 queryClient.invalidateQueries({ queryKey: ["my-ticket"] });

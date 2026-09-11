@@ -159,7 +159,26 @@ func (w *AuditWorker) HandleEventMessage(ctx context.Context, data []byte) {
 		}
 		dto.UserID = extractID(rawMap, "user_id")
 
+	case "QUEUE_CANCELLED":
+		dto.Action = domain.ActionQueueCancelled
+		if role, ok := rawMap["role"].(string); ok && role != "" {
+			dto.Role = role
+		} else {
+			dto.Role = string(domain.RolePatient)
+		}
+		if dto.Role == string(domain.RoleAdmin) {
+			dto.ActorName = "Clinic Administrator"
+			dto.UserID = extractID(rawMap, "cancelled_by")
+		} else if name, ok := rawMap["patient_name"].(string); ok && name != "" {
+			dto.ActorName = name
+			dto.UserID = extractID(rawMap, "user_id")
+		} else {
+			dto.ActorName = "Patient"
+			dto.UserID = extractID(rawMap, "user_id")
+		}
+
 	case "TICKET_CALLED":
+
 		dto.Action = "CONSULTATION_STARTED"
 		dto.Role = string(domain.RoleDoctor)
 		if docName, ok := rawMap["doctor_name"].(string); ok && docName != "" {

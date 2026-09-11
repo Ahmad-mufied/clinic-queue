@@ -166,6 +166,90 @@ func (u *QueueUseCase) GetMyTicket(ctx context.Context, userID string) (*domain.
 	return ticket, nil
 }
 
+// CancelTicket cancels a waiting ticket for a patient or administrator.
+func (u *QueueUseCase) CancelTicket(ctx context.Context, userID *string, userRole string, ticketID string, reason string) (*domain.QueueTicket, error) {
+	trimmedTicketID := strings.TrimSpace(ticketID)
+	var trimmedUID string
+	if userID != nil {
+		trimmedUID = strings.TrimSpace(*userID)
+	}
+
+	var targetTicket *domain.QueueTicket
+	var err error
+
+	// If ticketID is provided, look it up by ID
+	if trimmedTicketID != "" {
+		targetTicket, err = u.queueRepo.FindByID(ctx, trimmedTicketID)
+		if err != nil {
+			return nil, fmt.Errorf("find ticket by id %s: %w", trimmedTicketID, err)
+		}
+		if targetTicket == nil {
+			return nil, domain.ErrTicketNotFound
+		}
+	} else if trimmedUID != "" {
+		// If ticketID is empty, resolve active ticket for the authenticated user
+		targetTicket, err = u.queueRepo.FindActiveTicketByUserID(ctx, trimmedUID)
+		if err != nil {
+			return nil, fmt.Errorf("find active ticket for user %s: %w", trimmedUID, err)
+		}
+		if targetTicket == nil {
+			return nil, domain.ErrTicketNotFound
+		}
+	} else {
+		return nil, domain.ErrInvalidInput
+	}
+
+	// Validate authorization: only admin or the ticket owner can cancel
+	if userRole != string(domain.RoleAdmin) {
+		var targetUID string
+		if targetTicket.UserID != nil {
+			targetUID = strings.TrimSpace(*targetTicket.UserID)
+		}
+		if trimmedUID != targetUID {
+			return nil, domain.ErrUnauthorizedTicketAccess
+		}
+	}
+
+	// Validate ticket status before calling atomic cancel
+	if !targetTicket.CanBeCancelled() {
+		return nil, domain.ErrTicketCannotBeCancelled
+	}
+
+	// Atomically cancel ticket in repository
+	cancelledTicket, err := u.queueRepo.CancelTicketAtomically(ctx, targetTicket.ID)
+	if err != nil {
+		return nil, fmt.Errorf("cancel ticket atomically: %w", err)
+	}
+
+	// Publish real-time events to NATS JetStream
+	if u.eventPub != nil {
+		var cancelledBy *string
+		if trimmedUID != "" {
+			cancelledBy = &trimmedUID
+		}
+
+		_ = u.eventPub.PublishEvent(ctx, "QUEUE_CANCELLED", map[string]any{
+			"ticket_id":     cancelledTicket.ID,
+			"queue_number":  cancelledTicket.QueueNumber,
+			"patient_name":  cancelledTicket.PatientName,
+			"user_id":       cancelledTicket.UserID,
+			"cancelled_by":  cancelledBy,
+			"role":          userRole,
+			"reason":        strings.TrimSpace(reason),
+		})
+
+		_ = u.eventPub.PublishEvent(ctx, "QUEUE_UPDATED", map[string]any{
+			"action":       "QUEUE_CANCELLED",
+			"ticket_id":    cancelledTicket.ID,
+			"queue_number": cancelledTicket.QueueNumber,
+			"patient_name": cancelledTicket.PatientName,
+		})
+	}
+
+	return cancelledTicket, nil
+}
+
+
 // GetQueueStatus retrieves the current state of clinic doctors and the public waiting queue.
 func (u *QueueUseCase) GetQueueStatus(ctx context.Context) (*domain.QueueStatus, error) {
 	doctorsWithSessions, err := u.doctorRepo.GetAllDoctorsWithSessions(ctx)

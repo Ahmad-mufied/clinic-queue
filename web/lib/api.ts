@@ -2,6 +2,7 @@ import type {
   AdminDashboardStats,
   AuditLogParams,
   AuthResponse,
+  CancelTicketResponse,
   ConsultationSession,
   DoctorWorkspace,
   PaginatedAuditLogs,
@@ -183,6 +184,13 @@ class APIClient {
       }
       return { ticket: null };
     }
+  }
+
+  async cancelQueue(ticketId?: string, reason?: string): Promise<CancelTicketResponse> {
+    return this.request<CancelTicketResponse>("POST", "/api/queue/cancel", {
+      ticket_id: ticketId,
+      reason: reason,
+    });
   }
 
   // Doctor endpoints

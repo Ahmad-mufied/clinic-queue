@@ -27,6 +27,10 @@ type QueueRepositoryPort interface {
 	// CountWaitingAhead counts how many WAITING tickets were created strictly before the specified timestamp.
 	CountWaitingAhead(ctx context.Context, createdAt time.Time) (int, error)
 
+	// CancelTicketAtomically acquires a row lock on the ticket, validates status is WAITING, and updates it to CANCELLED.
+	CancelTicketAtomically(ctx context.Context, ticketID string) (*domain.QueueTicket, error)
+
 	// GetNextQueueNumber generates the next formatted queue number sequence (e.g. A-01, A-02).
 	GetNextQueueNumber(ctx context.Context) (string, error)
 }
+

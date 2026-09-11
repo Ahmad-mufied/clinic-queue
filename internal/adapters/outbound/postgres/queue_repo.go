@@ -219,3 +219,67 @@ func (r *QueueRepo) GetNextQueueNumber(ctx context.Context) (string, error) {
 
 	return fmt.Sprintf("A-%02d", count+1), nil
 }
+
+// CancelTicketAtomically acquires a row lock on the ticket, validates status is WAITING, and updates it to CANCELLED within a single transaction.
+func (r *QueueRepo) CancelTicketAtomically(ctx context.Context, ticketID string) (*domain.QueueTicket, error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("begin transaction to cancel ticket: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	// 1. Lock the ticket row
+	selectQuery := `
+		SELECT id, user_id, patient_name, queue_number, status, created_at, called_at, finished_at
+		FROM queue_tickets
+		WHERE id = $1
+		FOR UPDATE
+	`
+
+	var ticket domain.QueueTicket
+	var statusStr string
+	err = tx.QueryRow(ctx, selectQuery, ticketID).Scan(
+		&ticket.ID,
+		&ticket.UserID,
+		&ticket.PatientName,
+		&ticket.QueueNumber,
+		&statusStr,
+		&ticket.CreatedAt,
+		&ticket.CalledAt,
+		&ticket.FinishedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, domain.ErrTicketNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("lock ticket %s for cancellation: %w", ticketID, err)
+	}
+
+	ticket.Status = domain.TicketStatus(statusStr)
+	if !ticket.CanBeCancelled() {
+		return nil, domain.ErrTicketCannotBeCancelled
+	}
+
+	// 2. Mark ticket as CANCELLED
+	updateQuery := `
+		UPDATE queue_tickets
+		SET status = 'CANCELLED', finished_at = NOW()
+		WHERE id = $1
+		RETURNING status, finished_at
+	`
+	var newStatus string
+	err = tx.QueryRow(ctx, updateQuery, ticketID).Scan(&newStatus, &ticket.FinishedAt)
+	if err != nil {
+		return nil, fmt.Errorf("update ticket %s status to CANCELLED: %w", ticketID, err)
+	}
+	ticket.Status = domain.TicketStatus(newStatus)
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit ticket cancellation transaction: %w", err)
+	}
+
+	return &ticket, nil
+}
+

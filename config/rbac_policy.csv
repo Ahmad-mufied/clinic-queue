@@ -11,6 +11,8 @@ p, doctor, /api/queue/status, GET
 p, patient, /api/queue/join, POST
 p, patient, /api/queue/my-ticket, GET
 p, patient, /api/queue/status, GET
+p, patient, /api/queue/cancel, POST
+
 
 p, public, /api/auth/*, (GET)|(POST)
 p, public, /api/events, GET

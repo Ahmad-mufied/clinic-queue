@@ -3,11 +3,13 @@ package usecase
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
 	"clinic-queue/internal/core/domain"
 )
+
 
 // --- Mock Implementations ---
 
@@ -18,6 +20,7 @@ type mockQueueRepoPort struct {
 	findByIDFunc                      func(ctx context.Context, id string) (*domain.QueueTicket, error)
 	getWaitingTicketsFunc             func(ctx context.Context) ([]*domain.QueueTicket, error)
 	countWaitingAheadFunc             func(ctx context.Context, createdAt time.Time) (int, error)
+	cancelTicketAtomicallyFunc        func(ctx context.Context, ticketID string) (*domain.QueueTicket, error)
 	getNextQueueNumberFunc            func(ctx context.Context) (string, error)
 }
 
@@ -63,12 +66,20 @@ func (m *mockQueueRepoPort) CountWaitingAhead(ctx context.Context, createdAt tim
 	return 0, nil
 }
 
+func (m *mockQueueRepoPort) CancelTicketAtomically(ctx context.Context, ticketID string) (*domain.QueueTicket, error) {
+	if m.cancelTicketAtomicallyFunc != nil {
+		return m.cancelTicketAtomicallyFunc(ctx, ticketID)
+	}
+	return nil, nil
+}
+
 func (m *mockQueueRepoPort) GetNextQueueNumber(ctx context.Context) (string, error) {
 	if m.getNextQueueNumberFunc != nil {
 		return m.getNextQueueNumberFunc(ctx)
 	}
 	return "A-01", nil
 }
+
 
 type mockDoctorRepoPort struct {
 	getActiveDoctorsFunc          func(ctx context.Context) ([]*domain.Doctor, error)
@@ -793,3 +804,383 @@ func TestQueueUseCase_GetQueueStatus(t *testing.T) {
 		})
 	}
 }
+
+func TestQueueUseCase_CancelTicket(t *testing.T) {
+	patientUID := "01919df4-8e3b-7412-a1f9-90b567c9e203"
+	otherUID := "01919df4-8e3b-7412-a1f9-90b567c9e204"
+	ticketID := "01919df4-8e3b-7412-a1f9-90b567c9e401"
+
+	tests := []struct {
+		name         string
+		userID       *string
+		userRole     string
+		ticketID     string
+		reason       string
+		setupMocks   func(mQueue *mockQueueRepoPort, mPub *mockEventPubPort)
+		wantErrIs    error
+		wantErrStr   string
+		wantStatus   domain.TicketStatus
+		wantEvents   []string
+	}{
+		{
+			name:       "Empty ticketID and nil/empty userID returns ErrInvalidInput",
+			userID:     nil,
+			userRole:   "patient",
+			ticketID:   "",
+			setupMocks: func(mQueue *mockQueueRepoPort, mPub *mockEventPubPort) {},
+			wantErrIs:  domain.ErrInvalidInput,
+		},
+		{
+			name:       "TicketID provided, FindByID returns database error",
+			userID:     &patientUID,
+			userRole:   "patient",
+			ticketID:   ticketID,
+			setupMocks: func(mQueue *mockQueueRepoPort, mPub *mockEventPubPort) {
+				mQueue.findByIDFunc = func(ctx context.Context, id string) (*domain.QueueTicket, error) {
+					return nil, errors.New("db find error")
+				}
+			},
+			wantErrStr: "find ticket by id",
+		},
+		{
+			name:       "TicketID provided, ticket not found returns ErrTicketNotFound",
+			userID:     &patientUID,
+			userRole:   "patient",
+			ticketID:   ticketID,
+			setupMocks: func(mQueue *mockQueueRepoPort, mPub *mockEventPubPort) {
+				mQueue.findByIDFunc = func(ctx context.Context, id string) (*domain.QueueTicket, error) {
+					return nil, nil
+				}
+			},
+			wantErrIs: domain.ErrTicketNotFound,
+		},
+		{
+			name:       "Empty ticketID, FindActiveTicketByUserID returns database error",
+			userID:     &patientUID,
+			userRole:   "patient",
+			ticketID:   "",
+			setupMocks: func(mQueue *mockQueueRepoPort, mPub *mockEventPubPort) {
+				mQueue.findActiveTicketByUserIDFunc = func(ctx context.Context, uID string) (*domain.QueueTicket, error) {
+					return nil, errors.New("db find active error")
+				}
+			},
+			wantErrStr: "find active ticket for user",
+		},
+		{
+			name:       "Empty ticketID, no active ticket found returns ErrTicketNotFound",
+			userID:     &patientUID,
+			userRole:   "patient",
+			ticketID:   "",
+			setupMocks: func(mQueue *mockQueueRepoPort, mPub *mockEventPubPort) {
+				mQueue.findActiveTicketByUserIDFunc = func(ctx context.Context, uID string) (*domain.QueueTicket, error) {
+					return nil, nil
+				}
+			},
+			wantErrIs: domain.ErrTicketNotFound,
+		},
+		{
+			name:       "Patient tries to cancel someone else's ticket -> ErrUnauthorizedTicketAccess",
+			userID:     &otherUID,
+			userRole:   "patient",
+			ticketID:   ticketID,
+			setupMocks: func(mQueue *mockQueueRepoPort, mPub *mockEventPubPort) {
+				mQueue.findByIDFunc = func(ctx context.Context, id string) (*domain.QueueTicket, error) {
+					return &domain.QueueTicket{
+						ID:          ticketID,
+						UserID:      &patientUID,
+						Status:      domain.TicketStatusWaiting,
+						QueueNumber: "A-01",
+					}, nil
+				}
+			},
+			wantErrIs: domain.ErrUnauthorizedTicketAccess,
+		},
+		{
+			name:       "Walk-in caller without userID tries to cancel user-owned ticket -> ErrUnauthorizedTicketAccess",
+			userID:     nil,
+			userRole:   "patient",
+			ticketID:   ticketID,
+			setupMocks: func(mQueue *mockQueueRepoPort, mPub *mockEventPubPort) {
+				mQueue.findByIDFunc = func(ctx context.Context, id string) (*domain.QueueTicket, error) {
+					return &domain.QueueTicket{
+						ID:          ticketID,
+						UserID:      &patientUID,
+						Status:      domain.TicketStatusWaiting,
+						QueueNumber: "A-01",
+					}, nil
+				}
+			},
+			wantErrIs: domain.ErrUnauthorizedTicketAccess,
+		},
+		{
+			name:       "Ticket in IN_CONSULTATION cannot be cancelled -> ErrTicketCannotBeCancelled",
+			userID:     &patientUID,
+			userRole:   "patient",
+			ticketID:   ticketID,
+			setupMocks: func(mQueue *mockQueueRepoPort, mPub *mockEventPubPort) {
+				mQueue.findByIDFunc = func(ctx context.Context, id string) (*domain.QueueTicket, error) {
+					return &domain.QueueTicket{
+						ID:          ticketID,
+						UserID:      &patientUID,
+						Status:      domain.TicketStatusInConsultation,
+						QueueNumber: "A-01",
+					}, nil
+				}
+			},
+			wantErrIs: domain.ErrTicketCannotBeCancelled,
+		},
+		{
+			name:       "Ticket in COMPLETED cannot be cancelled -> ErrTicketCannotBeCancelled",
+			userID:     &patientUID,
+			userRole:   "patient",
+			ticketID:   ticketID,
+			setupMocks: func(mQueue *mockQueueRepoPort, mPub *mockEventPubPort) {
+				mQueue.findByIDFunc = func(ctx context.Context, id string) (*domain.QueueTicket, error) {
+					return &domain.QueueTicket{
+						ID:          ticketID,
+						UserID:      &patientUID,
+						Status:      domain.TicketStatusCompleted,
+						QueueNumber: "A-01",
+					}, nil
+				}
+			},
+			wantErrIs: domain.ErrTicketCannotBeCancelled,
+		},
+		{
+			name:       "Ticket already CANCELLED cannot be cancelled -> ErrTicketCannotBeCancelled",
+			userID:     &patientUID,
+			userRole:   "patient",
+			ticketID:   ticketID,
+			setupMocks: func(mQueue *mockQueueRepoPort, mPub *mockEventPubPort) {
+				mQueue.findByIDFunc = func(ctx context.Context, id string) (*domain.QueueTicket, error) {
+					return &domain.QueueTicket{
+						ID:          ticketID,
+						UserID:      &patientUID,
+						Status:      domain.TicketStatusCancelled,
+						QueueNumber: "A-01",
+					}, nil
+				}
+			},
+			wantErrIs: domain.ErrTicketCannotBeCancelled,
+		},
+		{
+			name:       "CancelTicketAtomically database error returns wrapped error",
+			userID:     &patientUID,
+			userRole:   "patient",
+			ticketID:   ticketID,
+			setupMocks: func(mQueue *mockQueueRepoPort, mPub *mockEventPubPort) {
+				mQueue.findByIDFunc = func(ctx context.Context, id string) (*domain.QueueTicket, error) {
+					return &domain.QueueTicket{
+						ID:          ticketID,
+						UserID:      &patientUID,
+						Status:      domain.TicketStatusWaiting,
+						QueueNumber: "A-01",
+					}, nil
+				}
+				mQueue.cancelTicketAtomicallyFunc = func(ctx context.Context, id string) (*domain.QueueTicket, error) {
+					return nil, errors.New("db cancel error")
+				}
+			},
+			wantErrStr: "cancel ticket atomically",
+		},
+		{
+			name:       "Success: Patient cancels ticket with ticketID",
+			userID:     &patientUID,
+			userRole:   "patient",
+			ticketID:   ticketID,
+			reason:     "patient_left",
+			setupMocks: func(mQueue *mockQueueRepoPort, mPub *mockEventPubPort) {
+				mQueue.findByIDFunc = func(ctx context.Context, id string) (*domain.QueueTicket, error) {
+					return &domain.QueueTicket{
+						ID:          ticketID,
+						UserID:      &patientUID,
+						PatientName: "John Doe",
+						Status:      domain.TicketStatusWaiting,
+						QueueNumber: "A-01",
+					}, nil
+				}
+				mQueue.cancelTicketAtomicallyFunc = func(ctx context.Context, id string) (*domain.QueueTicket, error) {
+					return &domain.QueueTicket{
+						ID:          ticketID,
+						UserID:      &patientUID,
+						PatientName: "John Doe",
+						Status:      domain.TicketStatusCancelled,
+						QueueNumber: "A-01",
+					}, nil
+				}
+			},
+			wantStatus: domain.TicketStatusCancelled,
+			wantEvents: []string{"QUEUE_CANCELLED", "QUEUE_UPDATED"},
+		},
+		{
+			name:       "Success: Patient cancels ticket without ticketID (auto-resolved)",
+			userID:     &patientUID,
+			userRole:   "patient",
+			ticketID:   "",
+			reason:     "schedule_conflict",
+			setupMocks: func(mQueue *mockQueueRepoPort, mPub *mockEventPubPort) {
+				mQueue.findActiveTicketByUserIDFunc = func(ctx context.Context, uID string) (*domain.QueueTicket, error) {
+					return &domain.QueueTicket{
+						ID:          ticketID,
+						UserID:      &patientUID,
+						PatientName: "John Doe",
+						Status:      domain.TicketStatusWaiting,
+						QueueNumber: "A-01",
+					}, nil
+				}
+				mQueue.cancelTicketAtomicallyFunc = func(ctx context.Context, id string) (*domain.QueueTicket, error) {
+					return &domain.QueueTicket{
+						ID:          ticketID,
+						UserID:      &patientUID,
+						PatientName: "John Doe",
+						Status:      domain.TicketStatusCancelled,
+						QueueNumber: "A-01",
+					}, nil
+				}
+			},
+			wantStatus: domain.TicketStatusCancelled,
+			wantEvents: []string{"QUEUE_CANCELLED", "QUEUE_UPDATED"},
+		},
+		{
+			name:       "Success: Admin cancels another patient's ticket",
+			userID:     &otherUID,
+			userRole:   "admin",
+			ticketID:   ticketID,
+			reason:     "admin_force_cancel",
+			setupMocks: func(mQueue *mockQueueRepoPort, mPub *mockEventPubPort) {
+				mQueue.findByIDFunc = func(ctx context.Context, id string) (*domain.QueueTicket, error) {
+					return &domain.QueueTicket{
+						ID:          ticketID,
+						UserID:      &patientUID,
+						PatientName: "John Doe",
+						Status:      domain.TicketStatusWaiting,
+						QueueNumber: "A-01",
+					}, nil
+				}
+				mQueue.cancelTicketAtomicallyFunc = func(ctx context.Context, id string) (*domain.QueueTicket, error) {
+					return &domain.QueueTicket{
+						ID:          ticketID,
+						UserID:      &patientUID,
+						PatientName: "John Doe",
+						Status:      domain.TicketStatusCancelled,
+						QueueNumber: "A-01",
+					}, nil
+				}
+			},
+			wantStatus: domain.TicketStatusCancelled,
+			wantEvents: []string{"QUEUE_CANCELLED", "QUEUE_UPDATED"},
+		},
+		{
+			name:       "Success: Walk-in guest cancels ticket without user_id",
+			userID:     nil,
+			userRole:   "patient",
+			ticketID:   ticketID,
+			reason:     "walkin_left",
+			setupMocks: func(mQueue *mockQueueRepoPort, mPub *mockEventPubPort) {
+				mQueue.findByIDFunc = func(ctx context.Context, id string) (*domain.QueueTicket, error) {
+					return &domain.QueueTicket{
+						ID:          ticketID,
+						UserID:      nil,
+						PatientName: "Guest",
+						Status:      domain.TicketStatusWaiting,
+						QueueNumber: "A-02",
+					}, nil
+				}
+				mQueue.cancelTicketAtomicallyFunc = func(ctx context.Context, id string) (*domain.QueueTicket, error) {
+					return &domain.QueueTicket{
+						ID:          ticketID,
+						UserID:      nil,
+						PatientName: "Guest",
+						Status:      domain.TicketStatusCancelled,
+						QueueNumber: "A-02",
+					}, nil
+				}
+			},
+			wantStatus: domain.TicketStatusCancelled,
+			wantEvents: []string{"QUEUE_CANCELLED", "QUEUE_UPDATED"},
+		},
+		{
+			name:       "Success: Event publisher failure is handled gracefully",
+			userID:     &patientUID,
+			userRole:   "patient",
+			ticketID:   ticketID,
+			setupMocks: func(mQueue *mockQueueRepoPort, mPub *mockEventPubPort) {
+				mQueue.findByIDFunc = func(ctx context.Context, id string) (*domain.QueueTicket, error) {
+					return &domain.QueueTicket{
+						ID:          ticketID,
+						UserID:      &patientUID,
+						PatientName: "John Doe",
+						Status:      domain.TicketStatusWaiting,
+						QueueNumber: "A-01",
+					}, nil
+				}
+				mQueue.cancelTicketAtomicallyFunc = func(ctx context.Context, id string) (*domain.QueueTicket, error) {
+					return &domain.QueueTicket{
+						ID:          ticketID,
+						UserID:      &patientUID,
+						PatientName: "John Doe",
+						Status:      domain.TicketStatusCancelled,
+						QueueNumber: "A-01",
+					}, nil
+				}
+			},
+			wantStatus: domain.TicketStatusCancelled,
+			wantEvents: nil, // Publisher errors out, so event tracking is not required
+		},
+	}
+
+
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockQueue := &mockQueueRepoPort{}
+			mockPub := &mockEventPubPort{}
+			var publishedEvents []string
+			mockPub.publishEventFunc = func(ctx context.Context, eventType string, payload any) error {
+				publishedEvents = append(publishedEvents, eventType)
+				return nil
+			}
+
+			tt.setupMocks(mockQueue, mockPub)
+
+			uc := NewQueueUseCase(mockQueue, &mockDoctorRepoPort{}, mockPub)
+			ticket, err := uc.CancelTicket(context.Background(), tt.userID, tt.userRole, tt.ticketID, tt.reason)
+
+			if tt.wantErrIs != nil {
+				if !errors.Is(err, tt.wantErrIs) {
+					t.Fatalf("CancelTicket() error = %v, wantErrIs %v", err, tt.wantErrIs)
+				}
+				return
+			}
+
+			if tt.wantErrStr != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.wantErrStr) {
+					t.Fatalf("CancelTicket() expected error containing %q, got %v", tt.wantErrStr, err)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("CancelTicket() unexpected error: %v", err)
+			}
+
+			if ticket.Status != tt.wantStatus {
+				t.Errorf("CancelTicket() Status = %v, want %v", ticket.Status, tt.wantStatus)
+			}
+
+			for _, wantEv := range tt.wantEvents {
+				found := false
+				for _, ev := range publishedEvents {
+					if ev == wantEv {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("CancelTicket() expected event %q to be published, got %v", wantEv, publishedEvents)
+				}
+			}
+		})
+	}
+}
+

@@ -150,3 +150,46 @@ func TestNewDoctor(t *testing.T) {
 		})
 	}
 }
+
+func TestQueueTicket_CanBeCancelled(t *testing.T) {
+	tests := []struct {
+		name   string
+		ticket *QueueTicket
+		want   bool
+	}{
+		{
+			name:   "Nil ticket cannot be cancelled",
+			ticket: nil,
+			want:   false,
+		},
+		{
+			name:   "Waiting ticket can be cancelled",
+			ticket: &QueueTicket{Status: TicketStatusWaiting},
+			want:   true,
+		},
+		{
+			name:   "In consultation ticket cannot be cancelled",
+			ticket: &QueueTicket{Status: TicketStatusInConsultation},
+			want:   false,
+		},
+		{
+			name:   "Completed ticket cannot be cancelled",
+			ticket: &QueueTicket{Status: TicketStatusCompleted},
+			want:   false,
+		},
+		{
+			name:   "Already cancelled ticket cannot be cancelled",
+			ticket: &QueueTicket{Status: TicketStatusCancelled},
+			want:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.ticket.CanBeCancelled(); got != tt.want {
+				t.Errorf("QueueTicket.CanBeCancelled() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
