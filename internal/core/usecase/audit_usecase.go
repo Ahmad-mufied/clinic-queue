@@ -91,3 +91,30 @@ func (u *AuditUseCase) GetAuditLogs(ctx context.Context, filter domain.AuditLogF
 
 	return result, nil
 }
+
+// GetAuditLogByID retrieves a single audit log with full forensic context by its ID.
+func (u *AuditUseCase) GetAuditLogByID(ctx context.Context, id string) (*domain.AuditLog, error) {
+	trimmedID := strings.TrimSpace(id)
+	if trimmedID == "" {
+		return nil, domain.ErrInvalidInput
+	}
+
+	log, err := u.auditRepo.GetLogByID(ctx, trimmedID)
+	if err != nil {
+		return nil, err
+	}
+	if log == nil {
+		return nil, domain.ErrAuditLogNotFound
+	}
+
+	if log.Location == "" {
+		if loc, ok := log.Details["location"].(string); ok && loc != "" {
+			log.Location = loc
+		} else {
+			log.Location = domain.ResolveLocation(log.IPAddress)
+		}
+	}
+
+	return log, nil
+}
+

@@ -24,7 +24,7 @@ setup: ## Siapkan file .env dan install dependencies frontend
 	@cd web && npm install
 	@echo "Setup complete."
 
-infra-up: ## Jalankan container PostgreSQL 18 (:5433) & NATS (:4222) di background
+infra-up: ## Jalankan container PostgreSQL 18 (:5434) & NATS (:4222) di background
 	docker compose up -d
 
 infra-down: ## Matikan container infrastruktur

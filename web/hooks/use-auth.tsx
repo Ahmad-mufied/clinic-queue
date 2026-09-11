@@ -7,7 +7,7 @@ import type { DemoPersona, User } from "@/lib/types";
 export const DEMO_PERSONAS: DemoPersona[] = [
   {
     id: "admin",
-    label: "Admin CEO",
+    label: "Administrator",
     role: "admin",
     username: "admin",
     password: "password123",

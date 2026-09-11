@@ -13,8 +13,9 @@ import (
 )
 
 type mockAuditRepoPort struct {
-	insertLogFunc func(ctx context.Context, log *domain.AuditLog) (*domain.AuditLog, error)
-	queryLogsFunc func(ctx context.Context, filter domain.AuditLogFilter) (*domain.PaginatedAuditLogs, error)
+	insertLogFunc  func(ctx context.Context, log *domain.AuditLog) (*domain.AuditLog, error)
+	queryLogsFunc  func(ctx context.Context, filter domain.AuditLogFilter) (*domain.PaginatedAuditLogs, error)
+	getLogByIDFunc func(ctx context.Context, id string) (*domain.AuditLog, error)
 }
 
 func (m *mockAuditRepoPort) InsertLog(ctx context.Context, log *domain.AuditLog) (*domain.AuditLog, error) {
@@ -27,6 +28,13 @@ func (m *mockAuditRepoPort) InsertLog(ctx context.Context, log *domain.AuditLog)
 func (m *mockAuditRepoPort) QueryLogs(ctx context.Context, filter domain.AuditLogFilter) (*domain.PaginatedAuditLogs, error) {
 	if m != nil && m.queryLogsFunc != nil {
 		return m.queryLogsFunc(ctx, filter)
+	}
+	return nil, nil
+}
+
+func (m *mockAuditRepoPort) GetLogByID(ctx context.Context, id string) (*domain.AuditLog, error) {
+	if m != nil && m.getLogByIDFunc != nil {
+		return m.getLogByIDFunc(ctx, id)
 	}
 	return nil, nil
 }
@@ -349,6 +357,125 @@ func TestAuditUseCase_GetAuditLogs(t *testing.T) {
 	}
 }
 
+func TestAuditUseCase_GetAuditLogByID(t *testing.T) {
+	now := time.Now().UTC()
+	validID := "01919df4-8e3b-7412-a1f9-90b567c9e501"
+
+	tests := []struct {
+		name         string
+		id           string
+		mockRepo     *mockAuditRepoPort
+		wantErr      error
+		wantLocation string
+	}{
+		{
+			name:     "Empty ID returns ErrInvalidInput",
+			id:       "   ",
+			mockRepo: &mockAuditRepoPort{},
+			wantErr:  domain.ErrInvalidInput,
+		},
+		{
+			name: "Repo error returns wrapped error",
+			id:   validID,
+			mockRepo: &mockAuditRepoPort{
+				getLogByIDFunc: func(ctx context.Context, id string) (*domain.AuditLog, error) {
+					return nil, errors.New("db connection failure")
+				},
+			},
+			wantErr: errors.New("db connection failure"),
+		},
+		{
+			name: "Repo returns nil log returns ErrAuditLogNotFound",
+			id:   validID,
+			mockRepo: &mockAuditRepoPort{
+				getLogByIDFunc: func(ctx context.Context, id string) (*domain.AuditLog, error) {
+					return nil, nil
+				},
+			},
+			wantErr: domain.ErrAuditLogNotFound,
+		},
+		{
+			name: "Success with pre-existing location",
+			id:   validID,
+			mockRepo: &mockAuditRepoPort{
+				getLogByIDFunc: func(ctx context.Context, id string) (*domain.AuditLog, error) {
+					return &domain.AuditLog{
+						ID:        validID,
+						ActorName: "Dr. Adams",
+						Role:      "doctor",
+						Action:    domain.ActionDoctorShiftStarted,
+						Location:  "Jakarta, Indonesia",
+						CreatedAt: now,
+					}, nil
+				},
+			},
+			wantErr:      nil,
+			wantLocation: "Jakarta, Indonesia",
+		},
+		{
+			name: "Success with location in Details map",
+			id:   validID,
+			mockRepo: &mockAuditRepoPort{
+				getLogByIDFunc: func(ctx context.Context, id string) (*domain.AuditLog, error) {
+					return &domain.AuditLog{
+						ID:        validID,
+						ActorName: "Dr. Adams",
+						Role:      "doctor",
+						Action:    domain.ActionDoctorShiftStarted,
+						Details:   map[string]any{"location": "Bali, Indonesia"},
+						CreatedAt: now,
+					}, nil
+				},
+			},
+			wantErr:      nil,
+			wantLocation: "Bali, Indonesia",
+		},
+		{
+			name: "Success with empty location resolved from IP",
+			id:   validID,
+			mockRepo: &mockAuditRepoPort{
+				getLogByIDFunc: func(ctx context.Context, id string) (*domain.AuditLog, error) {
+					return &domain.AuditLog{
+						ID:        validID,
+						ActorName: "Dr. Adams",
+						Role:      "doctor",
+						Action:    domain.ActionDoctorShiftStarted,
+						IPAddress: "127.0.0.1",
+						Details:   map[string]any{},
+						CreatedAt: now,
+					}, nil
+				},
+			},
+			wantErr:      nil,
+			wantLocation: "Yogyakarta, Indonesia",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			uc := NewAuditUseCase(tt.mockRepo, nil)
+			res, err := uc.GetAuditLogByID(context.Background(), tt.id)
+
+			if tt.wantErr != nil {
+				if err == nil {
+					t.Fatalf("expected error %v, got nil", tt.wantErr)
+				}
+				if !errors.Is(err, tt.wantErr) && !strings.Contains(err.Error(), tt.wantErr.Error()) {
+					t.Fatalf("expected error %v, got %v", tt.wantErr, err)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if res.Location != tt.wantLocation {
+				t.Errorf("expected Location %q, got %q", tt.wantLocation, res.Location)
+			}
+		})
+	}
+}
+
 func TestAuditMockDefaults(t *testing.T) {
 	// Call default branches of mocks when functions are nil to ensure 100% test coverage
 	var repoMock mockAuditRepoPort
@@ -358,6 +485,10 @@ func TestAuditMockDefaults(t *testing.T) {
 	}
 	p, err := repoMock.QueryLogs(context.Background(), domain.AuditLogFilter{})
 	if p != nil || err != nil {
+		t.Errorf("expected nil, nil")
+	}
+	g, err := repoMock.GetLogByID(context.Background(), "")
+	if g != nil || err != nil {
 		t.Errorf("expected nil, nil")
 	}
 

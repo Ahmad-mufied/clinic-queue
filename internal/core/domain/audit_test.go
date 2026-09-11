@@ -202,6 +202,33 @@ func TestAuditLogFilter_NormalizePagination(t *testing.T) {
 			wantPage:  3,
 			wantLimit: 50,
 		},
+		{
+			name: "all flag with 0 limit sets to max full export limit",
+			filter: &AuditLogFilter{
+				All:   true,
+				Limit: 0,
+			},
+			wantPage:  0,
+			wantLimit: MaxFullExportLimit,
+		},
+		{
+			name: "all flag with limit exceeding max full export limit is capped",
+			filter: &AuditLogFilter{
+				All:   true,
+				Limit: 25000,
+			},
+			wantPage:  0,
+			wantLimit: MaxFullExportLimit,
+		},
+		{
+			name: "all flag with valid custom limit preserved",
+			filter: &AuditLogFilter{
+				All:   true,
+				Limit: 500,
+			},
+			wantPage:  0,
+			wantLimit: 500,
+		},
 	}
 
 	for _, tt := range tests {

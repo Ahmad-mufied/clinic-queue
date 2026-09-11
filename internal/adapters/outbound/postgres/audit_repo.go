@@ -10,6 +10,7 @@ import (
 	"clinic-queue/internal/core/domain"
 	"clinic-queue/internal/core/ports/outbound"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -131,11 +132,16 @@ func (r *AuditRepo) QueryLogs(ctx context.Context, filter domain.AuditLogFilter)
 		baseWhereClause = "WHERE " + strings.Join(conditions, " AND ")
 	}
 
-	// Get total records matching base filter
+	hasCursor := filter.Cursor != nil && strings.TrimSpace(*filter.Cursor) != ""
+
+	// Get total records matching base filter only on initial or offset queries.
+	// When cursor is present in infinite lazy loading, skip SELECT COUNT(*) to maximize throughput and avoid full-table scans.
 	var totalRecords int
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM audit_logs %s", baseWhereClause)
-	if err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&totalRecords); err != nil {
-		return nil, fmt.Errorf("count audit logs: %w", err)
+	if !hasCursor {
+		countQuery := fmt.Sprintf("SELECT COUNT(*) FROM audit_logs %s", baseWhereClause)
+		if err := r.pool.QueryRow(ctx, countQuery, args...).Scan(&totalRecords); err != nil {
+			return nil, fmt.Errorf("count audit logs: %w", err)
+		}
 	}
 
 	isAsc := filter.SortOrder == "asc"
@@ -145,7 +151,7 @@ func (r *AuditRepo) QueryLogs(ctx context.Context, filter domain.AuditLogFilter)
 	}
 
 	// Cursor pagination clause
-	if filter.Cursor != nil && strings.TrimSpace(*filter.Cursor) != "" {
+	if hasCursor {
 		if isAsc {
 			conditions = append(conditions, fmt.Sprintf("id > $%d", argIdx))
 		} else {
@@ -169,7 +175,7 @@ func (r *AuditRepo) QueryLogs(ctx context.Context, filter domain.AuditLogFilter)
 	if filter.Cursor != nil && strings.TrimSpace(*filter.Cursor) != "" {
 		// Pure cursor query without offset
 		query = fmt.Sprintf(`
-			SELECT id, user_id, actor_name, role, action, details, ip_address, created_at
+			SELECT id, user_id, actor_name, role, action, COALESCE(details->>'location', ''), ip_address, created_at
 			FROM audit_logs
 			%s
 			ORDER BY id %s
@@ -179,7 +185,7 @@ func (r *AuditRepo) QueryLogs(ctx context.Context, filter domain.AuditLogFilter)
 	} else {
 		// Offset fallback query
 		query = fmt.Sprintf(`
-			SELECT id, user_id, actor_name, role, action, details, ip_address, created_at
+			SELECT id, user_id, actor_name, role, action, COALESCE(details->>'location', ''), ip_address, created_at
 			FROM audit_logs
 			%s
 			ORDER BY id %s
@@ -197,9 +203,9 @@ func (r *AuditRepo) QueryLogs(ctx context.Context, filter domain.AuditLogFilter)
 	var logs []domain.AuditLog
 	for rows.Next() {
 		var (
-			item         domain.AuditLog
-			detailsBytes []byte
-			ipAddress    *string
+			item      domain.AuditLog
+			location  string
+			ipAddress *string
 		)
 
 		if err := rows.Scan(
@@ -208,7 +214,7 @@ func (r *AuditRepo) QueryLogs(ctx context.Context, filter domain.AuditLogFilter)
 			&item.ActorName,
 			&item.Role,
 			&item.Action,
-			&detailsBytes,
+			&location,
 			&ipAddress,
 			&item.CreatedAt,
 		); err != nil {
@@ -218,14 +224,8 @@ func (r *AuditRepo) QueryLogs(ctx context.Context, filter domain.AuditLogFilter)
 		if ipAddress != nil {
 			item.IPAddress = *ipAddress
 		}
-		if len(detailsBytes) > 0 {
-			_ = json.Unmarshal(detailsBytes, &item.Details)
-		}
-		if item.Details == nil {
-			item.Details = make(map[string]any)
-		}
-		if loc, ok := item.Details["location"].(string); ok && loc != "" {
-			item.Location = loc
+		if location != "" {
+			item.Location = location
 		} else {
 			item.Location = domain.ResolveLocation(item.IPAddress)
 		}
@@ -250,7 +250,7 @@ func (r *AuditRepo) QueryLogs(ctx context.Context, filter domain.AuditLogFilter)
 		logs = []domain.AuditLog{}
 	}
 
-	totalPages := 1
+	totalPages := 0
 	if totalRecords > 0 && filter.Limit > 0 {
 		totalPages = (totalRecords + filter.Limit - 1) / filter.Limit
 	}
@@ -264,4 +264,54 @@ func (r *AuditRepo) QueryLogs(ctx context.Context, filter domain.AuditLogFilter)
 		TotalPages:   totalPages,
 		Logs:         logs,
 	}, nil
+}
+
+// GetLogByID retrieves a single immutable audit log record by its unique ID with full forensic details.
+func (r *AuditRepo) GetLogByID(ctx context.Context, id string) (*domain.AuditLog, error) {
+	query := `
+		SELECT id, user_id, actor_name, role, action, details, ip_address, created_at
+		FROM audit_logs
+		WHERE id = $1
+		LIMIT 1
+	`
+
+	var (
+		item         domain.AuditLog
+		detailsBytes []byte
+		ipAddress    *string
+	)
+
+	err := r.pool.QueryRow(ctx, query, strings.TrimSpace(id)).Scan(
+		&item.ID,
+		&item.UserID,
+		&item.ActorName,
+		&item.Role,
+		&item.Action,
+		&detailsBytes,
+		&ipAddress,
+		&item.CreatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, domain.ErrAuditLogNotFound
+		}
+		return nil, fmt.Errorf("query audit log by id %s: %w", id, err)
+	}
+
+	if ipAddress != nil {
+		item.IPAddress = *ipAddress
+	}
+	if len(detailsBytes) > 0 {
+		_ = json.Unmarshal(detailsBytes, &item.Details)
+	}
+	if item.Details == nil {
+		item.Details = make(map[string]any)
+	}
+	if loc, ok := item.Details["location"].(string); ok && loc != "" {
+		item.Location = loc
+	} else {
+		item.Location = domain.ResolveLocation(item.IPAddress)
+	}
+
+	return &item, nil
 }

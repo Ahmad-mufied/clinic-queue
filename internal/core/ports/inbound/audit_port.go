@@ -23,4 +23,8 @@ type AuditUseCase interface {
 
 	// GetAuditLogs retrieves a paginated and filtered list of audit log records.
 	GetAuditLogs(ctx context.Context, filter domain.AuditLogFilter) (*domain.PaginatedAuditLogs, error)
+
+	// GetAuditLogByID retrieves a single audit log with full forensic context by its ID.
+	GetAuditLogByID(ctx context.Context, id string) (*domain.AuditLog, error)
 }
+

@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useAuth } from "@/hooks/use-auth";
 import Link from "next/link";
@@ -26,10 +26,8 @@ import {
   SlidersHorizontal,
   Copy,
   Check,
-  Globe,
   Clock,
   FileJson,
-  Laptop,
   Terminal,
   Fingerprint,
   MapPin,
@@ -94,22 +92,85 @@ function getHumanIdentityHandle(log: AuditLog): { label: string; handle: string 
   return { label: "Identity", handle: log.actor_name || "System" };
 }
 
+function getAuditErrorInfo(error: unknown): {
+  title: string;
+  message: string;
+  rawDetails?: string;
+} {
+  const rawMsg = (error as Error)?.message || "";
+  const lower = rawMsg.toLowerCase();
+
+  if (lower.includes("401") || lower.includes("unauthorized") || lower.includes("session expired")) {
+    return {
+      title: "Authentication Required",
+      message: "Your session has expired or authentication credentials are missing. Please sign in again to access the audit records.",
+      rawDetails: rawMsg,
+    };
+  }
+
+  if (lower.includes("403") || lower.includes("forbidden") || lower.includes("access denied")) {
+    return {
+      title: "Administrator Access Required",
+      message: "You do not have administrative permissions to view system activity logs. Please sign in with an administrator account.",
+      rawDetails: rawMsg,
+    };
+  }
+
+  if (lower.includes("429") || lower.includes("rate limit") || lower.includes("too many requests")) {
+    return {
+      title: "Too Many Requests",
+      message: "The system is temporarily rate limiting queries to ensure optimal performance. Please wait a moment before trying again.",
+      rawDetails: rawMsg,
+    };
+  }
+
+  if (
+    lower.includes("500") ||
+    lower.includes("internal server") ||
+    lower.includes("failed to fetch") ||
+    lower.includes("network") ||
+    lower.includes("econnrefused")
+  ) {
+    return {
+      title: "Service Temporarily Unavailable",
+      message: "The audit service encountered a temporary issue or is currently unreachable. Activity records remain securely preserved.",
+      rawDetails: rawMsg,
+    };
+  }
+
+  return {
+    title: "Unable to Load Activity Records",
+    message: "An unexpected issue occurred while retrieving activity records. Please try again shortly.",
+    rawDetails: rawMsg,
+  };
+}
+
 export default function AdminAuditTrailPage() {
   const { user, token, isLoading: isAuthLoading, isMounted, switchPersona } = useAuth();
-  const [limit] = useState(15);
+  const [limit] = useState(25);
   const [search, setSearch] = useState<string>("");
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
   const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
   const [actionFilter, setActionFilter] = useState<string>("ALL");
   const [roleFilter, setRoleFilter] = useState<string>("ALL");
-
-  const [inspectLog, setInspectLog] = useState<AuditLog | null>(null);
+  const [inspectLogId, setInspectLogId] = useState<string | null>(null);
+  const [inspectSummary, setInspectSummary] = useState<AuditLog | null>(null);
+  const [showAll, setShowAll] = useState(false);
   const [copied, setCopied] = useState(false);
   const [reqIdCopied, setReqIdCopied] = useState(false);
   const [logIdCopied, setLogIdCopied] = useState(false);
-  const [ipCopied, setIpCopied] = useState(false);
   const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Detail Query: On-Demand Forensic Fetching for Inspected Log
+  const { data: inspectDetail, isLoading: isLoadingDetail } = useQuery({
+    queryKey: ["admin-audit-log-detail", inspectLogId],
+    queryFn: () => (inspectLogId ? api.getAuditLogByID(inspectLogId) : null),
+    enabled: !!inspectLogId && !!token && user?.role === "admin",
+  });
+
+  const inspectLog = inspectDetail || inspectSummary;
 
   const handleCopyJSON = () => {
     if (!inspectLog) return;
@@ -131,13 +192,7 @@ export default function AdminAuditTrailPage() {
     setTimeout(() => setLogIdCopied(false), 2000);
   };
 
-  const handleCopyIP = (ip: string) => {
-    navigator.clipboard.writeText(ip);
-    setIpCopied(true);
-    setTimeout(() => setIpCopied(false), 2000);
-  };
-
-  // Query: Lazy Loading Infinite Audit Logs via Cursor Pagination
+  // Query: Audit Logs (Supports Lazy Infinite Loading or Show All Mode)
   const {
     data,
     fetchNextPage,
@@ -157,11 +212,13 @@ export default function AdminAuditTrailPage() {
       sortOrder,
       actionFilter,
       roleFilter,
+      showAll,
     ],
     queryFn: ({ pageParam }) =>
       api.getAuditLogs({
-        cursor: pageParam,
-        limit,
+        cursor: showAll ? undefined : pageParam,
+        limit: showAll ? 10000 : limit,
+        all: showAll,
         search: search.trim() || undefined,
         start_date: startDate || undefined,
         end_date: endDate || undefined,
@@ -170,35 +227,51 @@ export default function AdminAuditTrailPage() {
         role: roleFilter !== "ALL" ? roleFilter : undefined,
       }),
     initialPageParam: null as string | null,
-    getNextPageParam: (lastPage) => (lastPage.has_more ? lastPage.next_cursor : undefined),
+    getNextPageParam: (lastPage) => (showAll ? undefined : (lastPage.has_more ? lastPage.next_cursor : undefined)),
     enabled: !!token && user?.role === "admin",
-    refetchInterval: 3000,
+    staleTime: 30000,
+    refetchOnWindowFocus: false,
   });
 
-  // Auto-fetch next page on scroll / intersection
+  // Ref-guarded trigger to prevent redundant double-fetch and observer teardown jitter
+  const isFetchingRef = useRef(false);
+  isFetchingRef.current = isFetchingNextPage;
+
+  const triggerNextPage = useCallback(() => {
+    if (!showAll && hasNextPage && !isFetchingRef.current && !isFetchingNextPage) {
+      isFetchingRef.current = true;
+      fetchNextPage();
+    }
+  }, [showAll, hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  // Persistent IntersectionObserver: keeps observing without tearing down on isFetchingNextPage toggles
   useEffect(() => {
     const sentinel = loadMoreSentinelRef.current;
-    if (!sentinel || !hasNextPage || isFetchingNextPage) return;
+    if (!sentinel || !hasNextPage || showAll) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0]?.isIntersecting && hasNextPage && !isFetchingNextPage) {
-          fetchNextPage();
+        if (entries[0]?.isIntersecting && !showAll) {
+          triggerNextPage();
         }
       },
-      { threshold: 0.1 }
+      {
+        root: scrollContainerRef.current,
+        rootMargin: "0px 0px 600px 0px",
+        threshold: 0,
+      }
     );
 
     observer.observe(sentinel);
     return () => observer.disconnect();
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+  }, [hasNextPage, showAll, triggerNextPage]);
 
   const handleContainerScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (showAll) return;
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
-    if (scrollHeight - scrollTop - clientHeight < 100) {
-      if (hasNextPage && !isFetchingNextPage) {
-        fetchNextPage();
-      }
+    // Early trigger when remaining distance is under 600px
+    if (scrollHeight - scrollTop - clientHeight < 600) {
+      triggerNextPage();
     }
   };
 
@@ -242,7 +315,7 @@ export default function AdminAuditTrailPage() {
               onClick={() => switchPersona("admin")}
               className="w-full rounded-full bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs h-11"
             >
-              Sign In as Admin CEO
+              Sign In as Administrator
             </Button>
           </div>
         </Card>
@@ -423,6 +496,39 @@ export default function AdminAuditTrailPage() {
               </div>
             </div>
           </div>
+
+          {/* Data Loading Mode Toggle (Show All without Pagination) */}
+          <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                Display Mode
+              </span>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                showAll
+                  ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200/60"
+                  : "bg-slate-100 text-slate-500 dark:bg-slate-800"
+              }`}>
+                {showAll ? "All Logs Loaded" : "Lazy Paging"}
+              </span>
+            </div>
+            <Button
+              onClick={() => setShowAll((prev) => !prev)}
+              variant={showAll ? "default" : "outline"}
+              size="sm"
+              className={`w-full rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                showAll
+                  ? "bg-emerald-700 hover:bg-emerald-800 text-white shadow-xs"
+                  : "border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200"
+              }`}
+            >
+              {showAll ? "Switch to Lazy Paging" : `Show All Logs (${totalRecords})`}
+            </Button>
+            <p className="text-[10px] text-slate-400 leading-tight">
+              {showAll
+                ? "Showing all activity records in a single view."
+                : "Loads all records immediately without scroll pagination."}
+            </p>
+          </div>
         </Card>
 
         {/* Right Section: Expanded Audit Log Table */}
@@ -430,18 +536,27 @@ export default function AdminAuditTrailPage() {
           <Card className="rounded-[26px] border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-sm">
             <CardContent className="p-0">
               <div
+                ref={scrollContainerRef}
                 onScroll={handleContainerScroll}
-                className="overflow-x-auto max-h-[calc(100vh-295px)] min-h-[380px] overflow-y-auto scrollbar-thin"
+                className="overflow-x-auto max-h-[calc(100vh-295px)] min-h-[380px] overflow-y-auto scrollbar-thin [overflow-anchor:none]"
               >
-            <table className="w-full text-left text-xs">
+            <table className="w-full text-left text-xs table-fixed">
+              <colgroup>
+                <col className="w-[155px]" />
+                <col className="w-[190px]" />
+                <col className="w-[180px]" />
+                <col className="w-[95px]" />
+                <col className="w-[170px]" />
+                <col className="w-[90px]" />
+              </colgroup>
               <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 text-slate-500 text-[11px] uppercase tracking-wider font-bold shadow-2xs">
                 <tr>
-                  <th className="py-3.5 px-6">Timestamp</th>
-                  <th className="py-3.5 px-6">Action</th>
-                  <th className="py-3.5 px-6">Actor</th>
-                  <th className="py-3.5 px-6">Role</th>
-                  <th className="py-3.5 px-6">Location</th>
-                  <th className="py-3.5 px-6 text-right">Details</th>
+                  <th className="py-3.5 px-6 truncate">Timestamp</th>
+                  <th className="py-3.5 px-6 truncate">Action</th>
+                  <th className="py-3.5 px-6 truncate">Actor</th>
+                  <th className="py-3.5 px-6 truncate">Role</th>
+                  <th className="py-3.5 px-6 truncate">Location</th>
+                  <th className="py-3.5 px-6 text-right truncate">Details</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -454,20 +569,40 @@ export default function AdminAuditTrailPage() {
                   </tr>
                 ) : isError ? (
                   <tr>
-                    <td colSpan={6} className="py-12 text-center text-slate-500 text-xs">
-                      <p className="text-rose-500 font-semibold mb-2">
-                        Unable to load activity logs: {(error as Error)?.message || "Session expired or connection failed"}
-                      </p>
-                      <Button
-                        onClick={() => {
-                          switchPersona("admin").then(() => refetch());
-                        }}
-                        variant="outline"
-                        size="sm"
-                        className="rounded-full text-xs font-bold px-4"
-                      >
-                        Re-authenticate as Admin CEO
-                      </Button>
+                    <td colSpan={6} className="py-14 px-6 text-center">
+                      <div className="max-w-md mx-auto space-y-3">
+                        <div className="inline-block px-3 py-1 rounded-full text-[11px] font-semibold tracking-wide text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border border-rose-200/60 dark:border-rose-900/50">
+                          {getAuditErrorInfo(error).title}
+                        </div>
+                        <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                          {getAuditErrorInfo(error).message}
+                        </p>
+                        {getAuditErrorInfo(error).rawDetails && (
+                          <div className="text-[11px] font-mono text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-900/60 py-1.5 px-3 rounded-lg border border-slate-100 dark:border-slate-800 break-words">
+                            Code: {getAuditErrorInfo(error).rawDetails}
+                          </div>
+                        )}
+                        <div className="pt-2 flex items-center justify-center gap-2">
+                          <Button
+                            onClick={() => refetch()}
+                            variant="default"
+                            size="sm"
+                            className="rounded-full text-xs font-semibold px-4 bg-emerald-700 hover:bg-emerald-800 text-white cursor-pointer"
+                          >
+                            Try Again
+                          </Button>
+                          <Button
+                            onClick={() => {
+                              switchPersona("admin").then(() => refetch());
+                            }}
+                            variant="outline"
+                            size="sm"
+                            className="rounded-full text-xs font-semibold px-4 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer text-slate-700 dark:text-slate-300"
+                          >
+                            Sign In as Administrator
+                          </Button>
+                        </div>
+                      </div>
                     </td>
                   </tr>
                 ) : logs.length === 0 ? (
@@ -479,17 +614,17 @@ export default function AdminAuditTrailPage() {
                 ) : (
                   logs.map((log) => (
                     <tr key={log.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
-                      <td className="py-3.5 px-6 whitespace-nowrap">
-                        <div className="font-semibold text-xs text-slate-800 dark:text-slate-200">
+                      <td className="py-3.5 px-6 whitespace-nowrap overflow-hidden">
+                        <div className="font-semibold text-xs text-slate-800 dark:text-slate-200 truncate">
                           {formatDate(log.created_at)}
                         </div>
-                        <div className="text-[11px] font-mono text-slate-400 dark:text-slate-500">
+                        <div className="text-[11px] font-mono text-slate-400 dark:text-slate-500 truncate">
                           {formatTime(log.created_at)}
                         </div>
                       </td>
-                      <td className="py-4 px-6">
+                      <td className="py-4 px-6 overflow-hidden">
                         <span
-                          className={`font-mono font-bold px-2.5 py-1 rounded-full text-[10px] ${
+                          className={`font-mono font-bold px-2.5 py-1 rounded-full text-[10px] inline-block truncate max-w-full ${
                             log.action === "QUEUE_CANCELLED"
                               ? "text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40"
                               : "text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40"
@@ -498,10 +633,10 @@ export default function AdminAuditTrailPage() {
                           {log.action}
                         </span>
                       </td>
-                      <td className="py-4 px-6 font-semibold text-slate-900 dark:text-white">
+                      <td className="py-4 px-6 font-semibold text-slate-900 dark:text-white truncate overflow-hidden" title={log.actor_name}>
                         {log.actor_name}
                       </td>
-                      <td className="py-4 px-6">
+                      <td className="py-4 px-6 overflow-hidden">
                         <span
                           className={`inline-block text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${
                             log.role === "admin"
@@ -514,15 +649,18 @@ export default function AdminAuditTrailPage() {
                           {log.role}
                         </span>
                       </td>
-                      <td className="py-4 px-6">
-                        <div className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300 font-medium">
+                      <td className="py-4 px-6 overflow-hidden">
+                        <div className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300 font-medium truncate" title={formatAuditLocation(log)}>
                           <MapPin className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                          <span>{formatAuditLocation(log)}</span>
+                          <span className="truncate">{formatAuditLocation(log)}</span>
                         </div>
                       </td>
-                      <td className="py-4 px-6 text-right">
+                      <td className="py-4 px-6 text-right whitespace-nowrap">
                         <Button
-                          onClick={() => setInspectLog(log)}
+                          onClick={() => {
+                            setInspectLogId(log.id);
+                            setInspectSummary(log);
+                          }}
                           variant="outline"
                           size="sm"
                           className="h-7 rounded-full px-3 text-xs font-bold"
@@ -537,8 +675,8 @@ export default function AdminAuditTrailPage() {
               </tbody>
             </table>
 
-            {/* Auto-load sentinel at bottom of table */}
-            <div ref={loadMoreSentinelRef} className="py-3 px-6 flex items-center justify-center">
+            {/* Auto-load sentinel at bottom of table with fixed height to prevent vertical layout jump */}
+            <div ref={loadMoreSentinelRef} className="h-10 flex items-center justify-center">
               {isFetchingNextPage && (
                 <div className="flex items-center gap-2 text-xs text-slate-400">
                   <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-700" />
@@ -559,15 +697,14 @@ export default function AdminAuditTrailPage() {
             {isFetchingNextPage ? (
               <span className="inline-flex items-center text-xs text-slate-500 font-medium">
                 <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5 text-emerald-700" />
-                Auto-loading more records...
+                {showAll ? "Fetching all activity records..." : "Auto-loading more records..."}
               </span>
             ) : hasNextPage ? (
               <span className="text-[11px] text-slate-400 font-medium">
-                ↓ Scroll down inside table to auto-load older records
+                Scroll down inside table to auto-load older records
               </span>
             ) : logs.length > 0 ? (
-              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-800 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-1 rounded-full border border-emerald-200/60">
-                <CheckCircle2 className="h-3.5 w-3.5" />
+              <span className="text-[11px] font-semibold text-emerald-800 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-1 rounded-full border border-emerald-200/60">
                 All {totalRecords} records loaded
               </span>
             ) : null}
@@ -578,7 +715,15 @@ export default function AdminAuditTrailPage() {
       </div>
 
       {/* Enhanced JSON Metadata Inspector Modal */}
-      <Dialog open={!!inspectLog} onOpenChange={(open) => !open && setInspectLog(null)}>
+      <Dialog
+        open={!!inspectLogId}
+        onOpenChange={(open) => {
+          if (!open) {
+            setInspectLogId(null);
+            setInspectSummary(null);
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-4xl lg:max-w-5xl w-full rounded-[28px] p-6 sm:p-8 gap-5 max-h-[90vh] overflow-y-auto overflow-x-hidden bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-2xl">
           {inspectLog && (
             <>
@@ -683,91 +828,44 @@ export default function AdminAuditTrailPage() {
                 })()}
               </div>
 
-              {/* Forensic Context Badges (IP, Request ID & User Agent) */}
-              <div className="p-4 rounded-2xl bg-slate-50/90 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800 space-y-3">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="h-4 w-4 text-emerald-600" />
-                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
-                    Forensic Context & Tracing Provenance
-                  </span>
-                </div>
+              {/* Forensic Context Badges (Request Tracing ID) */}
+              {inspectLog.details?.request_id && (
+                <div className="p-4 rounded-2xl bg-slate-50/90 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-800 space-y-2.5">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+                      Request Tracing Provenance
+                    </span>
+                  </div>
 
-                <div className="space-y-2.5">
-                  {/* Origin Client IP Address */}
-                  <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                        <Globe className="h-3 w-3 text-slate-400" />
-                        Origin Client IP Address
-                      </span>
-                      <Button
-                        onClick={() => handleCopyIP(inspectLog.ip_address || "127.0.0.1")}
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 px-2 text-[11px] font-semibold gap-1 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer"
-                      >
-                        {ipCopied ? (
-                          <>
-                            <Check className="h-3 w-3 text-emerald-600" />
-                            <span className="text-emerald-600 font-bold">Copied</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="h-3 w-3" />
-                            <span>Copy IP</span>
-                          </>
-                        )}
-                      </Button>
+                  <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Terminal className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                      <p className="font-mono text-xs font-semibold text-slate-800 dark:text-slate-200 break-all select-all">
+                        {inspectLog.details.request_id}
+                      </p>
                     </div>
-                    <p className="font-mono text-xs font-semibold text-slate-800 dark:text-slate-200 break-all select-all bg-slate-50 dark:bg-slate-950 p-2.5 rounded-lg border border-slate-100 dark:border-slate-800">
-                      {inspectLog.ip_address || "127.0.0.1"}
-                    </p>
-                  </div>
-                    {inspectLog.details?.request_id && (
-                      <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 space-y-1.5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                            <Terminal className="h-3 w-3 text-slate-400" />
-                            Request Tracing ID (X-Request-ID)
-                          </span>
-                          <Button
-                            onClick={() => inspectLog.details?.request_id && handleCopyReqID(String(inspectLog.details.request_id))}
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 px-2 text-[11px] font-semibold gap-1 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer"
-                          >
-                            {reqIdCopied ? (
-                              <>
-                                <Check className="h-3 w-3 text-emerald-600" />
-                                <span className="text-emerald-600 font-bold">Copied</span>
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="h-3 w-3" />
-                                <span>Copy ID</span>
-                              </>
-                            )}
-                          </Button>
-                        </div>
-                        <p className="font-mono text-xs font-semibold text-slate-800 dark:text-slate-200 break-all select-all bg-slate-50 dark:bg-slate-950 p-2.5 rounded-lg border border-slate-100 dark:border-slate-800">
-                          {inspectLog.details.request_id}
-                        </p>
-                      </div>
-                    )}
-
-                    {inspectLog.details?.user_agent && (
-                      <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 space-y-1.5">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                          <Laptop className="h-3 w-3 text-slate-400" />
-                          Client User-Agent
-                        </span>
-                        <p className="font-mono text-[11px] text-slate-600 dark:text-slate-300 break-all leading-relaxed bg-slate-50 dark:bg-slate-950 p-2.5 rounded-lg border border-slate-100 dark:border-slate-800 select-all">
-                          {inspectLog.details.user_agent}
-                        </p>
-                      </div>
-                    )}
+                    <Button
+                      onClick={() => inspectLog.details?.request_id && handleCopyReqID(String(inspectLog.details.request_id))}
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-[11px] font-semibold gap-1 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer shrink-0"
+                    >
+                      {reqIdCopied ? (
+                        <>
+                          <Check className="h-3 w-3 text-emerald-600" />
+                          <span className="text-emerald-600 font-bold">Copied</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-3 w-3" />
+                          <span>Copy ID</span>
+                        </>
+                      )}
+                    </Button>
                   </div>
                 </div>
+              )}
 
               {/* JSON Metadata Viewer Card */}
               <div className="space-y-2">
@@ -780,6 +878,7 @@ export default function AdminAuditTrailPage() {
                     onClick={handleCopyJSON}
                     variant="outline"
                     size="sm"
+                    disabled={isLoadingDetail && !inspectDetail}
                     className="h-7 px-3 rounded-xl text-xs font-semibold gap-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 shadow-2xs cursor-pointer"
                   >
                     {copied ? (
@@ -806,13 +905,22 @@ export default function AdminAuditTrailPage() {
                     </div>
                     <span className="text-[11px] font-mono text-slate-600 font-medium">payload.json</span>
                     <span className="text-[10px] font-mono text-slate-400 font-medium">
-                      {Object.keys(inspectLog.details || inspectLog.metadata || {}).length} keys
+                      {isLoadingDetail && !inspectDetail
+                        ? "loading..."
+                        : `${Object.keys(inspectLog.details || inspectLog.metadata || {}).length} keys`}
                     </span>
                   </div>
                   <div className="p-4 max-h-64 overflow-y-auto font-mono text-xs leading-relaxed bg-white/70">
-                    <pre className="whitespace-pre-wrap break-all select-all font-mono text-[11px] leading-relaxed text-slate-800">
-                      {JSON.stringify(inspectLog.details || inspectLog.metadata || {}, null, 2)}
-                    </pre>
+                    {isLoadingDetail && !inspectDetail ? (
+                      <div className="flex items-center justify-center py-8 text-xs text-slate-400 gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin text-emerald-600" />
+                        <span>Loading forensic details...</span>
+                      </div>
+                    ) : (
+                      <pre className="whitespace-pre-wrap break-all select-all font-mono text-[11px] leading-relaxed text-slate-800">
+                        {JSON.stringify(inspectLog.details || inspectLog.metadata || {}, null, 2)}
+                      </pre>
+                    )}
                   </div>
                 </div>
               </div>

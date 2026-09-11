@@ -23,6 +23,9 @@ func NewUserRepo(pool *pgxpool.Pool) *UserRepo {
 
 // FindByUsername queries a single user by their unique username.
 func (r *UserRepo) FindByUsername(ctx context.Context, username string) (*domain.User, error) {
+	if r.pool == nil {
+		return nil, errors.New("database connection pool is not initialized")
+	}
 	query := `
 		SELECT id, username, password_hash, name, role, doctor_id, created_at, updated_at
 		FROM users
@@ -54,6 +57,9 @@ func (r *UserRepo) FindByUsername(ctx context.Context, username string) (*domain
 
 // FindByID queries a single user by their primary key ID.
 func (r *UserRepo) FindByID(ctx context.Context, id string) (*domain.User, error) {
+	if r.pool == nil {
+		return nil, errors.New("database connection pool is not initialized")
+	}
 	query := `
 		SELECT id, username, password_hash, name, role, doctor_id, created_at, updated_at
 		FROM users
@@ -85,6 +91,9 @@ func (r *UserRepo) FindByID(ctx context.Context, id string) (*domain.User, error
 
 // CreateUser inserts a new user record and returns the persisted entity with its generated ID and timestamps.
 func (r *UserRepo) CreateUser(ctx context.Context, user *domain.User) (*domain.User, error) {
+	if r.pool == nil {
+		return nil, errors.New("database connection pool is not initialized")
+	}
 	query := `
 		INSERT INTO users (username, password_hash, name, role, doctor_id, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, NOW(), NOW())

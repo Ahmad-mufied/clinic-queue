@@ -71,5 +71,8 @@ var (
 
 	// ErrUnauthorizedTicketAccess indicates that a patient attempted to access or modify a ticket belonging to another user.
 	ErrUnauthorizedTicketAccess = errors.New("unauthorized ticket access")
+
+	// ErrAuditLogNotFound indicates that the requested audit log record was not found in storage.
+	ErrAuditLogNotFound = errors.New("audit log not found")
 )
 

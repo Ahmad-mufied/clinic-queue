@@ -12,7 +12,7 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 cd "${ROOT_DIR}"
 
 export PORT="${PORT:-8081}"
-export DATABASE_URL="${DATABASE_URL:-postgres://postgres:postgrespassword@localhost:5433/clinic_queue_test?sslmode=disable}"
+export DATABASE_URL="${DATABASE_URL:-postgres://postgres:postgrespassword@localhost:5434/clinic_queue_test?sslmode=disable}"
 export NATS_URL="${NATS_URL:-nats://localhost:4222}"
 export JWT_SECRET="${JWT_SECRET:-super-secret-clinic-jwt-key-change-in-prod}"
 export JWT_EXPIRATION_HOURS="${JWT_EXPIRATION_HOURS:-24}"
@@ -35,7 +35,7 @@ if ! docker compose ps | grep -q "clinic-postgres"; then
     docker compose up -d
 fi
 
-echo "--> Waiting for PostgreSQL 18 health check on port 5433..."
+echo "--> Waiting for PostgreSQL 18 health check on port 5434..."
 MAX_DB_RETRIES=20
 DB_COUNT=0
 until docker exec clinic-postgres pg_isready -U postgres -d clinic_queue >/dev/null 2>&1; do

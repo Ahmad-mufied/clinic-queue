@@ -66,6 +66,20 @@ To reconcile forensic accountability with clean human-centered UI monitoring, th
    - Resolved location is persisted in PostgreSQL under `details['location']`.
    - Included in repository search predicates: `(actor_name ILIKE $1 OR ip_address ILIKE $2 OR action ILIKE $3 OR details->>'location' ILIKE $4)`.
 
+### 2.3 High-Performance Cursor Lazy-Loading & Real-Time SSE Delta Streaming
+
+To guarantee ultra-fast, smooth, and scalable audit log viewing as records scale:
+
+1. **Selective Backend `COUNT(*)` Bypass ($O(\log N)$ Cursor Seek):**
+   - On the initial page fetch (`cursor == ""`), the repository computes `SELECT COUNT(*) FROM audit_logs %s` once to establish total record visibility.
+   - On subsequent infinite scroll chunks (`hasCursor == true`), `SELECT COUNT(*)` is bypassed completely (`totalRecords = 0`). The query executes as a pure B-Tree index scan on `audit_logs_pkey` (`WHERE id < $cursor ORDER BY id DESC LIMIT fetchLimit`), reducing database execution latency from ~20–50ms to < 1ms.
+2. **Real-Time SSE Delta Streaming (Zero HTTP Invalidation Storms):**
+   - Event `AUDIT_LOG_CREATED` delivers only the single newly created `AuditLog` entity over Server-Sent Events.
+   - The frontend listener (`use-sse.tsx`) updates TanStack Query memory cache via `setQueryData` incrementally, prepending the single log to `pages[0]`, incrementing `total_records` (+1), and deduplicating by ID.
+   - Non-audit queue events (`QUEUE_JOINED`, `TICKET_*`) do not trigger redundant audit refetches.
+3. **Container-Scoped Prefetching:**
+   - `IntersectionObserver` is bound to the table's scroll container (`root: scrollContainerRef.current`) with `rootMargin: "300px"`. Older records prefetch seamlessly in the background before the user hits the bottom, providing a native, zero-stutter lazy loading experience.
+
 ---
 
 ## 3. Database Migration (Goose SQL)
@@ -141,6 +155,39 @@ DROP TABLE IF EXISTS audit_logs;
 }
 ```
 
+### 4.2 Get Audit Log Forensic Detail (On-Demand Forensic Inspection)
+- **URL:** `GET /api/admin/audit-logs/:id`
+- **Access:** Role `admin` (Protected by JWT & Casbin RBAC)
+- **Path Parameters:**
+  - `id` (UUIDv7 string, e.g., `01919df4-8e3b-7412-a1f9-90b567c9e536`)
+- **Response (200 OK):**
+```json
+{
+  "id": "01919df4-8e3b-7412-a1f9-90b567c9e536",
+  "user_id": "01919df4-8e3b-7412-a1f9-90b567c9e102",
+  "actor_name": "Dr. Michael Chen",
+  "role": "doctor",
+  "action": "CONSULTATION_FINISHED",
+  "location": "Yogyakarta, Indonesia",
+  "ip_address": "127.0.0.1",
+  "details": {
+    "location": "Yogyakarta, Indonesia",
+    "request_id": "req-9b87f21a-4c",
+    "user_agent": "Mozilla/5.0 ...",
+    "actual_duration_minutes": 3.2,
+    "doctor_id": "01919df4-8e3b-7412-a1f9-90b567c9e202",
+    "doctor_name": "Dr. Michael Chen",
+    "patient_name": "Lucas Smith",
+    "session_id": "01919df4-8e3b-7412-a1f9-90b567c9e410"
+  },
+  "created_at": "2026-08-30T06:49:40Z"
+}
+```
+- **Error Responses:**
+  - `400 Bad Request`: `{"error": "invalid audit log id format"}`
+  - `404 Not Found`: `{"error": "audit log not found"}`
+  - `403 Forbidden`: `{"error": "Access denied: admin role required"}`
+
 ---
 
 ## 5. API Case Scenarios
@@ -154,6 +201,8 @@ DROP TABLE IF EXISTS audit_logs;
 | **API-AUD-05** | `/api/admin/audit-logs` | `GET` | `?from=2026-08-01&to=2026-08-30` | `200 OK` | Filtered list within date range |
 | **API-AUD-06** | `/api/admin/audit-logs` | `GET` | Non-admin token | `403 Forbidden` | `{"error": "Access denied: admin role required"}` |
 | **API-AUD-07** | `/api/admin/audit-logs` | `POST/PUT/DELETE` | Any mutation attempt | `405 Method Not Allowed` | Read-only & append-only via events |
+| **API-AUD-08** | `/api/admin/audit-logs/:id` | `GET` | Valid UUIDv7 `:id` | `200 OK` | Returns full record with JSONB `details` payload for forensic inspection |
+| **API-AUD-09** | `/api/admin/audit-logs/:id` | `GET` | Non-existent UUID | `404 Not Found` | `{"error": "audit log not found"}` |
 
 ---
 
@@ -168,3 +217,5 @@ DROP TABLE IF EXISTS audit_logs;
 | **v1.4.0** | 2026-08-31 | Backend Security Engineer | **Forensic Metadata Pipeline Flow** | Documented Section 2 sequence flow for context metadata propagation across Echo middleware, Go Context, NATS JetStream, and `AuditWorker`. |
 | **v1.5.0** | 2026-08-31 | Backend Reliability Engineer | **Graceful Worker Drain** | Added Section 2.1 specifying `sync.WaitGroup` in-flight tracking, NATS connection draining, and bounded shutdown coordination. |
 | **v1.6.0** | 2026-09-12 | Lead Fullstack Architect | **Dynamic Location Engine** | Added Section 2.2 specifying dual-tier IP location engine (private IP -> clinic premise, public IP -> geo), `CLINIC_LOCATION` config, JSONB details location, and location search. |
+| **v1.7.0** | 2026-09-12 | Lead Fullstack Architect | **Cursor & SSE Delta Optimization** | Added Section 2.3 detailing selective COUNT(*) bypass on cursor pages, SSE delta-only cache updates without HTTP refetching storms, and container-scoped prefetching. |
+| **v1.8.0** | 2026-09-12 | Lead Fullstack Architect | **Decoupled List/Detail API & Privacy Hardening** | Added `GET /api/admin/audit-logs/:id` for on-demand forensic inspection; omitted heavy JSONB `details` payload from table list queries; removed raw IP & User-Agent cards from frontend inspector UI in favor of location & request tracing provenance. |

@@ -115,7 +115,7 @@ export default function AdminAnalyticsPage() {
               }}
               className="w-full rounded-full bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs h-11"
             >
-              Sign In as Admin CEO
+              Sign In as Administrator
             </Button>
             <Button asChild variant="ghost" className="rounded-full text-xs">
               <Link href="/portal">Open Custom Login Portal &rarr;</Link>

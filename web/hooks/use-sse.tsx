@@ -1,10 +1,12 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useRef, useState } from "react";
+import type { InfiniteData } from "@tanstack/react-query";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
-import type { SSEEventPayload } from "@/lib/types";
+import type { AuditLog, PaginatedAuditLogs, SSEEventPayload } from "@/lib/types";
+import { formatAuditLocation } from "@/lib/geo";
 
 export interface AppNotification {
   id: string;
@@ -116,8 +118,6 @@ export function SSEProvider({ children }: { children: React.ReactNode }) {
                 queryClient.invalidateQueries({ queryKey: ["my-ticket"] });
                 queryClient.invalidateQueries({ queryKey: ["doctor-workspace"] });
                 queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
-                queryClient.invalidateQueries({ queryKey: ["admin-audit-logs-infinite"] });
-                queryClient.invalidateQueries({ queryKey: ["admin-audit-logs"] });
                 newNotif = {
                   id: notifId,
                   type: "QUEUE_UPDATED",
@@ -134,8 +134,6 @@ export function SSEProvider({ children }: { children: React.ReactNode }) {
                 queryClient.invalidateQueries({ queryKey: ["my-ticket"] });
                 queryClient.invalidateQueries({ queryKey: ["doctor-workspace"] });
                 queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
-                queryClient.invalidateQueries({ queryKey: ["admin-audit-logs-infinite"] });
-                queryClient.invalidateQueries({ queryKey: ["admin-audit-logs"] });
 
                 const isCancelledPatient =
                   currentUser?.role === "patient" &&
@@ -188,8 +186,6 @@ export function SSEProvider({ children }: { children: React.ReactNode }) {
                 queryClient.invalidateQueries({ queryKey: ["my-ticket"] });
                 queryClient.invalidateQueries({ queryKey: ["doctor-workspace"] });
                 queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
-                queryClient.invalidateQueries({ queryKey: ["admin-audit-logs-infinite"] });
-                queryClient.invalidateQueries({ queryKey: ["admin-audit-logs"] });
                 const docCalledName =
                   payload.data?.doctor_name ||
                   (payload.data?.doctor_id === "01919df4-8e3b-7412-a1f9-90b567c9e101"
@@ -233,8 +229,6 @@ export function SSEProvider({ children }: { children: React.ReactNode }) {
                 queryClient.invalidateQueries({ queryKey: ["my-ticket"] });
                 queryClient.invalidateQueries({ queryKey: ["doctor-workspace"] });
                 queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
-                queryClient.invalidateQueries({ queryKey: ["admin-audit-logs-infinite"] });
-                queryClient.invalidateQueries({ queryKey: ["admin-audit-logs"] });
 
                 const isFinishingPatient =
                   currentUser?.role === "patient" &&
@@ -269,8 +263,6 @@ export function SSEProvider({ children }: { children: React.ReactNode }) {
                 queryClient.invalidateQueries({ queryKey: ["my-ticket"] });
                 queryClient.invalidateQueries({ queryKey: ["doctor-workspace"] });
                 queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
-                queryClient.invalidateQueries({ queryKey: ["admin-audit-logs-infinite"] });
-                queryClient.invalidateQueries({ queryKey: ["admin-audit-logs"] });
                 const doctorName =
                   payload.data?.name ||
                   payload.data?.doctor_name ||
@@ -295,8 +287,6 @@ export function SSEProvider({ children }: { children: React.ReactNode }) {
                 queryClient.invalidateQueries({ queryKey: ["queue-status"] });
                 queryClient.invalidateQueries({ queryKey: ["my-ticket"] });
                 queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
-                queryClient.invalidateQueries({ queryKey: ["admin-audit-logs-infinite"] });
-                queryClient.invalidateQueries({ queryKey: ["admin-audit-logs"] });
                 const configDocName =
                   payload.data?.name ||
                   payload.data?.doctor_name ||
@@ -316,9 +306,79 @@ export function SSEProvider({ children }: { children: React.ReactNode }) {
                 };
                 break;
 
-              case "AUDIT_LOG_CREATED":
-                queryClient.invalidateQueries({ queryKey: ["admin-audit-logs-infinite"] });
-                queryClient.invalidateQueries({ queryKey: ["admin-audit-logs"] });
+              case "AUDIT_LOG_CREATED": {
+                const rawLog = payload.data as Partial<AuditLog> | undefined;
+                if (rawLog && rawLog.id) {
+                  const formattedLog: AuditLog = {
+                    id: rawLog.id,
+                    user_id: rawLog.user_id,
+                    actor_name: rawLog.actor_name || "System",
+                    role: rawLog.role || "public",
+                    action: rawLog.action || "UNKNOWN",
+                    details: rawLog.details || {},
+                    ip_address: rawLog.ip_address || "127.0.0.1",
+                    location: formatAuditLocation({
+                      location: rawLog.location,
+                      ip_address: rawLog.ip_address,
+                      details: rawLog.details,
+                    }),
+                    created_at: rawLog.created_at || new Date().toISOString(),
+                  };
+
+                  // Delta cache update: incrementally prepend only the new record to all matching active infinite queries without triggering network refetches
+                  queryClient.getQueryCache().findAll({ queryKey: ["admin-audit-logs-infinite"] }).forEach((query) => {
+                    const qKey = query.queryKey as [string, number?, string?, string?, string?, string?, string?, string?];
+                    const [, , searchFilter, , , sortOrderFilter, actionFilter, roleFilter] = qKey;
+
+                    // Only prepend to newest-first (desc) views
+                    if (sortOrderFilter === "asc") {
+                      return;
+                    }
+
+                    // Check action filter
+                    if (actionFilter && actionFilter !== "ALL" && formattedLog.action !== actionFilter) {
+                      return;
+                    }
+
+                    // Check role filter
+                    if (roleFilter && roleFilter !== "ALL" && formattedLog.role !== roleFilter) {
+                      return;
+                    }
+
+                    // Check search query keyword
+                    if (searchFilter && searchFilter.trim() !== "") {
+                      const term = searchFilter.trim().toLowerCase();
+                      const matchesActor = formattedLog.actor_name.toLowerCase().includes(term);
+                      const matchesAction = formattedLog.action.toLowerCase().includes(term);
+                      const matchesIP = (formattedLog.ip_address || "").toLowerCase().includes(term);
+                      const matchesLocation = (formattedLog.location || "").toLowerCase().includes(term);
+                      if (!matchesActor && !matchesAction && !matchesIP && !matchesLocation) {
+                        return;
+                      }
+                    }
+
+                    queryClient.setQueryData<InfiniteData<PaginatedAuditLogs>>(query.queryKey, (old) => {
+                      if (!old || !old.pages || old.pages.length === 0) return old;
+
+                      // Prevent duplicate entry insertion
+                      const alreadyExists = old.pages.some((p) => p.logs.some((l) => l.id === formattedLog.id));
+                      if (alreadyExists) return old;
+
+                      const firstPage = old.pages[0];
+                      const updatedFirstPage: PaginatedAuditLogs = {
+                        ...firstPage,
+                        total_records: (firstPage.total_records || 0) + 1,
+                        logs: [formattedLog, ...firstPage.logs],
+                      };
+
+                      return {
+                        ...old,
+                        pages: [updatedFirstPage, ...old.pages.slice(1)],
+                      };
+                    });
+                  });
+                }
+
                 newNotif = {
                   id: notifId,
                   type: eventType,
@@ -329,6 +389,7 @@ export function SSEProvider({ children }: { children: React.ReactNode }) {
                   read: false,
                 };
                 break;
+              }
             }
 
             if (newNotif) {

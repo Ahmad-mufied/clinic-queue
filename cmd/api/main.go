@@ -39,17 +39,16 @@ func main() {
 	// 2. Initialize PostgreSQL Connection Pool
 	dbPool, err := postgres.NewPostgresPool(ctx, cfg.DatabaseURL)
 	if err != nil {
-		log.Printf("Warning: Database connection failed (will retry or start in degraded mode if needed): %v", err)
-	} else {
-		defer dbPool.Close()
-		log.Println("Successfully connected to PostgreSQL 18 database")
-
-		// 3. Run Goose Database Auto-Migrations
-		if err := postgres.RunDatabaseMigrations(dbPool); err != nil {
-			log.Fatalf("Failed to execute database migrations: %v", err)
-		}
-		log.Println("Database schema & demo seed migrations executed successfully")
+		log.Fatalf("Failed to initialize PostgreSQL 18 connection pool: %v", err)
 	}
+	defer dbPool.Close()
+	log.Println("Successfully connected to PostgreSQL 18 database")
+
+	// 3. Run Goose Database Auto-Migrations
+	if err := postgres.RunDatabaseMigrations(dbPool); err != nil {
+		log.Fatalf("Failed to execute database migrations: %v", err)
+	}
+	log.Println("Database schema & demo seed migrations executed successfully")
 
 	// 4. Initialize NATS JetStream Client
 	var nc *nats.Conn

@@ -34,6 +34,10 @@ func (m *mockAuditUseCase) GetAuditLogs(ctx context.Context, filter domain.Audit
 	return &domain.PaginatedAuditLogs{}, nil
 }
 
+func (m *mockAuditUseCase) GetAuditLogByID(ctx context.Context, id string) (*domain.AuditLog, error) {
+	return &domain.AuditLog{}, nil
+}
+
 type mockUserRepo struct {
 	outbound.UserRepositoryPort
 }

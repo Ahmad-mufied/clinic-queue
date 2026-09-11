@@ -1,5 +1,6 @@
 import type {
   AdminDashboardStats,
+  AuditLog,
   AuditLogParams,
   AuthResponse,
   CancelTicketResponse,
@@ -248,9 +249,14 @@ class APIClient {
     if (params?.start_date && params.start_date.trim() !== "") query.set("start_date", params.start_date.trim());
     if (params?.end_date && params.end_date.trim() !== "") query.set("end_date", params.end_date.trim());
     if (params?.sort_order && params.sort_order.trim() !== "") query.set("sort_order", params.sort_order.trim());
+    if (params?.all) query.set("all", "true");
 
     const qs = query.toString() ? `?${query.toString()}` : "";
     return this.request<PaginatedAuditLogs>("GET", `/api/admin/audit-logs${qs}`);
+  }
+
+  async getAuditLogByID(id: string): Promise<AuditLog> {
+    return this.request<AuditLog>("GET", `/api/admin/audit-logs/${encodeURIComponent(id)}`);
   }
 }
 

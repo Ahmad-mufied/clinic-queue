@@ -27,6 +27,7 @@ const (
 	DefaultPage           = 1
 	DefaultLimit          = 20
 	MaxLimit              = 100
+	MaxFullExportLimit    = 10000
 )
 
 // AuditLog represents an immutable forensic and operational activity record.
@@ -54,6 +55,7 @@ type AuditLogFilter struct {
 	Cursor    *string    `json:"cursor,omitempty"`
 	Page      int        `json:"page"`
 	Limit     int        `json:"limit"`
+	All       bool       `json:"all,omitempty"`
 }
 
 // PaginatedAuditLogs represents the paginated result set of audit logs.
@@ -114,6 +116,13 @@ func (a *AuditLog) Normalize() {
 // NormalizePagination ensures page and limit values are valid positive integers capped at max bounds.
 func (f *AuditLogFilter) NormalizePagination() {
 	if f == nil {
+		return
+	}
+	if f.All {
+		if f.Limit <= 0 || f.Limit > MaxFullExportLimit {
+			f.Limit = MaxFullExportLimit
+		}
+		f.NormalizeSort()
 		return
 	}
 	if f.Page <= 0 {

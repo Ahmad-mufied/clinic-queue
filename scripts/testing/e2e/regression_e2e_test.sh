@@ -12,7 +12,7 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 cd "${ROOT_DIR}"
 
 export PORT="${PORT:-8081}"
-export DATABASE_URL="${DATABASE_URL:-postgres://postgres:postgrespassword@localhost:5433/clinic_queue_test?sslmode=disable}"
+export DATABASE_URL="${DATABASE_URL:-postgres://postgres:postgrespassword@localhost:5434/clinic_queue_test?sslmode=disable}"
 export NATS_URL="${NATS_URL:-nats://localhost:4222}"
 export JWT_SECRET="${JWT_SECRET:-super-secret-clinic-jwt-key-change-in-prod}"
 export JWT_EXPIRATION_HOURS="${JWT_EXPIRATION_HOURS:-24}"

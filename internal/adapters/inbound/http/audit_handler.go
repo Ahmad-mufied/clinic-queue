@@ -27,6 +27,7 @@ func NewAuditHandler(auditUseCase inbound.AuditUseCase) *AuditHandler {
 func (h *AuditHandler) RegisterRoutes(e *echo.Echo, authMW echo.MiddlewareFunc, rbacMW echo.MiddlewareFunc) {
 	adminGroup := e.Group("/api/admin", authMW, rbacMW)
 	adminGroup.GET("/audit-logs", h.GetAuditLogs)
+	adminGroup.GET("/audit-logs/:id", h.GetAuditLogByID)
 }
 
 // handleAuditError maps domain and validation errors to appropriate HTTP status responses.
@@ -37,6 +38,8 @@ func handleAuditError(c echo.Context, err error) error {
 		errors.Is(err, domain.ErrInvalidPage),
 		errors.Is(err, domain.ErrInvalidLimit):
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid input parameters"})
+	case errors.Is(err, domain.ErrAuditLogNotFound):
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "Audit log not found"})
 	default:
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
 	}
@@ -82,20 +85,49 @@ func parseOptionalTime(raw string, isEnd bool) (*time.Time, error) {
 	return nil, domain.ErrInvalidInput
 }
 
+// isValidUUID validates standard 36-character hexadecimal UUID format (8-4-4-4-12).
+func isValidUUID(u string) bool {
+	if len(u) != 36 {
+		return false
+	}
+	for i, r := range u {
+		if i == 8 || i == 13 || i == 18 || i == 23 {
+			if r != '-' {
+				return false
+			}
+		} else {
+			if !((r >= '0' && r <= '9') || (r >= 'a' && r <= 'f') || (r >= 'A' && r <= 'F')) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 // GetAuditLogs handles GET /api/admin/audit-logs.
 func (h *AuditHandler) GetAuditLogs(c echo.Context) error {
+	showAll := strings.EqualFold(c.QueryParam("all"), "true") || c.QueryParam("all") == "1"
+
+	defaultLimit := domain.DefaultLimit
+	if showAll {
+		defaultLimit = domain.MaxFullExportLimit
+	}
+
 	page, err := parsePositiveQueryParam(c.QueryParam("page"), domain.DefaultPage)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid page parameter"})
 	}
 
-	limit, err := parsePositiveQueryParam(c.QueryParam("limit"), domain.DefaultLimit)
+	limit, err := parsePositiveQueryParam(c.QueryParam("limit"), defaultLimit)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid limit parameter"})
 	}
 
 	var cursor *string
 	if cursorStr := strings.TrimSpace(c.QueryParam("cursor")); cursorStr != "" {
+		if !isValidUUID(cursorStr) {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid cursor parameter"})
+		}
 		cursor = &cursorStr
 	}
 
@@ -138,6 +170,7 @@ func (h *AuditHandler) GetAuditLogs(c echo.Context) error {
 		Cursor:    cursor,
 		Page:      page,
 		Limit:     limit,
+		All:       showAll,
 	}
 
 	result, err := h.auditUseCase.GetAuditLogs(c.Request().Context(), filter)
@@ -147,3 +180,19 @@ func (h *AuditHandler) GetAuditLogs(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, result)
 }
+
+// GetAuditLogByID handles GET /api/admin/audit-logs/:id for deep forensic context and JSON details.
+func (h *AuditHandler) GetAuditLogByID(c echo.Context) error {
+	id := strings.TrimSpace(c.Param("id"))
+	if !isValidUUID(id) {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid audit log ID format"})
+	}
+
+	log, err := h.auditUseCase.GetAuditLogByID(c.Request().Context(), id)
+	if err != nil {
+		return handleAuditError(c, err)
+	}
+
+	return c.JSON(http.StatusOK, log)
+}
+

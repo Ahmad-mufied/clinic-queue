@@ -130,6 +130,7 @@ export interface AuditLogParams {
   start_date?: string;
   end_date?: string;
   sort_order?: "desc" | "asc";
+  all?: boolean;
 }
 
 export interface PaginatedAuditLogs {

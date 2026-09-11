@@ -13,4 +13,8 @@ type AuditRepositoryPort interface {
 
 	// QueryLogs retrieves paginated audit logs based on the provided filter parameters.
 	QueryLogs(ctx context.Context, filter domain.AuditLogFilter) (*domain.PaginatedAuditLogs, error)
+
+	// GetLogByID retrieves a single immutable audit log record by its unique ID with full forensic details.
+	GetLogByID(ctx context.Context, id string) (*domain.AuditLog, error)
 }
+

@@ -260,7 +260,7 @@ func main() {
 	}
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
-		dbURL = "postgres://postgres:postgrespassword@localhost:5433/clinic_queue_test?sslmode=disable"
+		dbURL = "postgres://postgres:postgrespassword@localhost:5434/clinic_queue_test?sslmode=disable"
 	}
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {

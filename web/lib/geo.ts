@@ -62,7 +62,11 @@ export function isPrivateOrLocalIP(ip?: string | null): boolean {
  * Prioritizes pre-enriched location, falls back to IP-based resolution.
  */
 export function formatAuditLocation(
-  log: Pick<AuditLog, "location" | "ip_address" | "details">
+  log: {
+    location?: string | null;
+    ip_address?: string | null;
+    details?: Record<string, any> | null;
+  }
 ): string {
   if (log.location && log.location.trim() !== "") {
     return log.location.trim();
